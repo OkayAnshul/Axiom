@@ -26,11 +26,13 @@ import com.cosmiclaboratory.axiom.ui.components.TaskList
 import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
 import com.cosmiclaboratory.axiom.ui.components.MarkdownPreview
 import com.cosmiclaboratory.axiom.ui.components.MarkdownToolbox
+import com.cosmiclaboratory.axiom.ui.components.SplitPaneEditor
 import com.cosmiclaboratory.axiom.domain.model.TaskParser
 import com.cosmiclaboratory.axiom.domain.model.MarkdownTemplate
 import com.cosmiclaboratory.axiom.ui.theme.NoteContentStyle
 import com.cosmiclaboratory.axiom.ui.viewmodels.NoteDetailViewModel
 import com.cosmiclaboratory.axiom.utils.ExportManager
+import com.cosmiclaboratory.axiom.utils.ShareIntentHandler
 import androidx.compose.ui.platform.LocalContext
 import android.content.Intent
 
@@ -40,20 +42,31 @@ fun NoteDetailScreen(
     noteId: Long?,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier,
+    sharedContent: ShareIntentHandler.SharedContent? = null,
+    onSharedContentConsumed: () -> Unit = {},
     viewModel: NoteDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
     val contentFocusRequester = remember { FocusRequester() }
     var showMenu by remember { mutableStateOf(false) }
-    var showPreview by remember { mutableStateOf(false) }
+    var showPreview by remember { mutableStateOf(true) }
     var showToolbox by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val exportManager = remember { ExportManager(context) }
     
+    // Handle shared content
+    LaunchedEffect(sharedContent) {
+        if (sharedContent != null && uiState.isNewNote) {
+            viewModel.updateTitle(sharedContent.title ?: "Shared Note")
+            viewModel.updateContent(sharedContent.text)
+            onSharedContentConsumed()
+        }
+    }
+    
     // Auto-focus content field for new notes
     LaunchedEffect(uiState.isNewNote) {
-        if (uiState.isNewNote && uiState.title.isEmpty()) {
+        if (uiState.isNewNote && uiState.title.isEmpty() && sharedContent == null) {
             contentFocusRequester.requestFocus()
         }
     }
@@ -227,168 +240,38 @@ fun NoteDetailScreen(
             }
             
             else -> {
-                if (showPreview) {
-                    Row(
-                        modifier = modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                    ) {
-                        // Editor side
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .padding(16.dp)
-                        ) {
-                    // Title input
-                    OutlinedTextField(
-                        value = uiState.title,
-                        onValueChange = viewModel::updateTitle,
-                        label = { Text("Title") },
-                        placeholder = { Text("Untitled Note") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { contentFocusRequester.requestFocus() }
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
+                // Enhanced editor with split pane functionality
+                Column(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
                     // Task list - only show if tasks are detected
                     val tasks = remember(uiState.content) { TaskParser.extractTasks(uiState.content) }
                     if (tasks.isNotEmpty()) {
                         TaskList(
                             content = uiState.content,
                             onContentChanged = viewModel::updateContent,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                    
-                    // Content input
-                    OutlinedTextField(
-                        value = uiState.content,
-                        onValueChange = viewModel::updateContent,
-                        label = { Text("Start writing...") },
-                        placeholder = { 
-                            Text(
-                                text = "What's on your mind?",
-                                style = NoteContentStyle,
-                                textAlign = TextAlign.Start
-                            ) 
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .focusRequester(contentFocusRequester),
-                        minLines = 15,
-                        textStyle = NoteContentStyle,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                        }
-                        
-                        // Vertical divider
-                        VerticalDivider()
-                        
-                        // Preview side
-                        Column(
                             modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                        ) {
-                            Text(
-                                text = "Preview",
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(16.dp)
-                            )
-                            
-                            MarkdownPreview(
-                                content = uiState.content,
-                                showDebug = false,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(end = 16.dp, bottom = 16.dp)
-                            )
-                        }
-                    }
-                } else {
-                    // Single column layout (no preview)
-                    Column(
-                        modifier = modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                            .padding(16.dp)
-                    ) {
-                    // Title input
-                    OutlinedTextField(
-                        value = uiState.title,
-                        onValueChange = viewModel::updateTitle,
-                        label = { Text("Title") },
-                        placeholder = { Text("Untitled Note") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { contentFocusRequester.requestFocus() }
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Task list - only show if tasks are detected
-                    val tasks = remember(uiState.content) { TaskParser.extractTasks(uiState.content) }
-                    if (tasks.isNotEmpty()) {
-                        TaskList(
-                            content = uiState.content,
-                            onContentChanged = viewModel::updateContent,
-                            modifier = Modifier.fillMaxWidth()
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
                         )
                         
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
                     
-                    // Content input
-                    OutlinedTextField(
-                        value = uiState.content,
-                        onValueChange = viewModel::updateContent,
-                        label = { Text("Start writing...") },
-                        placeholder = { 
-                            Text(
-                                text = "What's on your mind?",
-                                style = NoteContentStyle,
-                                textAlign = TextAlign.Start
-                            ) 
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .focusRequester(contentFocusRequester),
-                        minLines = 15,
-                        textStyle = NoteContentStyle,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary
-                        )
+                    // Split pane editor
+                    SplitPaneEditor(
+                        title = uiState.title,
+                        content = uiState.content,
+                        onTitleChange = viewModel::updateTitle,
+                        onContentChange = viewModel::updateContent,
+                        isPreviewVisible = showPreview,
+                        onPreviewToggle = { showPreview = !showPreview },
+                        showToolbox = showToolbox,
+                        onToolboxToggle = { showToolbox = !showToolbox },
+                        modifier = Modifier.weight(1f)
                     )
-                    }
                 }
             }
         }

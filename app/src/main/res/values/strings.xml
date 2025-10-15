@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">Axiom</string>
+    
+    <!-- Widget descriptions -->
+    <string name="quick_note_widget_description">Quick access to create new notes</string>
+    <string name="notes_list_widget_description">View your recent notes at a glance</string>
+    
+    <!-- Quick Settings Tile -->
+    <string name="quick_note_tile_label">Quick Note</string>
 </resources>

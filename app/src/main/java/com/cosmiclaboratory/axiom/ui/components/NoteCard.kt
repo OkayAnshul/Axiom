@@ -1,6 +1,8 @@
 package com.cosmiclaboratory.axiom.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -10,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.cosmiclaboratory.axiom.domain.model.Note
 import com.cosmiclaboratory.axiom.ui.theme.NoteMetadataStyle
 import com.cosmiclaboratory.axiom.ui.theme.NoteTitleStyle
+import com.cosmiclaboratory.axiom.utils.MarkdownParser
 import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -17,7 +20,8 @@ import java.time.format.DateTimeFormatter
 fun NoteCard(
     note: Note,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onReaderClick: (() -> Unit)? = null
 ) {
     Card(
         onClick = onClick,
@@ -43,13 +47,12 @@ fun NoteCard(
             if (note.content.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                // Note preview
-                Text(
-                    text = note.content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                // Markdown preview
+                MarkdownPreview(
+                    content = note.content,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
                 )
             }
             
@@ -61,14 +64,15 @@ fun NoteCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Last updated
+                // Left side - last updated
                 Text(
                     text = formatLastUpdated(note),
                     style = NoteMetadataStyle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f)
                 )
                 
-                // Tags or other indicators
+                // Center - tags and indicators
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -98,6 +102,21 @@ fun NoteCard(
                                 color = MaterialTheme.colorScheme.secondary
                             )
                         }
+                    }
+                }
+                
+                // Right side - reader button
+                if (onReaderClick != null) {
+                    IconButton(
+                        onClick = onReaderClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = "Open in Reader",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }

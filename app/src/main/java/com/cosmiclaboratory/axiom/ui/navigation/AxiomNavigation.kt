@@ -13,11 +13,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.cosmiclaboratory.axiom.ui.screens.NoteDetailScreen
 import com.cosmiclaboratory.axiom.ui.screens.NotesListScreen
+import com.cosmiclaboratory.axiom.ui.screens.NoteReaderScreen
+import com.cosmiclaboratory.axiom.ui.screens.MarkdownTutorialScreen
 import com.cosmiclaboratory.axiom.ui.screens.SearchScreen
+import com.cosmiclaboratory.axiom.utils.ShareIntentHandler
 
 @Composable
 fun AxiomNavigation(
-    navController: NavHostController
+    navController: NavHostController,
+    sharedContent: ShareIntentHandler.SharedContent? = null,
+    onSharedContentConsumed: () -> Unit = {}
 ) {
     NavHost(
         navController = navController,
@@ -42,6 +47,12 @@ fun AxiomNavigation(
                 },
                 onSearchClick = {
                     navController.navigate(AxiomScreen.Search.route)
+                },
+                onReaderClick = { noteId ->
+                    navController.navigate(AxiomScreen.NoteReader.createRoute(noteId))
+                },
+                onTutorialClick = {
+                    navController.navigate(AxiomScreen.MarkdownTutorial.route)
                 }
             )
         }
@@ -56,6 +67,41 @@ fun AxiomNavigation(
             
             NoteDetailScreen(
                 noteId = noteId,
+                sharedContent = sharedContent,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onSharedContentConsumed = onSharedContentConsumed
+            )
+        }
+        
+        // Note Reader Screen
+        composable(
+            route = AxiomScreen.NoteReader.route,
+            arguments = AxiomScreen.NoteReader.arguments
+        ) { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getLong(AxiomScreen.NoteReader.NOTE_ID_ARG) ?: 0L
+            
+            NoteReaderScreen(
+                noteId = noteId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onEditNote = {
+                    navController.navigate(AxiomScreen.NoteDetail.createRoute(noteId)) {
+                        popUpTo(AxiomScreen.NotesList.route)
+                    }
+                }
+            )
+        }
+        
+        // Markdown Tutorial Screen
+        composable(
+            route = AxiomScreen.MarkdownTutorial.route,
+            enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
+        ) {
+            MarkdownTutorialScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

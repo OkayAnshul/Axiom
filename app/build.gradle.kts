@@ -78,6 +78,10 @@ dependencies {
     // Background Work
     implementation(libs.work.manager)
     
+    // Widgets
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
+    
     // Markdown
     implementation(libs.commonmark)
     

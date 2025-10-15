@@ -30,6 +30,23 @@ sealed class AxiomScreen(
         }
     }
     
+    data object NoteReader : AxiomScreen(
+        route = "note_reader/{noteId}",
+        arguments = listOf(
+            navArgument("noteId") {
+                type = NavType.LongType
+            }
+        )
+    ) {
+        const val NOTE_ID_ARG = "noteId"
+        
+        fun createRoute(noteId: Long): String {
+            return "note_reader/$noteId"
+        }
+    }
+    
+    data object MarkdownTutorial : AxiomScreen("markdown_tutorial")
+    
     data object Search : AxiomScreen("search")
     
     data object Settings : AxiomScreen("settings")

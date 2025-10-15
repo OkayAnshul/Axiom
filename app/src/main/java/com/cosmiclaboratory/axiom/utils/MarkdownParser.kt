@@ -163,21 +163,21 @@ object MarkdownParser {
     private fun parseInlineFormatting(text: String): List<Element> {
         if (text.isBlank()) return listOf(Element.Text(""))
         
+        // Always try to process text for formatting - remove premature optimization
         val elements = mutableListOf<Element>()
-        var currentText = text
         var currentIndex = 0
         
-        // Simple approach: find the first formatting element and process it
-        while (currentIndex < currentText.length) {
+        // Process text with formatting
+        while (currentIndex < text.length) {
             // Look for various formatting patterns (ordered by priority)
-            val codeMatch = Regex("`([^`]+)`").find(currentText, currentIndex)
-            val linkMatch = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)").find(currentText, currentIndex)
-            val imageMatch = Regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)").find(currentText, currentIndex)
-            val strikethroughMatch = Regex("~~([^~]+)~~").find(currentText, currentIndex)
-            val highlightMatch = Regex("==([^=]+)==").find(currentText, currentIndex)
-            val underlineMatch = Regex("__([^_]+)__").find(currentText, currentIndex)
-            val boldMatch = Regex("\\*\\*([^*]+)\\*\\*").find(currentText, currentIndex)
-            val italicMatch = Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)").find(currentText, currentIndex)
+            val codeMatch = Regex("`([^`]+)`").find(text, currentIndex)
+            val linkMatch = Regex("\\[([^\\]]+)\\]\\(([^)]+)\\)").find(text, currentIndex)
+            val imageMatch = Regex("!\\[([^\\]]*)\\]\\(([^)]+)\\)").find(text, currentIndex)
+            val strikethroughMatch = Regex("~~([^~]+)~~").find(text, currentIndex)
+            val highlightMatch = Regex("==([^=]+)==").find(text, currentIndex)
+            val underlineMatch = Regex("__([^_]+)__").find(text, currentIndex)
+            val boldMatch = Regex("\\*\\*([^*]+)\\*\\*").find(text, currentIndex)
+            val italicMatch = Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)").find(text, currentIndex)
             
             // Find the earliest match
             val matches = listOfNotNull(
@@ -193,7 +193,7 @@ object MarkdownParser {
             
             if (matches.isEmpty()) {
                 // No more formatting, add remaining text
-                val remainingText = currentText.substring(currentIndex)
+                val remainingText = text.substring(currentIndex)
                 if (remainingText.isNotEmpty()) {
                     elements.add(Element.Text(remainingText))
                 }
@@ -204,7 +204,7 @@ object MarkdownParser {
             
             // Add text before the match
             if (match.range.first > currentIndex) {
-                val beforeText = currentText.substring(currentIndex, match.range.first)
+                val beforeText = text.substring(currentIndex, match.range.first)
                 if (beforeText.isNotEmpty()) {
                     elements.add(Element.Text(beforeText))
                 }

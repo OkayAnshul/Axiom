@@ -48,24 +48,29 @@ fun MarkdownPreview(
             )
         }
     } else if (elements.isEmpty()) {
-        Box(
-            modifier = modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "No markdown elements found",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error
-                )
-                if (showDebug) {
+        // Fallback: if parsing fails, show content as plain text
+        Column(modifier = modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
                     Text(
-                        text = "Content: \"${content.take(100)}...\"",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp)
+                        text = content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
+            if (showDebug) {
+                Text(
+                    text = "DEBUG: Fallback mode - showing as plain text",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(8.dp)
+                )
             }
         }
     } else {
@@ -106,7 +111,7 @@ fun MarkdownPreview(
 }
 
 @Composable
-private fun MarkdownElement(
+internal fun MarkdownElement(
     element: MarkdownParser.Element,
     showDebug: Boolean = false,
     modifier: Modifier = Modifier

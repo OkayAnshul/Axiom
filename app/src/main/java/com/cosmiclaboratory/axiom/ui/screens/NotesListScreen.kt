@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,8 @@ fun NotesListScreen(
     onNoteClick: (Long) -> Unit,
     onNewNoteClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onReaderClick: (Long) -> Unit,
+    onTutorialClick: () -> Unit,
     viewModel: NotesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -34,6 +38,12 @@ fun NotesListScreen(
             TopAppBar(
                 title = { Text("Axiom") },
                 actions = {
+                    IconButton(onClick = onTutorialClick) {
+                        Icon(
+                            imageVector = Icons.Default.School,
+                            contentDescription = "Markdown Tutorial"
+                        )
+                    }
                     IconButton(onClick = onSearchClick) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -106,6 +116,7 @@ fun NotesListScreen(
                         NoteCard(
                             note = note,
                             onClick = { onNoteClick(note.id) },
+                            onReaderClick = { onReaderClick(note.id) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
