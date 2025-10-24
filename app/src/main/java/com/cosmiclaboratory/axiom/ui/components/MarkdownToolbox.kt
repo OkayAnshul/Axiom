@@ -34,7 +34,7 @@ fun MarkdownToolbox(
     modifier: Modifier = Modifier
 ) {
     var selectedCategory by remember { mutableStateOf(TemplateCategory.FORMATTING) }
-    val templates = MarkdownTemplates.getAllTemplates()
+    val templates = MarkdownTemplates.getMarkdownOnlyTemplates()
 
     Card(
         modifier = modifier.fillMaxWidth(),

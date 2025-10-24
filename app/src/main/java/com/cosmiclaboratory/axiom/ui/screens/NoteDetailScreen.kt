@@ -5,16 +5,18 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
@@ -26,7 +28,9 @@ import com.cosmiclaboratory.axiom.ui.components.TaskList
 import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
 import com.cosmiclaboratory.axiom.ui.components.MarkdownPreview
 import com.cosmiclaboratory.axiom.ui.components.MarkdownToolbox
+import com.cosmiclaboratory.axiom.ui.components.ModernFormattingToolbar
 import com.cosmiclaboratory.axiom.ui.components.SplitPaneEditor
+import com.cosmiclaboratory.axiom.ui.components.ModernSplitPaneEditor
 import com.cosmiclaboratory.axiom.domain.model.TaskParser
 import com.cosmiclaboratory.axiom.domain.model.MarkdownTemplate
 import com.cosmiclaboratory.axiom.ui.theme.NoteContentStyle
@@ -52,8 +56,18 @@ fun NoteDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showPreview by remember { mutableStateOf(true) }
     var showToolbox by remember { mutableStateOf(false) }
+    var useModernEditor by remember { mutableStateOf(true) } // Toggle for modern editor
     val context = LocalContext.current
     val exportManager = remember { ExportManager(context) }
+    
+    // Real-time word and character counting
+    val wordCount = remember(uiState.content) {
+        if (uiState.content.isBlank()) 0
+        else uiState.content.trim().split(Regex("\\s+")).size
+    }
+    val characterCount = remember(uiState.content) {
+        uiState.content.length
+    }
     
     // Handle shared content
     LaunchedEffect(sharedContent) {
@@ -71,15 +85,19 @@ fun NoteDetailScreen(
         }
     }
     
-    // Template insertion handler
+    // Template application handler - modern editor handles this directly
+    var editorTemplateHandler by remember { mutableStateOf<((MarkdownTemplate) -> Unit)?>(null) }
+    
+    // Template selection handler for toolbox
     val handleTemplateSelected = { template: MarkdownTemplate ->
-        val currentContent = uiState.content
-        val newContent = if (currentContent.isBlank()) {
-            template.template
+        if (useModernEditor) {
+            // Use modern editor's selection-aware template application
+            editorTemplateHandler?.invoke(template)
         } else {
-            "$currentContent\n\n${template.template}"
+            // Fallback to ViewModel for legacy editor
+            viewModel.insertTemplate(template.template, template.cursorPosition)
+            contentFocusRequester.requestFocus()
         }
-        viewModel.updateContent(newContent)
         showToolbox = false
     }
     
@@ -115,7 +133,7 @@ fun NoteDetailScreen(
                     // Preview toggle button
                     IconButton(onClick = { showPreview = !showPreview }) {
                         Icon(
-                            imageVector = Icons.Default.Info,
+                            imageVector = Icons.Filled.Visibility,
                             contentDescription = "Toggle markdown preview",
                             tint = if (showPreview) 
                                 MaterialTheme.colorScheme.primary 
@@ -129,9 +147,9 @@ fun NoteDetailScreen(
                         Icon(
                             imageVector = Icons.Filled.Build,
                             contentDescription = "Toggle markdown toolbox",
-                            tint = if (showToolbox) 
-                                MaterialTheme.colorScheme.primary 
-                            else 
+                            tint = if (showToolbox)
+                                MaterialTheme.colorScheme.primary
+                            else
                                 MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -163,12 +181,12 @@ fun NoteDetailScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Default.Share,
+                                            imageVector = Icons.Filled.Download,
                                             contentDescription = null
                                         )
                                     }
                                 )
-                                
+
                                 // Export as Text
                                 DropdownMenuItem(
                                     text = { Text("Export as Text") },
@@ -183,7 +201,7 @@ fun NoteDetailScreen(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            imageVector = Icons.Default.Share,
+                                            imageVector = Icons.Filled.Download,
                                             contentDescription = null
                                         )
                                     }
@@ -223,7 +241,10 @@ fun NoteDetailScreen(
                         "$currentContent\n\n$voiceText"
                     }
                     viewModel.updateContent(newContent)
-                }
+                },
+                modifier = Modifier.offset(
+                    y = if (showToolbox) (-120).dp else 0.dp // Increased offset to prevent overlap
+                )
             )
         }
     ) { paddingValues ->
@@ -260,23 +281,60 @@ fun NoteDetailScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                     
-                    // Split pane editor
-                    SplitPaneEditor(
-                        title = uiState.title,
-                        content = uiState.content,
-                        onTitleChange = viewModel::updateTitle,
-                        onContentChange = viewModel::updateContent,
-                        isPreviewVisible = showPreview,
-                        onPreviewToggle = { showPreview = !showPreview },
+                    // Modern Split Pane Editor with centralized state management
+                    if (useModernEditor) {
+                        ModernSplitPaneEditor(
+                            title = uiState.title,
+                            content = uiState.content,
+                            onTitleChange = viewModel::updateTitle,
+                            onContentChange = viewModel::updateContent, // Auto-save only
+                            onContentWithCursorChange = { textFieldValue ->
+                                // Only update ViewModel cursor state, don't trigger content sync
+                                viewModel.updateCursorPosition(
+                                    position = textFieldValue.selection.start,
+                                    selectionStart = textFieldValue.selection.start,
+                                    selectionEnd = textFieldValue.selection.end
+                                )
+                            },
+                            onTitleWithCursorChange = { textFieldValue ->
+                                viewModel.updateTitle(textFieldValue.text)
+                            },
+                            onTemplateHandlerReady = { handler ->
+                                // Store the template handler from the editor
+                                editorTemplateHandler = handler
+                            },
+                            isPreviewVisible = showPreview,
+                            onPreviewToggle = { showPreview = !showPreview },
+                            showToolbox = showToolbox,
+                            onToolboxToggle = { showToolbox = !showToolbox },
+                            wordCount = wordCount,
+                            characterCount = characterCount,
+                            lastModified = uiState.note?.updatedAt?.let { 
+                                java.time.ZoneId.systemDefault().let { zoneId ->
+                                    it.atZone(zoneId).toInstant().toEpochMilli()
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        // Fallback to original editor
+                        SplitPaneEditor(
+                            title = uiState.title,
+                            content = uiState.content,
+                            onTitleChange = viewModel::updateTitle,
+                            onContentChange = viewModel::updateContent,
+                            isPreviewVisible = showPreview,
+                            onPreviewToggle = { showPreview = !showPreview },
                         showToolbox = showToolbox,
-                        onToolboxToggle = { showToolbox = !showToolbox },
-                        modifier = Modifier.weight(1f)
-                    )
+                            onToolboxToggle = { showToolbox = !showToolbox },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
         
-        // Markdown Toolbox (bottom overlay)
+        // Modern Formatting Toolbar (bottom overlay)
         if (showToolbox) {
             Box(
                 modifier = Modifier
@@ -284,13 +342,11 @@ fun NoteDetailScreen(
                     .padding(paddingValues),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                MarkdownToolbox(
-                    isExpanded = true,
-                    onExpandedChange = { expanded -> if (!expanded) showToolbox = false },
+                ModernFormattingToolbar(
                     onTemplateSelected = handleTemplateSelected,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
         }

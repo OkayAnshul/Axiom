@@ -16,6 +16,8 @@ import com.cosmiclaboratory.axiom.ui.screens.NotesListScreen
 import com.cosmiclaboratory.axiom.ui.screens.NoteReaderScreen
 import com.cosmiclaboratory.axiom.ui.screens.MarkdownTutorialScreen
 import com.cosmiclaboratory.axiom.ui.screens.SearchScreen
+import com.cosmiclaboratory.axiom.ui.screens.SplashScreen
+import com.cosmiclaboratory.axiom.ui.screens.DeveloperScreen
 import com.cosmiclaboratory.axiom.utils.ShareIntentHandler
 
 @Composable
@@ -26,12 +28,27 @@ fun AxiomNavigation(
 ) {
     NavHost(
         navController = navController,
-        startDestination = AxiomScreen.NotesList.route,
+        startDestination = AxiomScreen.Splash.route,
         enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
         exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { -it } },
         popEnterTransition = { slideInHorizontally(animationSpec = tween(300)) { -it } },
         popExitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
     ) {
+        // Splash Screen
+        composable(
+            route = AxiomScreen.Splash.route,
+            enterTransition = { fadeIn(animationSpec = tween(300)) },
+            exitTransition = { fadeOut(animationSpec = tween(300)) }
+        ) {
+            SplashScreen(
+                onSplashComplete = {
+                    navController.navigate(AxiomScreen.NotesList.route) {
+                        popUpTo(AxiomScreen.Splash.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         // Notes List Screen (Home)
         composable(
             route = AxiomScreen.NotesList.route,
@@ -53,6 +70,9 @@ fun AxiomNavigation(
                 },
                 onTutorialClick = {
                     navController.navigate(AxiomScreen.MarkdownTutorial.route)
+                },
+                onDeveloperClick = {
+                    navController.navigate(AxiomScreen.Developer.route)
                 }
             )
         }
@@ -120,6 +140,19 @@ fun AxiomNavigation(
                         popUpTo(AxiomScreen.NotesList.route)
                     }
                 },
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Developer Screen
+        composable(
+            route = AxiomScreen.Developer.route,
+            enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
+            exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
+        ) {
+            DeveloperScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

@@ -6,9 +6,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,6 +32,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cosmiclaboratory.axiom.utils.MarkdownParser
+import com.cosmiclaboratory.axiom.ui.theme.getMarkdownHeaderStyle
 
 @Composable
 fun EnhancedMarkdownPreview(
@@ -37,7 +41,8 @@ fun EnhancedMarkdownPreview(
     showDebug: Boolean = false,
     enableAnimations: Boolean = true,
     readerMode: Boolean = false,
-    useScrollableContainer: Boolean = true
+    useScrollableContainer: Boolean = true,
+    listState: LazyListState = rememberLazyListState()
 ) {
     val elements = remember(content) { 
         MarkdownParser.parse(content).also { 
@@ -63,6 +68,7 @@ fun EnhancedMarkdownPreview(
         if (useScrollableContainer) {
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
+                state = listState,
                 contentPadding = PaddingValues(
                     horizontal = if (readerMode) 24.dp else 16.dp,
                     vertical = if (readerMode) 32.dp else 16.dp
@@ -226,13 +232,14 @@ private fun EnhancedMarkdownElement(
 ) {
     when (element) {
         is MarkdownParser.Element.Header -> {
-            val textStyle = when (element.level) {
-                1 -> if (readerMode) MaterialTheme.typography.displaySmall else MaterialTheme.typography.headlineLarge
-                2 -> if (readerMode) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.headlineMedium
-                3 -> if (readerMode) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall
-                4 -> MaterialTheme.typography.titleLarge
-                5 -> MaterialTheme.typography.titleMedium
-                else -> MaterialTheme.typography.titleSmall
+            val textStyle = if (readerMode) {
+                // Enhanced reader mode with better spacing
+                getMarkdownHeaderStyle(element.level).copy(
+                    lineHeight = getMarkdownHeaderStyle(element.level).lineHeight * 1.2f
+                )
+            } else {
+                // Standard editor preview with optimized sizing
+                getMarkdownHeaderStyle(element.level)
             }
             
             Column {
@@ -243,10 +250,9 @@ private fun EnhancedMarkdownElement(
                 Text(
                     text = element.text,
                     style = textStyle,
-                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = modifier.padding(
-                        vertical = if (readerMode) 8.dp else 4.dp
+                        vertical = if (readerMode) 12.dp else 8.dp
                     )
                 )
                 
@@ -274,10 +280,13 @@ private fun EnhancedMarkdownElement(
                     text = element.text,
                     style = if (readerMode) {
                         MaterialTheme.typography.bodyLarge.copy(
-                            lineHeight = 1.8.sp * (MaterialTheme.typography.bodyLarge.fontSize.value)
+                            lineHeight = 32.sp, // Enhanced line spacing for reading comfort
+                            letterSpacing = 0.25.sp
                         )
                     } else {
-                        MaterialTheme.typography.bodyMedium
+                        MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 24.sp // Optimal line spacing for editing
+                        )
                     },
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = modifier
@@ -453,14 +462,265 @@ private fun EnhancedMarkdownElement(
             }
         }
         
-        // Add implementations for other elements...
+        is MarkdownParser.Element.Paragraph -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[PARAGRAPH]", MaterialTheme.colorScheme.tertiary)
+                }
+                // Render nested elements within paragraph
+                element.elements.forEach { nestedElement ->
+                    EnhancedMarkdownElement(
+                        element = nestedElement,
+                        showDebug = showDebug,
+                        readerMode = readerMode,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+        
+        is MarkdownParser.Element.EmptyLine -> {
+            // Add appropriate spacing for empty lines
+            Spacer(modifier = Modifier.height(if (readerMode) 12.dp else 8.dp))
+        }
+        
+        is MarkdownParser.Element.ListItem -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[LIST L${element.level}]", MaterialTheme.colorScheme.primary)
+                }
+                Row(
+                    modifier = modifier.padding(start = (element.level * 16).dp)
+                ) {
+                    Text(
+                        text = "• ",
+                        style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    Text(
+                        text = element.text,
+                        style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+        
+        is MarkdownParser.Element.NumberedListItem -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[NUMBERED LIST ${element.number}]", MaterialTheme.colorScheme.primary)
+                }
+                Row(
+                    modifier = modifier.padding(start = (element.level * 16).dp)
+                ) {
+                    Text(
+                        text = "${element.number}. ",
+                        style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    Text(
+                        text = element.text,
+                        style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+        
+        is MarkdownParser.Element.Task -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[TASK]", MaterialTheme.colorScheme.primary)
+                }
+                Row(
+                    modifier = modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Checkbox(
+                        checked = element.completed,
+                        onCheckedChange = null, // Read-only in preview
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = element.text,
+                        style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                        textDecoration = if (element.completed) TextDecoration.LineThrough else null,
+                        color = if (element.completed) 
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        else 
+                            MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+        
+        is MarkdownParser.Element.HorizontalRule -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[HR]", MaterialTheme.colorScheme.primary)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                            RoundedCornerShape(0.5.dp)
+                        )
+                        .padding(vertical = if (readerMode) 12.dp else 8.dp)
+                )
+            }
+        }
+        
+        is MarkdownParser.Element.Link -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[LINK]", MaterialTheme.colorScheme.primary)
+                }
+                Text(
+                    text = element.text,
+                    style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = modifier
+                )
+            }
+        }
+        
+        is MarkdownParser.Element.Image -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[IMAGE]", MaterialTheme.colorScheme.primary)
+                }
+                // Placeholder for image - could be enhanced with actual image loading
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    modifier = modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = element.alt,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        if (element.alt.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = element.alt,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        is MarkdownParser.Element.Underline -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[UNDERLINE]", MaterialTheme.colorScheme.primary)
+                }
+                Text(
+                    text = element.text,
+                    style = if (readerMode) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.bodyMedium,
+                    textDecoration = TextDecoration.Underline,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = modifier
+                )
+            }
+        }
+        
+        is MarkdownParser.Element.Table -> {
+            Column {
+                if (showDebug) {
+                    DebugLabel("[TABLE]", MaterialTheme.colorScheme.primary)
+                }
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ),
+                    modifier = modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp)
+                    ) {
+                        // Table headers
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            element.headers.forEach { header ->
+                                Text(
+                                    text = header,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                        
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        )
+                        
+                        // Table rows
+                        element.rows.forEach { row ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                row.forEach { cell ->
+                                    Text(
+                                        text = cell,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback for truly unsupported elements (should be very rare now)
         else -> {
-            // Fallback to the original MarkdownElement implementation
-            MarkdownElement(
-                element = element,
-                showDebug = showDebug,
-                modifier = modifier
-            )
+            // Only show debug info if debug mode is enabled
+            if (showDebug) {
+                Column {
+                    DebugLabel("[UNSUPPORTED: ${element::class.simpleName}]", MaterialTheme.colorScheme.error)
+                    Text(
+                        text = "Element type not yet implemented",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = modifier
+                    )
+                }
+            }
+            // In non-debug mode, simply don't render unsupported elements
         }
     }
 }

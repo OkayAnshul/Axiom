@@ -8,6 +8,8 @@ sealed class AxiomScreen(
     val route: String,
     val arguments: List<NamedNavArgument> = emptyList()
 ) {
+    data object Splash : AxiomScreen("splash")
+
     data object NotesList : AxiomScreen("notes_list")
     
     data object NoteDetail : AxiomScreen(
@@ -48,8 +50,10 @@ sealed class AxiomScreen(
     data object MarkdownTutorial : AxiomScreen("markdown_tutorial")
     
     data object Search : AxiomScreen("search")
-    
+
     data object Settings : AxiomScreen("settings")
+
+    data object Developer : AxiomScreen("developer")
 }
 
 // Extension functions for easier navigation

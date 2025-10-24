@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.ui.components.AnimatedAxiomTitle
 import com.cosmiclaboratory.axiom.ui.components.NoteCard
 import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
 import com.cosmiclaboratory.axiom.ui.viewmodels.NotesViewModel
@@ -29,14 +32,21 @@ fun NotesListScreen(
     onSearchClick: () -> Unit,
     onReaderClick: (Long) -> Unit,
     onTutorialClick: () -> Unit,
+    onDeveloperClick: () -> Unit = {},
     viewModel: NotesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+    var showMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Axiom") },
+                title = {
+                    AnimatedAxiomTitle(
+                        textStyle = MaterialTheme.typography.titleLarge,
+                        showAnimation = false // Don't animate in app bar, only on splash
+                    )
+                },
                 actions = {
                     IconButton(onClick = onTutorialClick) {
                         Icon(
@@ -49,6 +59,33 @@ fun NotesListScreen(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search"
                         )
+                    }
+                    // Menu button
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("About Developer") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Developer"
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onDeveloperClick()
+                                }
+                            )
+                        }
                     }
                 }
             )

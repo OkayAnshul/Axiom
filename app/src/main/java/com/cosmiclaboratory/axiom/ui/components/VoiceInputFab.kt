@@ -6,8 +6,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardVoice
+import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,6 +96,7 @@ fun VoiceInputFab(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Compact round FAB for better space efficiency
         FloatingActionButton(
             onClick = {
                 if (isListening) {
@@ -105,17 +106,20 @@ fun VoiceInputFab(
                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
             },
-            modifier = modifier.scale(if (isListening) scale else 1.0f),
-            containerColor = if (isListening) 
-                MaterialTheme.colorScheme.error else 
+            modifier = modifier
+                .scale(if (isListening) scale else 1.0f)
+                .size(48.dp), // Compact size to avoid overlap
+            containerColor = if (isListening)
+                MaterialTheme.colorScheme.error else
                 MaterialTheme.colorScheme.primary,
-            contentColor = if (isListening) 
-                MaterialTheme.colorScheme.onError else 
+            contentColor = if (isListening)
+                MaterialTheme.colorScheme.onError else
                 MaterialTheme.colorScheme.onPrimary
         ) {
             Icon(
-                imageVector = if (isListening) Icons.Default.Close else Icons.Default.PlayArrow,
-                contentDescription = if (isListening) "Stop recording" else "Start voice input"
+                imageVector = if (isListening) Icons.Filled.StopCircle else Icons.Filled.KeyboardVoice,
+                contentDescription = if (isListening) "Stop recording" else "Start voice input",
+                modifier = Modifier.size(20.dp)
             )
         }
         

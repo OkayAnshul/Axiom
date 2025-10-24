@@ -7,34 +7,37 @@ junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 lifecycleRuntimeKtx = "2.9.4"
 activityCompose = "1.11.0"
-composeBom = "2024.09.00"
+composeBom = "2024.12.01"
 
 # Architecture & DI
 hilt = "2.52"
-hiltNavigationCompose = "1.2.0"
+hiltNavigationCompose = "1.3.0"
 ksp = "2.0.21-1.0.25"
 
 # Database
-room = "2.6.1"
+room = "2.8.2"
 
 # Network
 ktor = "3.0.0"
 supabase = "3.0.2"
 
 # Navigation
-navigationCompose = "2.8.4"
+navigationCompose = "2.9.5"
 
 # Preferences
-datastorePreferences = "1.1.1"
+datastorePreferences = "1.1.7"
 
 # Background Work
-workManager = "2.10.0"
+workManager = "2.10.5"
 
 # Widgets
 glance = "1.1.1"
 
 # Markdown
 commonmark = "0.23.0"
+
+# Animation
+lottie = "6.5.2"
 
 # Testing
 mockito = "5.8.0"
@@ -81,6 +84,9 @@ glance-material3 = { group = "androidx.glance", name = "glance-material3", versi
 
 # Markdown
 commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
+
+# Animation
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
 
 # Network (for future Supabase integration)
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }

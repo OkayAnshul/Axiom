@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -233,7 +234,7 @@ private fun LessonSelectionContent(
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MenuBook,
+                            imageVector = Icons.Default.Lightbulb,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -641,7 +642,7 @@ private fun LessonContent(
                 if (currentStepIndex > 0) {
                     OutlinedButton(onClick = onPreviousStep) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
@@ -672,7 +673,7 @@ private fun LessonContent(
                     Text(if (isLastStep) "Complete Lesson" else "Next Step")
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
-                        imageVector = if (isLastStep) Icons.Default.Flag else Icons.Default.ArrowForward,
+                        imageVector = if (isLastStep) Icons.Default.Flag else Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )

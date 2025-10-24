@@ -13,7 +13,7 @@ android {
     defaultConfig {
         applicationId = "com.cosmiclaboratory.axiom"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -84,7 +84,10 @@ dependencies {
     
     // Markdown
     implementation(libs.commonmark)
-    
+
+    // Animation
+    implementation(libs.lottie.compose)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

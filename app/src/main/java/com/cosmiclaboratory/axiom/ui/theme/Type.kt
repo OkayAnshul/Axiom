@@ -124,27 +124,118 @@ val Typography = Typography(
     )
 )
 
-// Additional text styles for specific note-taking use cases
-val NoteContentStyle = TextStyle(
-    fontFamily = FontFamily.Default,
-    fontWeight = FontWeight.Normal,
-    fontSize = 16.sp,
-    lineHeight = 28.sp, // Extra space for comfortable reading
-    letterSpacing = 0.15.sp
-)
-
-val NoteTitleStyle = TextStyle(
+// Modern Editor Typography Styles - Premium note-taking experience
+val ModernNoteTitleStyle = TextStyle(
     fontFamily = FontFamily.Default,
     fontWeight = FontWeight.SemiBold,
-    fontSize = 20.sp,
-    lineHeight = 26.sp,
+    fontSize = 24.sp,          // Larger, more prominent title
+    lineHeight = 32.sp,
     letterSpacing = 0.15.sp
 )
 
-val NoteMetadataStyle = TextStyle(
+val EditorContentStyle = TextStyle(
     fontFamily = FontFamily.Default,
     fontWeight = FontWeight.Normal,
-    fontSize = 12.sp,
-    lineHeight = 16.sp,
-    letterSpacing = 0.4.sp
+    fontSize = 17.sp,          // Optimized for extended reading
+    lineHeight = 30.sp,        // Generous line spacing for comfort
+    letterSpacing = 0.15.sp
 )
+
+// Markdown Header Styles for Font Size Control (H1-H6)
+val MarkdownH1Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 32.sp,          // Largest - Title level
+    lineHeight = 40.sp,
+    letterSpacing = -0.25.sp
+)
+
+val MarkdownH2Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 28.sp,          // Large - Subtitle level
+    lineHeight = 36.sp,
+    letterSpacing = 0.sp
+)
+
+val MarkdownH3Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 24.sp,          // Medium - Heading level
+    lineHeight = 32.sp,
+    letterSpacing = 0.sp
+)
+
+val MarkdownH4Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 22.sp,          // Small - Subheading level
+    lineHeight = 28.sp,
+    letterSpacing = 0.sp
+)
+
+val MarkdownH5Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 18.sp,          // Smaller - Section level
+    lineHeight = 24.sp,
+    letterSpacing = 0.15.sp
+)
+
+val MarkdownH6Style = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 16.sp,          // Smallest - Note level
+    lineHeight = 20.sp,
+    letterSpacing = 0.15.sp
+)
+
+val EditorMetadataStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 13.sp,
+    lineHeight = 18.sp,
+    letterSpacing = 0.3.sp
+)
+
+val EditorPlaceholderStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Normal,
+    fontSize = 17.sp,
+    lineHeight = 30.sp,
+    letterSpacing = 0.15.sp
+)
+
+val EditorHeaderStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+    letterSpacing = 0.1.sp
+)
+
+val EditorSubtleHintStyle = TextStyle(
+    fontFamily = FontFamily.Default,
+    fontWeight = FontWeight.Normal,
+    fontSize = 14.sp,
+    lineHeight = 20.sp,
+    letterSpacing = 0.25.sp
+)
+
+// Legacy styles (keeping for backward compatibility)
+val NoteContentStyle = EditorContentStyle
+val NoteTitleStyle = ModernNoteTitleStyle  
+val NoteMetadataStyle = EditorMetadataStyle
+
+// Helper function to get markdown header style by level
+fun getMarkdownHeaderStyle(level: Int): TextStyle {
+    return when (level) {
+        1 -> MarkdownH1Style
+        2 -> MarkdownH2Style
+        3 -> MarkdownH3Style
+        4 -> MarkdownH4Style
+        5 -> MarkdownH5Style
+        6 -> MarkdownH6Style
+        else -> EditorContentStyle // Fallback to body text
+    }
+}

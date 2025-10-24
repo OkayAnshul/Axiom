@@ -1,30 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="85.84757"
-                android:endY="92.4963"
-                android:startX="42.9492"
-                android:startY="49.59793"
-                android:type="linear">
-                <item
-                    android:color="#44000000"
-                    android:offset="0.0" />
-                <item
-                    android:color="#00000000"
-                    android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
-    <path
-        android:fillColor="#FFFFFF"
-        android:fillType="nonZero"
-        android:pathData="M65.3,45.828l3.8,-6.6c0.2,-0.4 0.1,-0.9 -0.3,-1.1c-0.4,-0.2 -0.9,-0.1 -1.1,0.3l-3.9,6.7c-6.3,-2.8 -13.4,-2.8 -19.7,0l-3.9,-6.7c-0.2,-0.4 -0.7,-0.5 -1.1,-0.3C38.8,38.328 38.7,38.828 38.9,39.228l3.8,6.6C36.2,49.428 31.7,56.028 31,63.928h46C76.3,56.028 71.8,49.428 65.3,45.828zM43.4,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2c-0.3,-0.7 -0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C45.3,56.528 44.5,57.328 43.4,57.328L43.4,57.328zM64.6,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2s-0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C66.5,56.528 65.6,57.328 64.6,57.328L64.6,57.328z"
-        android:strokeWidth="1"
-        android:strokeColor="#00000000" />
+
+    <!-- Bold sans-serif "Axiom.md" design -->
+
+    <!-- "Axiom" - White, bold, geometric -->
+    <group
+        android:translateX="54"
+        android:translateY="42">
+
+        <!-- A -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-31,16 L-28,4 L-26,4 L-23,16 L-27,16 L-27,12 L-27,12 L-27,16 Z M-28,8 L-27,6 L-26,8 Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-30,16 L-27,0 L-24,16 Z M-28.5,10 L-25.5,10 L-27,4 Z" />
+
+        <!-- X -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-20,0 L-16,0 L-13,7 L-10,0 L-6,0 L-11,9.5 L-6,16 L-10,16 L-13,9 L-16,16 L-20,16 L-15,9.5 Z" />
+
+        <!-- I -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-2,0 L2,0 L2,16 L-2,16 Z" />
+
+        <!-- O -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M6,0 L14,0 L14,16 L6,16 Z M9,3 L11,3 L11,13 L9,13 Z" />
+
+        <!-- M -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M18,0 L22,0 L22,16 L18,16 Z M26,0 L30,0 L30,16 L26,16 Z M22,0 L24,6 L26,0 Z" />
+    </group>
+
+    <!-- ".md" - Blue with accent -->
+    <group
+        android:translateX="54"
+        android:translateY="66">
+
+        <!-- Period . -->
+        <path
+            android:fillColor="#4A90E2"
+            android:pathData="M-14,0 m-2,0 a2,2 0,1 1,4 0a2,2 0,1 1,-4 0" />
+
+        <!-- m -->
+        <path
+            android:fillColor="#4A90E2"
+            android:pathData="M-9,0 L-6,0 L-6,10 L-9,10 Z M-3,0 L0,0 L0,10 L-3,10 Z M3,0 L6,0 L6,10 L3,10 Z M-9,0 L-6,0 L-6,2.5 L-4.5,2.5 L-3,2.5 L-3,0 L0,0 L0,2.5 L1.5,2.5 L3,2.5 L3,0 L6,0" />
+
+        <!-- d -->
+        <path
+            android:fillColor="#4A90E2"
+            android:pathData="M9,0 L12,0 L12,10 L9,10 Z M9,-3 L12,-3 L12,0 L9,0 Z M12,0 L16,0 L16,10 L12,10 Z M12,2.5 L16,2.5 Z M12,7.5 L16,7.5 Z" />
+
+        <!-- Accent line under .md -->
+        <path
+            android:fillColor="#64B5F6"
+            android:pathData="M-14,12 L16,12 L16,13.5 L-14,13.5 Z" />
+    </group>
 </vector>

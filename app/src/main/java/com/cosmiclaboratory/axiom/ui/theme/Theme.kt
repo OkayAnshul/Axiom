@@ -14,19 +14,20 @@ import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
     primary = AxiomBlue80,
-    onPrimary = AxiomBlue20,
+    onPrimary = Color.Black,
     secondary = AxiomAmber80,
-    onSecondary = AxiomBlue20,
+    onSecondary = Color.Black,
     tertiary = AxiomGray80,
-    onTertiary = AxiomBlue20,
-    background = AxiomBlue20,
+    onTertiary = Color.Black,
+    background = AxiomBlue20,  // Pure black (#000000)
     onBackground = AxiomGray90,
-    surface = AxiomGray20,
+    surface = Color(0xFF0A0A0A),  // Very subtle elevation from pure black
     onSurface = AxiomGray90,
-    surfaceVariant = AxiomGray40,
+    surfaceVariant = Color(0xFF121212),  // Slightly elevated for input fields
     onSurfaceVariant = AxiomGray80,
-    outline = AxiomGray60,
-    inverseOnSurface = AxiomBlue20,
+    outline = Color(0xFF404040),  // Enhanced borders for precise separation
+    outlineVariant = Color(0xFF2A2A2A),  // Secondary borders and dividers
+    inverseOnSurface = Color.Black,
     inverseSurface = AxiomGray90,
     inversePrimary = AxiomBlue40
 )

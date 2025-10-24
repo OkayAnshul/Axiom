@@ -3,6 +3,7 @@ package com.cosmiclaboratory.axiom.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -112,7 +113,7 @@ fun NoteCard(
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.MenuBook,
+                            imageVector = Icons.Filled.Visibility,
                             contentDescription = "Open in Reader",
                             modifier = Modifier.size(16.dp),
                             tint = MaterialTheme.colorScheme.primary
