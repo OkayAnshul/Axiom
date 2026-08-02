@@ -24,12 +24,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
 import com.cosmiclaboratory.axiom.ui.components.TaskList
 import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
-import com.cosmiclaboratory.axiom.ui.components.MarkdownPreview
-import com.cosmiclaboratory.axiom.ui.components.MarkdownToolbox
 import com.cosmiclaboratory.axiom.ui.components.ModernFormattingToolbar
-import com.cosmiclaboratory.axiom.ui.components.SplitPaneEditor
 import com.cosmiclaboratory.axiom.ui.components.ModernSplitPaneEditor
 import com.cosmiclaboratory.axiom.domain.model.TaskParser
 import com.cosmiclaboratory.axiom.domain.model.MarkdownTemplate
@@ -56,7 +54,6 @@ fun NoteDetailScreen(
     var showMenu by remember { mutableStateOf(false) }
     var showPreview by remember { mutableStateOf(true) }
     var showToolbox by remember { mutableStateOf(false) }
-    var useModernEditor by remember { mutableStateOf(true) } // Toggle for modern editor
     val context = LocalContext.current
     val exportManager = remember { ExportManager(context) }
     
@@ -88,16 +85,10 @@ fun NoteDetailScreen(
     // Template application handler - modern editor handles this directly
     var editorTemplateHandler by remember { mutableStateOf<((MarkdownTemplate) -> Unit)?>(null) }
     
-    // Template selection handler for toolbox
+    // Template selection handler for toolbox — the editor applies templates
+    // selection-aware, so this just forwards to it.
     val handleTemplateSelected = { template: MarkdownTemplate ->
-        if (useModernEditor) {
-            // Use modern editor's selection-aware template application
-            editorTemplateHandler?.invoke(template)
-        } else {
-            // Fallback to ViewModel for legacy editor
-            viewModel.insertTemplate(template.template, template.cursorPosition)
-            contentFocusRequester.requestFocus()
-        }
+        editorTemplateHandler?.invoke(template)
         showToolbox = false
     }
     
@@ -109,7 +100,7 @@ fun NoteDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (uiState.isNewNote) "New Note" else "Edit Note"
+                            text = if (uiState.isNewNote) "New Reflection" else "Edit Reflection"
                         )
                         
                         if (uiState.isSaving) {
@@ -134,7 +125,7 @@ fun NoteDetailScreen(
                     IconButton(onClick = { showPreview = !showPreview }) {
                         Icon(
                             imageVector = Icons.Filled.Visibility,
-                            contentDescription = "Toggle markdown preview",
+                            contentDescription = "Toggle reader",
                             tint = if (showPreview) 
                                 MaterialTheme.colorScheme.primary 
                             else 
@@ -146,7 +137,7 @@ fun NoteDetailScreen(
                     IconButton(onClick = { showToolbox = !showToolbox }) {
                         Icon(
                             imageVector = Icons.Filled.Build,
-                            contentDescription = "Toggle markdown toolbox",
+                            contentDescription = "Open style tools",
                             tint = if (showToolbox)
                                 MaterialTheme.colorScheme.primary
                             else
@@ -282,54 +273,39 @@ fun NoteDetailScreen(
                     }
                     
                     // Modern Split Pane Editor with centralized state management
-                    if (useModernEditor) {
-                        ModernSplitPaneEditor(
-                            title = uiState.title,
-                            content = uiState.content,
-                            onTitleChange = viewModel::updateTitle,
-                            onContentChange = viewModel::updateContent, // Auto-save only
-                            onContentWithCursorChange = { textFieldValue ->
-                                // Only update ViewModel cursor state, don't trigger content sync
-                                viewModel.updateCursorPosition(
-                                    position = textFieldValue.selection.start,
-                                    selectionStart = textFieldValue.selection.start,
-                                    selectionEnd = textFieldValue.selection.end
-                                )
-                            },
-                            onTitleWithCursorChange = { textFieldValue ->
-                                viewModel.updateTitle(textFieldValue.text)
-                            },
-                            onTemplateHandlerReady = { handler ->
-                                // Store the template handler from the editor
-                                editorTemplateHandler = handler
-                            },
-                            isPreviewVisible = showPreview,
-                            onPreviewToggle = { showPreview = !showPreview },
-                            showToolbox = showToolbox,
-                            onToolboxToggle = { showToolbox = !showToolbox },
-                            wordCount = wordCount,
-                            characterCount = characterCount,
-                            lastModified = uiState.note?.updatedAt?.let { 
-                                java.time.ZoneId.systemDefault().let { zoneId ->
-                                    it.atZone(zoneId).toInstant().toEpochMilli()
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    } else {
-                        // Fallback to original editor
-                        SplitPaneEditor(
-                            title = uiState.title,
-                            content = uiState.content,
-                            onTitleChange = viewModel::updateTitle,
-                            onContentChange = viewModel::updateContent,
-                            isPreviewVisible = showPreview,
-                            onPreviewToggle = { showPreview = !showPreview },
+                    ModernSplitPaneEditor(
+                        title = uiState.title,
+                        content = uiState.content,
+                        onTitleChange = viewModel::updateTitle,
+                        onContentChange = viewModel::updateContent, // Auto-save only
+                        onContentWithCursorChange = { textFieldValue ->
+                            // Only update ViewModel cursor state, don't trigger content sync
+                            viewModel.updateCursorPosition(
+                                position = textFieldValue.selection.start,
+                                selectionStart = textFieldValue.selection.start,
+                                selectionEnd = textFieldValue.selection.end
+                            )
+                        },
+                        onTitleWithCursorChange = { textFieldValue ->
+                            viewModel.updateTitle(textFieldValue.text)
+                        },
+                        onTemplateHandlerReady = { handler ->
+                            // Store the template handler from the editor
+                            editorTemplateHandler = handler
+                        },
+                        isPreviewVisible = showPreview,
+                        onPreviewToggle = { showPreview = !showPreview },
                         showToolbox = showToolbox,
-                            onToolboxToggle = { showToolbox = !showToolbox },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
+                        onToolboxToggle = { showToolbox = !showToolbox },
+                        wordCount = wordCount,
+                        characterCount = characterCount,
+                        lastModified = uiState.note?.updatedAt?.let {
+                            java.time.ZoneId.systemDefault().let { zoneId ->
+                                it.atZone(zoneId).toInstant().toEpochMilli()
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
@@ -351,12 +327,9 @@ fun NoteDetailScreen(
             }
         }
         
-        // Show error message if any
-        uiState.errorMessage?.let { error ->
-            LaunchedEffect(error) {
-                // TODO: Show snackbar
-                viewModel.clearErrorMessage()
-            }
-        }
+        ShowSnackbarOnError(
+            message = uiState.errorMessage,
+            onShown = viewModel::clearErrorMessage
+        )
     }
 }

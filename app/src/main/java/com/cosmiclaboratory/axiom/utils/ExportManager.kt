@@ -34,22 +34,6 @@ class ExportManager(private val context: Context) {
         }
     }
     
-    fun exportMultipleNotes(notes: List<Note>, format: ExportFormat): Intent? {
-        return try {
-            val fileName = "axiom_notes_export_${getCurrentTimestamp()}"
-            val file = createExportFile(fileName, format.extension)
-            
-            when (format) {
-                ExportFormat.MARKDOWN -> writeMultipleMarkdownFiles(file, notes)
-                ExportFormat.TEXT -> writeMultipleTextFiles(file, notes)
-            }
-            
-            createShareIntent(file, format.mimeType)
-        } catch (e: Exception) {
-            null
-        }
-    }
-    
     private fun createExportFile(fileName: String, extension: String): File {
         val exportsDir = File(context.cacheDir, "exports")
         if (!exportsDir.exists()) {
@@ -59,12 +43,15 @@ class ExportManager(private val context: Context) {
     }
     
     private fun writeMarkdownFile(file: File, note: Note) {
+        val markdown = note.markdown.ifBlank {
+            PlainTextToMarkdownConverter.convert(note.content, note.title)
+        }
         FileWriter(file).use { writer ->
             writer.write("# ${note.title}\n\n")
             writer.write("*Created: ${formatDate(note.createdAt)}*\n")
             writer.write("*Modified: ${formatDate(note.updatedAt)}*\n\n")
             writer.write("---\n\n")
-            writer.write(note.content)
+            writer.write(markdown)
         }
     }
     
@@ -75,46 +62,6 @@ class ExportManager(private val context: Context) {
             writer.write("Created: ${formatDate(note.createdAt)}\n")
             writer.write("Modified: ${formatDate(note.updatedAt)}\n\n")
             writer.write(stripMarkdown(note.content))
-        }
-    }
-    
-    private fun writeMultipleMarkdownFiles(file: File, notes: List<Note>) {
-        FileWriter(file).use { writer ->
-            writer.write("# Axiom Notes Export\n\n")
-            writer.write("*Exported on: ${formatDate(LocalDateTime.now())}*\n\n")
-            writer.write("---\n\n")
-            
-            notes.forEachIndexed { index, note ->
-                writer.write("## ${note.title}\n\n")
-                writer.write("*Created: ${formatDate(note.createdAt)}*\n")
-                writer.write("*Modified: ${formatDate(note.updatedAt)}*\n\n")
-                writer.write(note.content)
-                
-                if (index < notes.size - 1) {
-                    writer.write("\n\n---\n\n")
-                }
-            }
-        }
-    }
-    
-    private fun writeMultipleTextFiles(file: File, notes: List<Note>) {
-        FileWriter(file).use { writer ->
-            writer.write("AXIOM NOTES EXPORT\n")
-            writer.write("==================\n\n")
-            writer.write("Exported on: ${formatDate(LocalDateTime.now())}\n\n")
-            writer.write("${"-".repeat(50)}\n\n")
-            
-            notes.forEachIndexed { index, note ->
-                writer.write("${note.title}\n")
-                writer.write("${"-".repeat(note.title.length)}\n\n")
-                writer.write("Created: ${formatDate(note.createdAt)}\n")
-                writer.write("Modified: ${formatDate(note.updatedAt)}\n\n")
-                writer.write(stripMarkdown(note.content))
-                
-                if (index < notes.size - 1) {
-                    writer.write("\n\n${"=".repeat(50)}\n\n")
-                }
-            }
         }
     }
     

@@ -1,15 +1,13 @@
 package com.cosmiclaboratory.axiom.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
+import com.cosmiclaboratory.axiom.ui.theme.LocalAxiomDarkTheme
 import com.cosmiclaboratory.axiom.domain.model.MarkdownTemplate
 import com.cosmiclaboratory.axiom.domain.model.MarkdownTemplates
+import com.cosmiclaboratory.axiom.domain.model.TemplateCategory
 
 @Composable
 fun ModernFormattingToolbar(
@@ -20,25 +18,19 @@ fun ModernFormattingToolbar(
     var selectedFormats by remember { mutableStateOf(setOf<String>()) }
     var selectedTextStyle by remember { mutableStateOf("Body") }
     
-    val isDarkTheme = isSystemInDarkTheme()
-    
-    // Pure markdown format options only
-    val availableFormats = setOf(
-        "bold", "italic", "strikethrough", "code", 
-        "h1", "h2", "h3", "h4", "h5", "h6",
-        "bullet_list", "task_list", "quote", "link", "table"
-    )
+    // Must be the RESOLVED theme, not isSystemInDarkTheme(). Reading the OS setting
+    // here ignored the user's theme override and painted the light tile bar on top
+    // of a dark editor whenever the two disagreed.
+    val isDarkTheme = LocalAxiomDarkTheme.current
     
     Box(modifier = modifier) {
-        // Quick Tile Bar (always visible at bottom)
         if (isDarkTheme) {
             ModernQuickTileBar(
                 selectedFormats = selectedFormats,
                 onFormatToggle = { formatId ->
                     handleFormatToggle(formatId, selectedFormats) { newFormats ->
                         selectedFormats = newFormats
-                        // Apply the format by finding corresponding template
-                        findMarkdownTemplate(formatId)?.let { template ->
+                        findWritingTemplate(formatId)?.let { template ->
                             onTemplateSelected(template)
                         }
                     }
@@ -51,7 +43,7 @@ fun ModernFormattingToolbar(
                 onFormatToggle = { formatId ->
                     handleFormatToggle(formatId, selectedFormats) { newFormats ->
                         selectedFormats = newFormats
-                        findMarkdownTemplate(formatId)?.let { template ->
+                        findWritingTemplate(formatId)?.let { template ->
                             onTemplateSelected(template)
                         }
                     }
@@ -60,7 +52,6 @@ fun ModernFormattingToolbar(
             )
         }
         
-        // Bottom Sheet for Markdown Formatting
         ModernFormatBottomSheet(
             isVisible = showBottomSheet,
             onDismiss = { showBottomSheet = false },
@@ -68,15 +59,14 @@ fun ModernFormattingToolbar(
             selectedFormats = selectedFormats,
             onTextStyleChange = { style ->
                 selectedTextStyle = style
-                // Apply markdown header template
-                findMarkdownHeaderTemplate(style)?.let { template ->
+                findWritingStyleTemplate(style)?.let { template ->
                     onTemplateSelected(template)
                 }
             },
             onFormatToggle = { formatId ->
                 handleFormatToggle(formatId, selectedFormats) { newFormats ->
                     selectedFormats = newFormats
-                    findMarkdownTemplate(formatId)?.let { template ->
+                    findWritingTemplate(formatId)?.let { template ->
                         onTemplateSelected(template)
                     }
                 }
@@ -98,50 +88,63 @@ private fun handleFormatToggle(
     onUpdate(newFormats)
 }
 
-private fun findMarkdownTemplate(formatId: String): MarkdownTemplate? {
-    val templates = MarkdownTemplates.getMarkdownOnlyTemplates()
-    
-    return templates.values.flatten().find { template ->
-        when (formatId) {
-            "bold" -> template.id == "bold"
-            "italic" -> template.id == "italic"
-            "strikethrough" -> template.id == "strikethrough"
-            "code" -> template.id == "code_inline"
-            "quote" -> template.id == "quote"
-            "table" -> template.id == "table_2x2" // Default to 2x2 table for quick access
-            "link" -> template.id == "link"
-            "image" -> template.id == "image"
-            // Header mappings for font size control
-            "h1" -> template.id == "h1"
-            "h2" -> template.id == "h2"
-            "h3" -> template.id == "h3"
-            "h4" -> template.id == "h4"
-            "h5" -> template.id == "h5"
-            "h6" -> template.id == "h6"
-            "bullet_list" -> template.id == "bullet_list"
-            "numbered_list" -> template.id == "numbered_list"
-            "task_list" -> template.id == "task_list"
-            "code_block" -> template.id == "code_block"
-            "horizontal_rule" -> template.id == "horizontal_rule"
-            else -> false
-        }
-    }
+private fun findWritingTemplate(formatId: String): MarkdownTemplate? {
+    val template = when (formatId) {
+        "quote" -> WritingTemplateSpec("quote", "Quote", "quote: text")
+        "table" -> WritingTemplateSpec("table_2x2", "Comparison", "Comparison:\nOption one - \nOption two - ")
+        "link" -> WritingTemplateSpec("link", "Link", "https://example.com")
+        "image" -> WritingTemplateSpec("image", "Image note", "Image note: text")
+        "bullet_list" -> WritingTemplateSpec("bullet_list", "List", "list: text")
+        "task_list" -> WritingTemplateSpec("task_list", "Task", "todo text")
+        "h1" -> WritingTemplateSpec("h1", "Title", "Title:")
+        "h2" -> WritingTemplateSpec("h2", "Section", "Section title:")
+        "h3" -> WritingTemplateSpec("h3", "Heading", "Heading:")
+        "h4" -> WritingTemplateSpec("h4", "Detail", "Detail:")
+        "h5" -> WritingTemplateSpec("h5", "Note", "Note:")
+        "h6" -> WritingTemplateSpec("h6", "Small note", "Small note:")
+        else -> null
+    } ?: return null
+
+    return naturalTemplate(template)
 }
 
-private fun findMarkdownHeaderTemplate(styleName: String): MarkdownTemplate? {
-    val headerTemplates = MarkdownTemplates.headers
-    
+private fun findWritingStyleTemplate(styleName: String): MarkdownTemplate? {
     return when (styleName) {
-        "Title" -> headerTemplates.find { it.id == "h1" }
-        "Subtitle" -> headerTemplates.find { it.id == "h2" }
-        "Heading" -> headerTemplates.find { it.id == "h3" }
-        "Subheading" -> headerTemplates.find { it.id == "h4" }
-        "Section" -> headerTemplates.find { it.id == "h5" }
-        "Note" -> headerTemplates.find { it.id == "h6" }
-        "Body" -> null // Body text doesn't need a template
+        "Title" -> findWritingTemplate("h1")
+        "Subtitle" -> findWritingTemplate("h2")
+        "Heading" -> findWritingTemplate("h3")
+        "Subheading" -> findWritingTemplate("h4")
+        "Section" -> findWritingTemplate("h5")
+        "Note" -> findWritingTemplate("h6")
+        "Body" -> null
         else -> null
     }
 }
+
+private fun naturalTemplate(spec: WritingTemplateSpec): MarkdownTemplate {
+    val source = MarkdownTemplates.getAllTemplates()
+        .values
+        .flatten()
+        .firstOrNull { it.id == spec.sourceId }
+
+    return (source ?: MarkdownTemplates.headers.first()).copy(
+        id = "natural_${spec.sourceId}",
+        name = spec.name,
+        template = spec.template,
+        category = TemplateCategory.TEMPLATES,
+        description = "",
+        cursorPosition = -1,
+        isMarkdownOnly = false,
+        placeholderText = "text",
+        supportsSmartDeletion = false
+    )
+}
+
+private data class WritingTemplateSpec(
+    val sourceId: String,
+    val name: String,
+    val template: String
+)
 
 // State management for formatting toolbar
 @Composable

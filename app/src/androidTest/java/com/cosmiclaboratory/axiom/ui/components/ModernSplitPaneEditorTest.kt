@@ -43,9 +43,9 @@ class ModernSplitPaneEditorTest {
         }
         
         // Assert - basic rendering verification
-        composeTestRule.onNodeWithText("Test Note").assertIsDisplayed()
-        composeTestRule.onNodeWithText("This is a test note with some content.").assertIsDisplayed()
-        composeTestRule.onNodeWithText("8").assertIsDisplayed() // Word count
+        composeTestRule.onAllNodesWithText("Test Note").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("This is a test note with some content.").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("8").onFirst().assertIsDisplayed() // Word count
         composeTestRule.onNodeWithText("words").assertIsDisplayed()
     }
 
@@ -71,8 +71,8 @@ class ModernSplitPaneEditorTest {
         }
         
         // Assert
-        composeTestRule.onNodeWithText("Test Note").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Test content").assertIsDisplayed()
-        composeTestRule.onNodeWithText("2").assertIsDisplayed() // Word count should still be visible
+        composeTestRule.onAllNodesWithText("Test Note").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Test content").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("2").onFirst().assertIsDisplayed() // Word count should still be visible
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
 import com.cosmiclaboratory.axiom.domain.model.Note
 import com.cosmiclaboratory.axiom.ui.components.AnimatedAxiomTitle
 import com.cosmiclaboratory.axiom.ui.components.NoteCard
@@ -161,13 +162,10 @@ fun NotesListScreen(
             }
         }
         
-        // Show error message if any
-        uiState.errorMessage?.let { error ->
-            LaunchedEffect(error) {
-                // TODO: Show snackbar or error dialog
-                viewModel.clearErrorMessage()
-            }
-        }
+        ShowSnackbarOnError(
+            message = uiState.errorMessage,
+            onShown = viewModel::clearErrorMessage
+        )
     }
 }
 

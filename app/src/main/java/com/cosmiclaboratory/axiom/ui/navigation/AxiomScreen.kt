@@ -8,10 +8,6 @@ sealed class AxiomScreen(
     val route: String,
     val arguments: List<NamedNavArgument> = emptyList()
 ) {
-    data object Splash : AxiomScreen("splash")
-
-    data object NotesList : AxiomScreen("notes_list")
-    
     data object NoteDetail : AxiomScreen(
         route = "note_detail?noteId={noteId}",
         arguments = listOf(
@@ -47,21 +43,36 @@ sealed class AxiomScreen(
         }
     }
     
-    data object MarkdownTutorial : AxiomScreen("markdown_tutorial")
-    
     data object Search : AxiomScreen("search")
 
-    data object Settings : AxiomScreen("settings")
-
     data object Developer : AxiomScreen("developer")
-}
 
-// Extension functions for easier navigation
-fun AxiomScreen.withArgs(vararg args: String): String {
-    return buildString {
-        append(route)
-        args.forEach { arg ->
-            append("/$arg")
-        }
+    data object History : AxiomScreen("history")
+
+    data object JournalSettings : AxiomScreen("journal_settings")
+
+    data object AnswerCapture : AxiomScreen(
+        route = "answer_capture/{questionId}",
+        arguments = listOf(
+            navArgument("questionId") { type = NavType.LongType }
+        )
+    ) {
+        const val QUESTION_ID_ARG = "questionId"
+        fun createRoute(questionId: Long): String = "answer_capture/$questionId"
     }
+
+    data object Insights : AxiomScreen(
+        route = "insights/{entryId}",
+        arguments = listOf(
+            navArgument("entryId") { type = NavType.LongType }
+        )
+    ) {
+        const val ENTRY_ID_ARG = "entryId"
+        fun createRoute(entryId: Long): String = "insights/$entryId"
+    }
+
+    // v2 surfaces. Connect-AI is a bottom sheet inside CompanionScreen, not a route.
+    data object Today : AxiomScreen("today")
+    data object Library : AxiomScreen("library")
+    data object Companion : AxiomScreen("companion")
 }

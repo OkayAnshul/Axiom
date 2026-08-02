@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
 import com.cosmiclaboratory.axiom.ui.components.AxiomSearchBar
 import com.cosmiclaboratory.axiom.ui.components.NoteCard
 import com.cosmiclaboratory.axiom.ui.viewmodels.SearchViewModel
@@ -176,12 +177,9 @@ fun SearchScreen(
             }
         }
         
-        // Show error message if any
-        uiState.errorMessage?.let { error ->
-            LaunchedEffect(error) {
-                // TODO: Show snackbar
-                viewModel.clearErrorMessage()
-            }
-        }
+        ShowSnackbarOnError(
+            message = uiState.errorMessage,
+            onShown = viewModel::clearErrorMessage
+        )
     }
 }

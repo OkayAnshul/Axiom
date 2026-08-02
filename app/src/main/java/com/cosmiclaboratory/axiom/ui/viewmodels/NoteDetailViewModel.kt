@@ -8,6 +8,7 @@ import androidx.compose.ui.text.TextRange
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
 import com.cosmiclaboratory.axiom.domain.model.Note
 import com.cosmiclaboratory.axiom.ui.navigation.AxiomScreen
+import com.cosmiclaboratory.axiom.utils.PlainTextToMarkdownConverter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -338,6 +339,10 @@ class NoteDetailViewModel @Inject constructor(
         if (state.title.isBlank() && contentText.isBlank()) {
             return // Don't save empty notes
         }
+        val generatedMarkdown = PlainTextToMarkdownConverter.convert(
+            plainText = contentText,
+            title = state.title
+        )
         
         viewModelScope.launch {
             try {
@@ -348,7 +353,7 @@ class NoteDetailViewModel @Inject constructor(
                     val newNote = Note(
                         title = state.title,
                         content = contentText,
-                        markdown = contentText // TODO: Convert to markdown
+                        markdown = generatedMarkdown
                     )
                     val id = notesRepository.insertNote(newNote)
                     currentNote = newNote.copy(id = id)
@@ -363,7 +368,7 @@ class NoteDetailViewModel @Inject constructor(
                         val updatedNote = note.copy(
                             title = state.title,
                             content = contentText,
-                            markdown = contentText, // TODO: Convert to markdown
+                            markdown = generatedMarkdown,
                             updatedAt = LocalDateTime.now()
                         )
                         notesRepository.updateNote(updatedNote)

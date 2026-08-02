@@ -6,25 +6,29 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
+private val AxiomDisplayFont = FontFamily.Serif
+private val AxiomBodyFont = FontFamily.Serif
+private val AxiomUiFont = FontFamily.SansSerif
+
 // Typography optimized for note-taking and reading
 val Typography = Typography(
     // Display styles for headers and titles
     displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 57.sp,
         lineHeight = 64.sp,
-        letterSpacing = -0.25.sp
+        letterSpacing = 0.sp
     ),
     displayMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 45.sp,
         lineHeight = 52.sp,
         letterSpacing = 0.sp
     ),
     displaySmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.Normal,
         fontSize = 36.sp,
         lineHeight = 44.sp,
@@ -33,21 +37,21 @@ val Typography = Typography(
     
     // Headline styles for section headers
     headlineLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.SemiBold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.SemiBold,
         fontSize = 28.sp,
         lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
     headlineSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
@@ -56,102 +60,102 @@ val Typography = Typography(
     
     // Title styles for note titles and UI elements
     titleLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomDisplayFont,
         fontWeight = FontWeight.Medium,
         fontSize = 22.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
     titleMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 24.sp,
-        letterSpacing = 0.15.sp
+        letterSpacing = 0.sp
     ),
     titleSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     
     // Body styles for note content - optimized for reading
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomBodyFont,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 26.sp, // Increased line height for better readability
-        letterSpacing = 0.15.sp
+        letterSpacing = 0.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomBodyFont,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.25.sp
+        letterSpacing = 0.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 18.sp,
-        letterSpacing = 0.4.sp
+        letterSpacing = 0.sp
     ),
     
     // Label styles for UI components
     labelLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Medium,
         fontSize = 14.sp,
         lineHeight = 20.sp,
-        letterSpacing = 0.1.sp
+        letterSpacing = 0.sp
     ),
     labelMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Medium,
         fontSize = 12.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.sp
     ),
     labelSmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = AxiomUiFont,
         fontWeight = FontWeight.Medium,
         fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
+        letterSpacing = 0.sp
     )
 )
 
 // Modern Editor Typography Styles - Premium note-taking experience
 val ModernNoteTitleStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomDisplayFont,
     fontWeight = FontWeight.SemiBold,
     fontSize = 24.sp,          // Larger, more prominent title
     lineHeight = 32.sp,
-    letterSpacing = 0.15.sp
+    letterSpacing = 0.sp
 )
 
 val EditorContentStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomBodyFont,
     fontWeight = FontWeight.Normal,
     fontSize = 17.sp,          // Optimized for extended reading
     lineHeight = 30.sp,        // Generous line spacing for comfort
-    letterSpacing = 0.15.sp
+    letterSpacing = 0.sp
 )
 
 // Markdown Header Styles for Font Size Control (H1-H6)
 val MarkdownH1Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomDisplayFont,
     fontWeight = FontWeight.Bold,
     fontSize = 32.sp,          // Largest - Title level
     lineHeight = 40.sp,
-    letterSpacing = -0.25.sp
+    letterSpacing = 0.sp
 )
 
 val MarkdownH2Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomDisplayFont,
     fontWeight = FontWeight.Bold,
     fontSize = 28.sp,          // Large - Subtitle level
     lineHeight = 36.sp,
@@ -159,7 +163,7 @@ val MarkdownH2Style = TextStyle(
 )
 
 val MarkdownH3Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomDisplayFont,
     fontWeight = FontWeight.SemiBold,
     fontSize = 24.sp,          // Medium - Heading level
     lineHeight = 32.sp,
@@ -167,7 +171,7 @@ val MarkdownH3Style = TextStyle(
 )
 
 val MarkdownH4Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomDisplayFont,
     fontWeight = FontWeight.SemiBold,
     fontSize = 22.sp,          // Small - Subheading level
     lineHeight = 28.sp,
@@ -175,51 +179,51 @@ val MarkdownH4Style = TextStyle(
 )
 
 val MarkdownH5Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Medium,
     fontSize = 18.sp,          // Smaller - Section level
     lineHeight = 24.sp,
-    letterSpacing = 0.15.sp
+    letterSpacing = 0.sp
 )
 
 val MarkdownH6Style = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Medium,
     fontSize = 16.sp,          // Smallest - Note level
     lineHeight = 20.sp,
-    letterSpacing = 0.15.sp
+    letterSpacing = 0.sp
 )
 
 val EditorMetadataStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Medium,
     fontSize = 13.sp,
     lineHeight = 18.sp,
-    letterSpacing = 0.3.sp
+    letterSpacing = 0.sp
 )
 
 val EditorPlaceholderStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomBodyFont,
     fontWeight = FontWeight.Normal,
     fontSize = 17.sp,
     lineHeight = 30.sp,
-    letterSpacing = 0.15.sp
+    letterSpacing = 0.sp
 )
 
 val EditorHeaderStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Medium,
     fontSize = 14.sp,
     lineHeight = 20.sp,
-    letterSpacing = 0.1.sp
+    letterSpacing = 0.sp
 )
 
 val EditorSubtleHintStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Normal,
     fontSize = 14.sp,
     lineHeight = 20.sp,
-    letterSpacing = 0.25.sp
+    letterSpacing = 0.sp
 )
 
 // Legacy styles (keeping for backward compatibility)

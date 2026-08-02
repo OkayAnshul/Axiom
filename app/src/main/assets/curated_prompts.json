@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "prompts": [
+    { "theme": "gratitude", "text": "What is one small thing you are grateful for today?" },
+    { "theme": "gratitude", "text": "Who in your life made you feel seen this week?" },
+    { "theme": "gratitude", "text": "What ordinary moment today felt unexpectedly good?" },
+    { "theme": "gratitude", "text": "What is something you have that past-you would have been excited about?" },
+    { "theme": "gratitude", "text": "What about your body or health are you thankful for right now?" },
+
+    { "theme": "growth", "text": "What is something you used to struggle with that now feels easy?" },
+    { "theme": "growth", "text": "What did you learn about yourself this week?" },
+    { "theme": "growth", "text": "What is one belief you have changed your mind about recently?" },
+    { "theme": "growth", "text": "Where in your life are you currently a beginner?" },
+    { "theme": "growth", "text": "What is the most useful piece of feedback you have received lately?" },
+
+    { "theme": "relationships", "text": "Whose presence feels like home to you, and why?" },
+    { "theme": "relationships", "text": "Is there someone you owe a message or apology to?" },
+    { "theme": "relationships", "text": "Who has been on your mind, and what would you tell them if they were here?" },
+    { "theme": "relationships", "text": "What kind of friend are you trying to be?" },
+    { "theme": "relationships", "text": "When did you last feel truly listened to?" },
+
+    { "theme": "work", "text": "What part of your work made you lose track of time today?" },
+    { "theme": "work", "text": "What is one thing draining your energy at work right now?" },
+    { "theme": "work", "text": "What does meaningful work look like for you this season?" },
+    { "theme": "work", "text": "What is the smallest next step you are avoiding?" },
+    { "theme": "work", "text": "If you could redesign your week, what is the first thing you would change?" },
+
+    { "theme": "body", "text": "How does your body feel right now, head to toe?" },
+    { "theme": "body", "text": "What kind of rest do you actually need this week?" },
+    { "theme": "body", "text": "When did you last eat or move in a way that felt good?" },
+    { "theme": "body", "text": "What is your body trying to tell you that you have been ignoring?" },
+    { "theme": "body", "text": "What would a kind morning routine look like for you tomorrow?" },
+
+    { "theme": "creativity", "text": "What is something you would make if no one else would ever see it?" },
+    { "theme": "creativity", "text": "What idea has been quietly tugging at you lately?" },
+    { "theme": "creativity", "text": "When did you last play, with no goal attached?" },
+    { "theme": "creativity", "text": "What is a question you wish someone would ask you?" },
+    { "theme": "creativity", "text": "What is one tiny experiment you could try this week?" },
+
+    { "theme": "fears", "text": "What is a fear you are pretending not to have?" },
+    { "theme": "fears", "text": "What would you do if you trusted yourself more?" },
+    { "theme": "fears", "text": "What does the worst-case outcome actually look like, written out?" },
+    { "theme": "fears", "text": "Where in your life are you holding back, and what is the cost?" },
+    { "theme": "fears", "text": "What feels heavy today, and where do you feel it in your body?" },
+
+    { "theme": "wins", "text": "What is something you are proud of this week, even if it feels small?" },
+    { "theme": "wins", "text": "What is a recent moment where you handled yourself well?" },
+    { "theme": "wins", "text": "What did you do today that past-you would not have been able to do?" },
+    { "theme": "wins", "text": "What is going better than you expected right now?" },
+    { "theme": "wins", "text": "Where did you choose courage over comfort recently?" },
+
+    { "theme": "values", "text": "What did you do today that felt aligned with who you want to be?" },
+    { "theme": "values", "text": "If you stripped your week to its three most important things, what would they be?" },
+    { "theme": "values", "text": "What does enough look like for you right now?" },
+    { "theme": "values", "text": "What boundary do you need to set or restate?" },
+
+    { "theme": "reflection", "text": "How would you describe today in three words?" },
+    { "theme": "reflection", "text": "What surprised you today?" },
+    { "theme": "reflection", "text": "What is the story you have been telling yourself this week — and is it true?" },
+    { "theme": "reflection", "text": "What part of today do you want to remember a year from now?" },
+    { "theme": "reflection", "text": "What does your future self need you to do this week?" },
+    { "theme": "reflection", "text": "If today were a chapter title, what would it be called?" }
+  ]
+}

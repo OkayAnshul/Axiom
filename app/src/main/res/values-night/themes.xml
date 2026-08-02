@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!--
+      Base app theme — DARK variant. Overrides only the parent; every other attribute
+      is inherited from values/themes.xml. See that file for why qualifiers are used
+      instead of a DayNight parent.
+    -->
+    <style name="Theme.Axiom" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/axiom_window_background</item>
+    </style>
+</resources>

@@ -28,8 +28,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.cosmiclaboratory.axiom.ui.theme.AxiomBlue80
-import com.cosmiclaboratory.axiom.ui.theme.AxiomAmber80
+import com.cosmiclaboratory.axiom.ui.theme.AxiomCyan
+import com.cosmiclaboratory.axiom.ui.theme.AxiomSun
 
 /**
  * Developer Screen - About the creator of Axiom
@@ -94,7 +94,7 @@ fun DeveloperScreen(
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            colors = listOf(AxiomBlue80, AxiomAmber80)
+                            colors = listOf(AxiomCyan, AxiomSun)
                         )
                     ),
                 contentAlignment = Alignment.Center
@@ -118,7 +118,7 @@ fun DeveloperScreen(
             Text(
                 text = "Deep Dive Developer | Building Tools That Actually Matter",
                 style = MaterialTheme.typography.titleMedium,
-                color = AxiomBlue80,
+                color = AxiomCyan,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
@@ -145,7 +145,7 @@ fun DeveloperScreen(
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = "About",
-                            tint = AxiomAmber80,
+                            tint = AxiomSun,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -195,7 +195,7 @@ fun DeveloperScreen(
                         Icon(
                             imageVector = Icons.Default.Link,
                             contentDescription = "Links",
-                            tint = AxiomAmber80,
+                            tint = AxiomSun,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -287,7 +287,7 @@ fun DeveloperScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AxiomBlue80
+                            containerColor = AxiomCyan
                         )
                     ) {
                         Icon(
@@ -383,7 +383,7 @@ private fun SocialLinkItem(
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = AxiomBlue80,
+            tint = AxiomCyan,
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
