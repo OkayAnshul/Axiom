@@ -39,6 +39,11 @@ import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
 import com.cosmiclaboratory.axiom.ui.screens.ask.AskScreen
+import com.cosmiclaboratory.axiom.ui.screens.onboarding.OnboardingScreen
+import com.cosmiclaboratory.axiom.ui.screens.patterns.PatternsScreen
+import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAiScreen
+import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAppearanceScreen
+import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsScreen
 import com.cosmiclaboratory.axiom.ui.screens.calendar.CalendarScreen
 import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
 import com.cosmiclaboratory.axiom.ui.screens.journal.JournalScreen
@@ -121,7 +126,13 @@ fun AxiomNavigation(
                 popExitTransition = { fadeOut(tween(140)) + scaleOut(tween(180), 0.98f) }
             ) {
                 composable<Onboarding> {
-                    Placeholder("Onboarding", "Lands in Phase 7.")
+                    OnboardingScreen(
+                        onFinished = {
+                            navController.navigate(Main) {
+                                popUpTo(Onboarding) { inclusive = true }
+                            }
+                        }
+                    )
                 }
 
                 navigation<Main>(startDestination = Today) {
@@ -154,7 +165,7 @@ fun AxiomNavigation(
                     composable<Patterns>(
                         deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.PATTERNS })
                     ) {
-                        Placeholder("Patterns", "Lands in Phase 7, on top of the ML work.")
+                        PatternsScreen()
                     }
 
                     composable<Ask> {
@@ -186,7 +197,6 @@ fun AxiomNavigation(
                     )
                 }
 
-                composable<EntryInsight> { Placeholder("Insight", "Lands in Phase 6.") }
                 composable<Search> {
                     SearchScreen(
                         onBack = { navController.popBackStack() },
@@ -204,10 +214,21 @@ fun AxiomNavigation(
                     )
                 }
 
-                composable<Settings> { Placeholder("Settings", "Lands in Phase 7.") }
+                composable<Settings> {
+                    SettingsScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenAi = { navController.navigate(SettingsAi) },
+                        onOpenAppearance = { navController.navigate(SettingsAppearance) }
+                    )
+                }
+                composable<SettingsAppearance> {
+                    SettingsAppearanceScreen(onBack = { navController.popBackStack() })
+                }
                 composable<SettingsAi>(
                     deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.SETTINGS_AI })
-                ) { Placeholder("AI settings", "Lands in Phase 7.") }
+                ) {
+                    SettingsAiScreen(onBack = { navController.popBackStack() })
+                }
             }
         }
     }
@@ -227,8 +248,3 @@ private fun navigateTab(navController: NavHostController, route: Any) {
     }
 }
 
-/** Temporary surface for destinations that land in later phases. */
-@Composable
-private fun Placeholder(title: String, body: String) {
-    AxiomEmptyState(title = title, body = body)
-}
