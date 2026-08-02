@@ -2,180 +2,160 @@ package com.cosmiclaboratory.axiom.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.*
+import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
-import androidx.glance.unit.ColorProvider
-import androidx.glance.appwidget.cornerRadius
-import androidx.glance.text.FontWeight
-import com.cosmiclaboratory.axiom.MainActivity
+import com.cosmiclaboratory.axiom.domain.model.Entry
+import com.cosmiclaboratory.axiom.ui.navigation.AxiomDeepLinks
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.flow.first
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
+/**
+ * Recent entries on the home screen.
+ *
+ * Three changes from the previous version, all correctness rather than taste:
+ *  - Colours come from the shared palette, so it is readable on a dark home
+ *    screen. It previously hardcoded a blue and a near-white belonging to no
+ *    palette in the app.
+ *  - A Glance LazyColumn replaces a fixed 3-item Column, so a taller widget
+ *    shows more rather than padding empty space.
+ *  - Rows deep-link to the specific entry. They previously all opened
+ *    MainActivity with no arguments, so tapping any row did the same thing.
+ */
 class NotesListWidget : GlanceAppWidget() {
 
+    override val sizeMode = SizeMode.Responsive(setOf(SMALL, MEDIUM, LARGE))
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Get recent notes from repository
-        val recentNotes = try {
-            val entryPoint = EntryPointAccessors.fromApplication(
-                context.applicationContext,
-                WidgetEntryPoint::class.java
-            )
-            entryPoint.journalRepository().observeAll().first().take(3)
-        } catch (e: Exception) {
-            emptyList()
-        }
+        val recent = runCatching {
+            EntryPointAccessors
+                .fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                .journalRepository()
+                .observeCompleted()
+                .first()
+                .take(MAX_ROWS)
+        }.getOrDefault(emptyList())
 
         provideContent {
             GlanceTheme {
-                NotesListContent(recentNotes)
+                Content(recent)
             }
         }
     }
 
     @Composable
-    private fun NotesListContent(entries: List<com.cosmiclaboratory.axiom.domain.model.Entry>) {
+    private fun Content(entries: List<Entry>) {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(ColorProvider(Color.White))
-                .cornerRadius(16.dp)
-                .padding(16.dp)
+                .background(WidgetColors.background)
+                .cornerRadius(20.dp)
+                .padding(12.dp)
         ) {
-            // Header
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "📝 Recent Notes",
+                    text = "Journal",
                     style = TextStyle(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorProvider(Color(0xFF1976D2))
-                    )
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = WidgetColors.ink
+                    ),
+                    modifier = GlanceModifier.defaultWeight()
+                )
+                Text(
+                    text = "New",
+                    style = TextStyle(fontSize = 13.sp, color = WidgetColors.accent),
+                    modifier = GlanceModifier.clickable(deepLink(AxiomDeepLinks.COMPOSER))
                 )
             }
-            
-            Spacer(modifier = GlanceModifier.height(12.dp))
-            
+
+            Spacer(GlanceModifier.height(8.dp))
+
             if (entries.isEmpty()) {
-                // Empty state
-                Column(
-                    modifier = GlanceModifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalAlignment = Alignment.CenterVertically
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxSize()
+                        .clickable(deepLink(AxiomDeepLinks.COMPOSER)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No notes yet",
-                        style = TextStyle(
-                            fontSize = 14.sp,
-                            color = ColorProvider(Color.Gray)
-                        )
+                        text = "Nothing written yet.\nTap to start.",
+                        style = TextStyle(fontSize = 13.sp, color = WidgetColors.inkFaint)
                     )
-                    Spacer(modifier = GlanceModifier.height(8.dp))
-                    Box(
-                        modifier = GlanceModifier
-                            .background(ColorProvider(Color(0xFF1976D2)))
-                            .cornerRadius(8.dp)
-                            .clickable(actionStartActivity<MainActivity>())
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "Create First Entry",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = ColorProvider(Color.White)
-                            )
-                        )
-                    }
                 }
             } else {
-                // Notes list
-                Column {
-                    entries.forEach { note ->
-                        NoteItem(note)
-                        if (note != entries.last()) {
-                            Spacer(modifier = GlanceModifier.height(8.dp))
-                        }
-                    }
-                    
-                    Spacer(modifier = GlanceModifier.height(12.dp))
-                    
-                    // View all button
-                    Box(
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .background(ColorProvider(Color(0xFF1976D2).copy(alpha = 0.1f)))
-                            .cornerRadius(8.dp)
-                            .clickable(actionStartActivity<MainActivity>())
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "View All Notes",
-                            style = TextStyle(
-                                fontSize = 12.sp,
-                                color = ColorProvider(Color(0xFF1976D2)),
-                                fontWeight = FontWeight.Medium
-                            )
-                        )
-                    }
+                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                    items(entries, itemId = { it.id }) { entry -> EntryRow(entry) }
                 }
             }
         }
     }
-    
+
     @Composable
-    private fun NoteItem(note: com.cosmiclaboratory.axiom.domain.model.Entry) {
+    private fun EntryRow(entry: Entry) {
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .background(ColorProvider(Color(0xFFF5F5F5)))
-                .cornerRadius(8.dp)
-                .clickable(actionStartActivity<MainActivity>())
-                .padding(12.dp)
+                .padding(vertical = 5.dp)
+                .clickable(deepLink(AxiomDeepLinks.reader(entry.id)))
         ) {
             Text(
-                text = note.title.ifBlank { "Untitled" },
+                text = entry.displayTitle.ifBlank { "Untitled" },
+                maxLines = 1,
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = ColorProvider(Color.Black)
+                    color = WidgetColors.ink
                 )
             )
-            
-            if (note.content.isNotBlank()) {
-                Spacer(modifier = GlanceModifier.height(4.dp))
-                Text(
-                    text = note.content.take(80) + if (note.content.length > 80) "..." else "",
-                    style = TextStyle(
-                        fontSize = 12.sp,
-                        color = ColorProvider(Color.Gray)
-                    )
-                )
-            }
-            
-            Spacer(modifier = GlanceModifier.height(4.dp))
             Text(
-                text = note.updatedAt.format(DateTimeFormatter.ofPattern("MMM dd")),
-                style = TextStyle(
-                    fontSize = 10.sp,
-                    color = ColorProvider(Color.Gray)
-                )
+                text = relativeDate(entry.createdAt.toLocalDate()),
+                style = TextStyle(fontSize = 11.sp, color = WidgetColors.inkFaint)
             )
         }
+    }
+
+    private companion object {
+        const val MAX_ROWS = 20
+        val SMALL = DpSize(180.dp, 110.dp)
+        val MEDIUM = DpSize(250.dp, 180.dp)
+        val LARGE = DpSize(320.dp, 260.dp)
+    }
+}
+
+/**
+ * Localised relative date. The previous version hardcoded "MMM dd", which reads
+ * wrong in most locales.
+ */
+private fun relativeDate(date: LocalDate): String {
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> date.format(
+            DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM)
+                .withLocale(Locale.getDefault())
+        )
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.ui.design.currentLocale
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -92,10 +93,12 @@ fun TodayScreen(
             item(key = "greeting") {
                 Column {
                     Text(state.greeting, style = AxiomTheme.type.uiDisplay, color = c.ink)
+                    // Locale hoisted out of remember so a language change recomposes.
+                    val locale = currentLocale()
                     Text(
-                        text = remember {
+                        text = remember(locale) {
                             LocalDate.now()
-                                .format(DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault()))
+                                .format(DateTimeFormatter.ofPattern("EEEE d MMMM", locale))
                         },
                         style = AxiomTheme.type.uiMeta,
                         color = c.inkFaint
@@ -175,7 +178,7 @@ private fun MoodRecordedRow(mood: Int, onChange: (Int) -> Unit) {
             MoodDot(mood = mood, size = 16.dp)
             Spacer(Modifier.width(AxiomTheme.space.sm))
             Text(
-                "Feeling ${moodLabel(mood).lowercase(Locale.getDefault())}",
+                "Feeling ${moodLabel(mood).lowercase(currentLocale())}",
                 style = AxiomTheme.type.uiBody,
                 color = AxiomTheme.colors.ink,
                 modifier = Modifier.weight(1f)

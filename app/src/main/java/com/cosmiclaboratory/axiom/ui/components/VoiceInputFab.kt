@@ -14,10 +14,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
+import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import androidx.compose.ui.unit.dp
-import com.cosmiclaboratory.axiom.ui.theme.AxiomCyan
-import com.cosmiclaboratory.axiom.ui.theme.AxiomOledBlack
-import com.cosmiclaboratory.axiom.ui.theme.AxiomRose
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionManager
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionResult
 
@@ -112,11 +110,11 @@ fun VoiceInputFab(
                 .scale(if (isListening) scale else 1.0f)
                 .size(48.dp), // Compact size to avoid overlap
             containerColor = if (isListening)
-                AxiomRose else
-                AxiomCyan,
+                AxiomTheme.colors.critical else
+                AxiomTheme.colors.accent,
             contentColor = if (isListening)
-                AxiomOledBlack else
-                AxiomOledBlack
+                AxiomTheme.colors.onAccent else
+                AxiomTheme.colors.onAccent
         ) {
             Icon(
                 imageVector = if (isListening) Icons.Filled.StopCircle else Icons.Filled.KeyboardVoice,
@@ -130,7 +128,7 @@ fun VoiceInputFab(
             Text(
                 text = "Listening...",
                 style = MaterialTheme.typography.labelSmall,
-                color = AxiomCyan
+                color = AxiomTheme.colors.accent
             )
         }
     }
