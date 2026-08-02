@@ -37,17 +37,12 @@ data class Composer(
 )
 
 @Serializable data class Reader(val entryId: Long)
-@Serializable data class EntryInsight(val entryId: Long)
 @Serializable data class Search(val initialQuery: String = "")
 @Serializable data object Calendar
 
 @Serializable data object Settings
 @Serializable data object SettingsAi
-@Serializable data object SettingsVoice
 @Serializable data object SettingsAppearance
-@Serializable data object SettingsReminders
-@Serializable data object SettingsData
-@Serializable data object About
 
 /** Deep-link URIs. Declared once so widgets, the tile and notifications agree. */
 object AxiomDeepLinks {
