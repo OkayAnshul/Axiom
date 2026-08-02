@@ -1,10 +1,92 @@
 <resources>
-    <string name="app_name">Axiom</string>
-    
-    <!-- Widget descriptions -->
+    <!--
+      Naming: <screen>_<element>_<variant>. Everything user-facing lives here.
+      Counts MUST use <plurals> — "1 entries" is the most common bug in an
+      app that was never localised, and Axiom currently has zero plurals.
+    -->
+    <string name="app_name" translatable="false">Axiom</string>
+
+    <!-- ===== Common actions ===== -->
+    <string name="action_save">Save</string>
+    <string name="action_done">Done</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_dismiss">Dismiss</string>
+    <string name="action_share">Share</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_search">Search</string>
+    <string name="action_back">Back</string>
+    <string name="action_more">More options</string>
+    <string name="action_favorite">Favourite</string>
+    <string name="action_unfavorite">Remove favourite</string>
+    <string name="action_new_entry">New entry</string>
+    <string name="action_new_voice_entry">New voice entry</string>
+    <string name="action_connect_ai">Connect AI</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_how_calculated">How this is calculated</string>
+
+    <!-- ===== Entry ===== -->
+    <string name="entry_untitled">Untitled</string>
+    <string name="entry_kind_prompted">Prompted</string>
+    <string name="entry_kind_voice">Voice</string>
+    <plurals name="entry_word_count">
+        <item quantity="one">%d word</item>
+        <item quantity="other">%d words</item>
+    </plurals>
+    <plurals name="entry_count">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
+
+    <!-- ===== Mood ===== -->
+    <string name="mood_1">Rough</string>
+    <string name="mood_2">Low</string>
+    <string name="mood_3">Okay</string>
+    <string name="mood_4">Good</string>
+    <string name="mood_5">Great</string>
+    <string name="mood_not_set">Not set</string>
+    <!-- e.g. "Good, 4 of 5" — read aloud by TalkBack -->
+    <string name="mood_state_description">%1$s, %2$d of 5</string>
+
+    <!-- ===== Streak ===== -->
+    <plurals name="streak_days">
+        <item quantity="one">%d day streak</item>
+        <item quantity="other">%d day streak</item>
+    </plurals>
+    <string name="streak_longest">longest</string>
+    <string name="streak_state_description">%1$d day streak. %2$d of the last 7 days written.</string>
+
+    <!-- ===== Save state ===== -->
+    <string name="save_editing">Editing…</string>
+    <string name="save_saving">Saving…</string>
+    <string name="save_saved_at">Saved %1$s</string>
+    <string name="save_failed">Save failed</string>
+
+    <!-- ===== Errors ===== -->
+    <string name="error_no_key_title">AI features need a key</string>
+    <string name="error_no_key_body">Axiom never uploads your entries without one. Everything else works offline.</string>
+    <string name="error_rate_limited_title">Too many requests</string>
+    <string name="error_rate_limited_body">The AI provider is rate-limiting. This usually clears in under a minute.</string>
+    <string name="error_rate_limited_countdown">Try again in %1$ds</string>
+    <string name="error_network_title">Couldn\'t reach the AI provider</string>
+    <string name="error_network_body">You\'re offline, or the request timed out. Your entry is saved either way.</string>
+    <string name="error_malformed_title">The reply came back malformed</string>
+    <string name="error_malformed_body">The model returned something Axiom couldn\'t read. Trying again usually works.</string>
+    <string name="error_storage_title">Couldn\'t save to storage</string>
+    <string name="error_storage_body">Axiom couldn\'t write to the database. Check available space.</string>
+    <string name="error_permission_title">Permission needed</string>
+    <string name="error_permission_body">Axiom needs this permission to continue. You can grant it in system settings.</string>
+    <string name="error_unknown_title">Something went wrong</string>
+
+    <!-- ===== AI ===== -->
+    <string name="ai_thinking">Thinking</string>
+    <string name="ai_what_gets_sent">What gets sent?</string>
+
+    <!-- ===== Widgets / tile (referenced from the manifest) ===== -->
     <string name="quick_note_widget_description">Quick access to create new notes</string>
     <string name="notes_list_widget_description">View your recent notes at a glance</string>
-    
-    <!-- Quick Settings Tile -->
     <string name="quick_note_tile_label">Quick Note</string>
 </resources>
