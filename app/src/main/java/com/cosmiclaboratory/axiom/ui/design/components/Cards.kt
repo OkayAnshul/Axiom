@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.cosmiclaboratory.axiom.ui.design.currentLocale
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -87,8 +88,9 @@ fun EntryCard(
 ) {
     val c = AxiomTheme.colors
     val t = AxiomTheme.type
-    val time = remember(entry.createdAt) {
-        entry.createdAt.format(DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()))
+    val locale = currentLocale()
+    val time = remember(entry.createdAt, locale) {
+        entry.createdAt.format(DateTimeFormatter.ofPattern("HH:mm", locale))
     }
     val snippet = remember(entry.content) {
         entry.content.lineSequence().filter { it.isNotBlank() }.drop(if (entry.title.isBlank()) 1 else 0)
@@ -197,8 +199,9 @@ fun SkeletonBar(widthFraction: Float, height: androidx.compose.ui.unit.Dp) {
 @Composable
 fun EntryChip(entry: Entry, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = AxiomTheme.colors
-    val date = remember(entry.createdAt) {
-        entry.createdAt.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))
+    val locale = currentLocale()
+    val date = remember(entry.createdAt, locale) {
+        entry.createdAt.format(DateTimeFormatter.ofPattern("d MMM", locale))
     }
     Row(
         modifier = modifier
@@ -267,7 +270,7 @@ fun SectionHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = text.uppercase(Locale.getDefault()),
+            text = text.uppercase(currentLocale()),
             style = AxiomTheme.type.uiOverline,
             color = AxiomTheme.colors.inkFaint,
             modifier = Modifier.weight(1f)

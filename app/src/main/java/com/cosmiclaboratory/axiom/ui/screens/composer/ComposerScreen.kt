@@ -32,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.design.AxiomDimens
 import com.cosmiclaboratory.axiom.ui.design.ReadingColumn
+import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 
@@ -129,7 +130,7 @@ fun ComposerScreen(
                 wordCount = state.wordCount,
                 mood = state.mood,
                 onMoodChange = viewModel::setMood,
-                onVoice = { /* VoiceSheet lands with the voice revival */ }
+                onTranscript = viewModel::appendTranscript
             )
         }
     }
@@ -240,7 +241,7 @@ private fun ComposerBottomBar(
     wordCount: Int,
     mood: Int?,
     onMoodChange: (Int) -> Unit,
-    onVoice: () -> Unit
+    onTranscript: (String) -> Unit
 ) {
     val c = AxiomTheme.colors
     var showMood by remember { mutableStateOf(false) }
@@ -284,7 +285,9 @@ private fun ComposerBottomBar(
                     Text("Add mood", style = AxiomTheme.type.uiLabel, color = c.inkMuted)
                 }
             }
-            AxiomIconButton(Icons.Filled.Mic, "Voice input", onVoice, tint = c.inkMuted)
+            // The real on-device recogniser, not a placeholder: results append
+            // at the end of the body via the composer's normal save path.
+            VoiceInputFab(onVoiceResult = onTranscript)
         }
     }
 }

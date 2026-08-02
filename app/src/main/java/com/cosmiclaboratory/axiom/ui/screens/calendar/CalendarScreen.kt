@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.ui.design.currentLocale
 import com.cosmiclaboratory.axiom.ui.design.AxiomDimens
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -87,7 +88,7 @@ fun CalendarScreen(
             item("selected-header") {
                 SectionHeader(
                     state.selectedDate.format(
-                        DateTimeFormatter.ofPattern("EEEE d MMMM", Locale.getDefault())
+                        DateTimeFormatter.ofPattern("EEEE d MMMM", currentLocale())
                     )
                 )
             }
@@ -104,7 +105,7 @@ fun CalendarScreen(
                         primaryLabel = if (state.selectedDate.isAfter(LocalDate.now())) null
                         else "Write an entry for ${state.selectedDate.dayOfMonth} " +
                             state.selectedDate.month.getDisplayName(
-                                JavaTextStyle.SHORT, Locale.getDefault()
+                                JavaTextStyle.SHORT, currentLocale()
                             ),
                         onPrimary = { onWriteForDate(state.selectedDate) }
                     )
@@ -123,7 +124,7 @@ private fun MonthHeader(month: YearMonth, onPrev: () -> Unit, onNext: () -> Unit
     Row(verticalAlignment = Alignment.CenterVertically) {
         AxiomIconButton(Icons.Filled.ChevronLeft, "Previous month", onPrev)
         Text(
-            text = month.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())),
+            text = month.format(DateTimeFormatter.ofPattern("MMMM yyyy", currentLocale())),
             style = AxiomTheme.type.uiTitle,
             color = AxiomTheme.colors.ink,
             textAlign = TextAlign.Center,
@@ -145,7 +146,7 @@ private fun MonthGrid(
     val today = remember { LocalDate.now() }
     val firstDay = month.atDay(1)
     // Locale-correct week start: Monday in most of the world, Sunday in the US.
-    val weekStart = java.time.temporal.WeekFields.of(Locale.getDefault()).firstDayOfWeek
+    val weekStart = java.time.temporal.WeekFields.of(currentLocale()).firstDayOfWeek
     val leadingBlanks = ((firstDay.dayOfWeek.value - weekStart.value) + 7) % 7
     val dayLabels = (0..6).map { weekStart.plus(it.toLong()) }
 
@@ -153,7 +154,7 @@ private fun MonthGrid(
         Row {
             dayLabels.forEach { dow ->
                 Text(
-                    text = dow.getDisplayName(JavaTextStyle.NARROW, Locale.getDefault()),
+                    text = dow.getDisplayName(JavaTextStyle.NARROW, currentLocale()),
                     style = AxiomTheme.type.uiLabelSmall,
                     color = c.inkFaint,
                     textAlign = TextAlign.Center,

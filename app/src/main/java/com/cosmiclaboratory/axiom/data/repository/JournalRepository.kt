@@ -1,5 +1,7 @@
 package com.cosmiclaboratory.axiom.data.repository
 
+import android.content.Context
+import androidx.glance.appwidget.updateAll
 import com.cosmiclaboratory.axiom.data.database.FtsQuerySanitizer
 import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
@@ -12,6 +14,7 @@ import com.cosmiclaboratory.axiom.domain.model.AIInsight
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.Tag
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -29,10 +32,27 @@ import javax.inject.Singleton
  */
 @Singleton
 class JournalRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val entryDao: EntryDao,
     private val insightDao: AIInsightDao,
     private val tagDao: TagDao
 ) {
+
+    /**
+     * Home-screen widgets read this repository directly, but nothing ever told
+     * them the data changed — they only refreshed on their 30-minute tick, so a
+     * just-written entry was invisible for up to half an hour. Every mutation
+     * now nudges them.
+     */
+    private suspend fun refreshWidgets() {
+        try {
+            com.cosmiclaboratory.axiom.widget.NotesListWidget().updateAll(context)
+            com.cosmiclaboratory.axiom.widget.QuickNoteWidget().updateAll(context)
+        } catch (e: Exception) {
+            // A widget that isn't placed, or a launcher that rejects the update,
+            // must never fail the save that triggered it.
+        }
+    }
 
     // ---- observing ---------------------------------------------------------
 
@@ -82,14 +102,24 @@ class JournalRepository @Inject constructor(
         val id = entryDao.insert(row)
         val entryId = if (entry.id == 0L) id else entry.id
         syncTags(entryId, entry.tags)
+        refreshWidgets()
         return entryId
     }
 
-    suspend fun delete(entry: Entry) = entryDao.delete(entry.toEntity())
+    suspend fun delete(entry: Entry) {
+        entryDao.delete(entry.toEntity())
+        refreshWidgets()
+    }
 
-    suspend fun deleteById(id: Long) = entryDao.deleteById(id)
+    suspend fun deleteById(id: Long) {
+        entryDao.deleteById(id)
+        refreshWidgets()
+    }
 
-    suspend fun markComplete(id: Long) = entryDao.markComplete(id, LocalDateTime.now())
+    suspend fun markComplete(id: Long) {
+        entryDao.markComplete(id, LocalDateTime.now())
+        refreshWidgets()
+    }
 
     suspend fun setMood(id: Long, mood: Int?) =
         entryDao.setMood(id, mood, LocalDateTime.now())
