@@ -38,6 +38,8 @@ import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
+import com.cosmiclaboratory.axiom.ui.screens.ask.AskScreen
+import com.cosmiclaboratory.axiom.ui.screens.calendar.CalendarScreen
 import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
 import com.cosmiclaboratory.axiom.ui.screens.journal.JournalScreen
 import com.cosmiclaboratory.axiom.ui.screens.search.SearchScreen
@@ -156,7 +158,10 @@ fun AxiomNavigation(
                     }
 
                     composable<Ask> {
-                        Placeholder("Ask", "Grounded chat lands in Phase 6.")
+                        AskScreen(
+                            onOpenEntry = { id -> navController.navigate(Reader(id)) },
+                            onConnectAi = { navController.navigate(SettingsAi) }
+                        )
                     }
                 }
 
@@ -191,7 +196,13 @@ fun AxiomNavigation(
                         }
                     )
                 }
-                composable<Calendar> { Placeholder("Calendar", "Lands in Phase 5.") }
+                composable<Calendar> {
+                    CalendarScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenEntry = { id -> navController.navigate(Reader(id)) },
+                        onWriteForDate = { navController.navigate(Composer()) }
+                    )
+                }
 
                 composable<Settings> { Placeholder("Settings", "Lands in Phase 7.") }
                 composable<SettingsAi>(
