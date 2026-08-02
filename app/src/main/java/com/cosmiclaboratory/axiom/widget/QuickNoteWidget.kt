@@ -56,7 +56,7 @@ class QuickNoteWidget : GlanceAppWidget() {
                 Spacer(modifier = GlanceModifier.height(8.dp))
                 
                 Text(
-                    text = "Quick Note",
+                    text = "Quick Entry",
                     style = TextStyle(
                         fontSize = 16.sp,
                         color = ColorProvider(Color.White)

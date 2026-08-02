@@ -69,7 +69,7 @@ fun NoteDetailScreen(
     // Handle shared content
     LaunchedEffect(sharedContent) {
         if (sharedContent != null && uiState.isNewNote) {
-            viewModel.updateTitle(sharedContent.title ?: "Shared Note")
+            viewModel.updateTitle(sharedContent.title ?: "Shared Entry")
             viewModel.updateContent(sharedContent.text)
             onSharedContentConsumed()
         }
@@ -165,7 +165,7 @@ fun NoteDetailScreen(
                                         uiState.note?.let { note ->
                                             val intent = exportManager.exportNote(note, ExportManager.ExportFormat.MARKDOWN)
                                             intent?.let {
-                                                context.startActivity(Intent.createChooser(it, "Export Note"))
+                                                context.startActivity(Intent.createChooser(it, "Export Entry"))
                                             }
                                         }
                                         showMenu = false
@@ -185,7 +185,7 @@ fun NoteDetailScreen(
                                         uiState.note?.let { note ->
                                             val intent = exportManager.exportNote(note, ExportManager.ExportFormat.TEXT)
                                             intent?.let {
-                                                context.startActivity(Intent.createChooser(it, "Export Note"))
+                                                context.startActivity(Intent.createChooser(it, "Export Entry"))
                                             }
                                         }
                                         showMenu = false

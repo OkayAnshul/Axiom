@@ -23,7 +23,7 @@ class ModernSplitPaneEditorTest {
     @Test
     fun modernSplitPaneEditor_rendersCorrectly() {
         // Arrange
-        val title = mutableStateOf("Test Note")
+        val title = mutableStateOf("Test Entry")
         val content = mutableStateOf("This is a test note with some content.")
         
         // Act
@@ -43,7 +43,7 @@ class ModernSplitPaneEditorTest {
         }
         
         // Assert - basic rendering verification
-        composeTestRule.onAllNodesWithText("Test Note").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Test Entry").onFirst().assertIsDisplayed()
         composeTestRule.onAllNodesWithText("This is a test note with some content.").onFirst().assertIsDisplayed()
         composeTestRule.onAllNodesWithText("8").onFirst().assertIsDisplayed() // Word count
         composeTestRule.onNodeWithText("words").assertIsDisplayed()
@@ -52,7 +52,7 @@ class ModernSplitPaneEditorTest {
     @Test
     fun modernSplitPaneEditor_singlePaneMode() {
         // Arrange
-        val title = mutableStateOf("Test Note")
+        val title = mutableStateOf("Test Entry")
         val content = mutableStateOf("Test content")
         
         // Act
@@ -71,7 +71,7 @@ class ModernSplitPaneEditorTest {
         }
         
         // Assert
-        composeTestRule.onAllNodesWithText("Test Note").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Test Entry").onFirst().assertIsDisplayed()
         composeTestRule.onAllNodesWithText("Test content").onFirst().assertIsDisplayed()
         composeTestRule.onAllNodesWithText("2").onFirst().assertIsDisplayed() // Word count should still be visible
     }

@@ -84,10 +84,10 @@ object ShareIntentHandler {
                 when {
                     firstLine != null && firstLine.length <= 50 -> firstLine
                     firstLine != null -> "${firstLine.take(47)}..."
-                    else -> "Shared Note"
+                    else -> "Shared Entry"
                 }
             }
-            else -> "Shared Note"
+            else -> "Shared Entry"
         }
     }
 }

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.DailySummaryRepository
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,13 +20,13 @@ data class TodayUiState(
     val displayName: String = "",
     val greeting: String = "Welcome",
     val streak: StreakCalculator.Result = StreakCalculator.Result(0, 0, List(7) { false }),
-    val recent: List<Note> = emptyList(),
+    val recent: List<Entry> = emptyList(),
     val todayPrompt: String? = null
 )
 
 @HiltViewModel
 class TodayViewModel @Inject constructor(
-    private val notes: NotesRepository,
+    private val entries: NotesRepository,
     private val summaries: DailySummaryRepository,
     private val prefs: UserPreferences
 ) : ViewModel() {
@@ -37,7 +37,7 @@ class TodayViewModel @Inject constructor(
     init {
         viewModelScope.launch { refresh() }
         viewModelScope.launch {
-            notes.getAllNotes().collect { all ->
+            entries.getAllNotes().collect { all ->
                 _state.value = _state.value.copy(recent = all.take(5))
             }
         }

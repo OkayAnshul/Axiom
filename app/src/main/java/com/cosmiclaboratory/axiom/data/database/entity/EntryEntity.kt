@@ -4,18 +4,18 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import java.time.LocalDateTime
 
 @Entity(
-    tableName = "notes",
+    tableName = "entries",
     indices = [
         Index(value = ["kind"]),
         Index(value = ["createdAt"]),
         Index(value = ["mood"])
     ]
 )
-data class NoteEntity(
+data class EntryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val title: String,
@@ -33,8 +33,8 @@ data class NoteEntity(
     val durationMs: Long = 0L
 )
 
-fun NoteEntity.toDomainModel(tags: List<com.cosmiclaboratory.axiom.domain.model.Tag> = emptyList()): Note {
-    return Note(
+fun EntryEntity.toDomainModel(tags: List<com.cosmiclaboratory.axiom.domain.model.Tag> = emptyList()): Entry {
+    return Entry(
         id = id,
         title = title,
         content = content,
@@ -53,8 +53,8 @@ fun NoteEntity.toDomainModel(tags: List<com.cosmiclaboratory.axiom.domain.model.
     )
 }
 
-fun Note.toEntity(): NoteEntity {
-    return NoteEntity(
+fun Entry.toEntity(): EntryEntity {
+    return EntryEntity(
         id = id,
         title = title,
         content = content,

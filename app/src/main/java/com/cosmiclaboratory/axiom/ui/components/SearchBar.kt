@@ -19,7 +19,7 @@ fun AxiomSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
-    placeholder: String = "Search your notes...",
+    placeholder: String = "Search your entries...",
     modifier: Modifier = Modifier,
     autoFocus: Boolean = false
 ) {

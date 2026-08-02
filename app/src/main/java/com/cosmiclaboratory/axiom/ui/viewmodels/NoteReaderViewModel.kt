@@ -3,14 +3,14 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class NoteReaderUiState(
-    val note: Note? = null,
+    val note: Entry? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null
 )
@@ -39,7 +39,7 @@ class NoteReaderViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         note = null,
                         isLoading = false,
-                        errorMessage = "Note not found"
+                        errorMessage = "Entry not found"
                     )
                 }
             } catch (e: Exception) {

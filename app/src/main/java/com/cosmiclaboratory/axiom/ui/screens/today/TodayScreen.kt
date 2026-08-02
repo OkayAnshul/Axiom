@@ -33,7 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.components.StreakCard
 import com.cosmiclaboratory.axiom.ui.viewmodels.today.TodayViewModel
 
@@ -147,7 +147,7 @@ private fun QuickAction(
 }
 
 @Composable
-private fun RecentEntryRow(note: Note, onClick: () -> Unit) {
+private fun RecentEntryRow(note: Entry, onClick: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
         Row(
             modifier = Modifier.padding(12.dp),

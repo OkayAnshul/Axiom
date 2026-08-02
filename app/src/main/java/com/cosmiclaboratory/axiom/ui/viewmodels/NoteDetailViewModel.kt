@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.navigation.AxiomScreen
 import com.cosmiclaboratory.axiom.utils.PlainTextToMarkdownConverter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,7 +32,7 @@ class NoteDetailViewModel @Inject constructor(
     val uiState: StateFlow<NoteDetailUiState> = _uiState.asStateFlow()
     
     private var autoSaveJob: Job? = null
-    private var currentNote: Note? = null
+    private var currentNote: Entry? = null
     
     init {
         if (noteId != null) {
@@ -62,7 +62,7 @@ class NoteDetailViewModel @Inject constructor(
                 } else {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        errorMessage = "Note not found"
+                        errorMessage = "Entry not found"
                     )
                 }
             } catch (e: Exception) {
@@ -350,7 +350,7 @@ class NoteDetailViewModel @Inject constructor(
                 
                 if (state.isNewNote) {
                     // Create new note
-                    val newNote = Note(
+                    val newNote = Entry(
                         title = state.title,
                         content = contentText,
                         markdown = generatedMarkdown
@@ -428,5 +428,5 @@ data class NoteDetailUiState(
     val isSaving: Boolean = false,
     val isNewNote: Boolean = true,
     val errorMessage: String? = null,
-    val note: Note? = null
+    val note: Entry? = null
 )

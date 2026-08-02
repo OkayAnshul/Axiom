@@ -1,9 +1,9 @@
 package com.cosmiclaboratory.axiom.data.repository
 
-import com.cosmiclaboratory.axiom.data.database.dao.NoteDao
+import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.TagDao
 import com.cosmiclaboratory.axiom.data.database.entity.*
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -13,50 +13,50 @@ import javax.inject.Singleton
 
 @Singleton
 class NotesRepository @Inject constructor(
-    private val noteDao: NoteDao,
+    private val entryDao: EntryDao,
     private val tagDao: TagDao
 ) {
     
-    fun getAllNotes(): Flow<List<Note>> {
-        return noteDao.getAllNotes().map { entities ->
+    fun getAllNotes(): Flow<List<Entry>> {
+        return entryDao.getAllNotes().map { entities ->
             entities.map { entity ->
-                val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+                val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
                 entity.toDomainModel(tags)
             }
         }
     }
     
-    suspend fun getNoteById(noteId: Long): Note? {
-        return noteDao.getNoteById(noteId)?.let { entity ->
-            val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+    suspend fun getNoteById(noteId: Long): Entry? {
+        return entryDao.getNoteById(noteId)?.let { entity ->
+            val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
             entity.toDomainModel(tags)
         }
     }
     
-    fun getFavoriteNotes(): Flow<List<Note>> {
-        return noteDao.getFavoriteNotes().map { entities ->
+    fun getFavoriteNotes(): Flow<List<Entry>> {
+        return entryDao.getFavoriteNotes().map { entities ->
             entities.map { entity ->
-                val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+                val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
                 entity.toDomainModel(tags)
             }
         }
     }
     
-    fun getArchivedNotes(): Flow<List<Note>> {
-        return noteDao.getArchivedNotes().map { entities ->
+    fun getArchivedNotes(): Flow<List<Entry>> {
+        return entryDao.getArchivedNotes().map { entities ->
             entities.map { entity ->
-                val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+                val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
                 entity.toDomainModel(tags)
             }
         }
     }
     
-    suspend fun insertNote(note: Note): Long {
+    suspend fun insertNote(note: Entry): Long {
         val updatedNote = note.copy(
             createdAt = if (note.id == 0L) LocalDateTime.now() else note.createdAt,
             updatedAt = LocalDateTime.now()
         )
-        val noteId = noteDao.insertNote(updatedNote.toEntity())
+        val noteId = entryDao.insertNote(updatedNote.toEntity())
         
         // Insert tag relationships
         note.tags.forEach { tag ->
@@ -65,15 +65,15 @@ class NotesRepository @Inject constructor(
             } else {
                 tag.id
             }
-            noteDao.insertNoteTagCrossRef(NoteTagCrossRef(noteId, tagId))
+            entryDao.insertNoteTagCrossRef(EntryTagCrossRef(noteId, tagId))
         }
         
         return noteId
     }
     
-    suspend fun updateNote(note: Note) {
+    suspend fun updateNote(note: Entry) {
         val updatedNote = note.copy(updatedAt = LocalDateTime.now())
-        noteDao.updateNote(updatedNote.toEntity())
+        entryDao.updateNote(updatedNote.toEntity())
         
         // Update tag relationships - simple approach: delete all and re-insert
         // In production, you might want a more sophisticated approach
@@ -83,29 +83,29 @@ class NotesRepository @Inject constructor(
             } else {
                 tag.id
             }
-            noteDao.insertNoteTagCrossRef(NoteTagCrossRef(note.id, tagId))
+            entryDao.insertNoteTagCrossRef(EntryTagCrossRef(note.id, tagId))
         }
     }
     
-    suspend fun deleteNote(note: Note) {
-        noteDao.deleteNote(note.toEntity())
+    suspend fun deleteNote(note: Entry) {
+        entryDao.deleteNote(note.toEntity())
     }
     
     suspend fun deleteNoteById(noteId: Long) {
-        noteDao.deleteNoteById(noteId)
+        entryDao.deleteNoteById(noteId)
     }
     
-    suspend fun searchNotes(query: String): List<Note> {
-        return noteDao.searchNotes(query).map { entity ->
-            val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+    suspend fun searchNotes(query: String): List<Entry> {
+        return entryDao.searchNotes(query).map { entity ->
+            val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
             entity.toDomainModel(tags)
         }
     }
     
-    fun getNotesByTag(tagId: Long): Flow<List<Note>> {
-        return noteDao.getNotesByTag(tagId).map { entities ->
+    fun getNotesByTag(tagId: Long): Flow<List<Entry>> {
+        return entryDao.getNotesByTag(tagId).map { entities ->
             entities.map { entity ->
-                val tags = noteDao.getTagsForNote(entity.id).map { it.toDomainModel() }
+                val tags = entryDao.getTagsForNote(entity.id).map { it.toDomainModel() }
                 entity.toDomainModel(tags)
             }
         }

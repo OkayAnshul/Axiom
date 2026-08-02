@@ -11,7 +11,7 @@ import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
 import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
-import com.cosmiclaboratory.axiom.data.database.dao.NoteDao
+import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.PersonaDao
 import com.cosmiclaboratory.axiom.data.database.dao.PromptPackDao
 import com.cosmiclaboratory.axiom.data.database.dao.QuestionDao
@@ -21,10 +21,10 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
 
 @Database(
     entities = [
-        NoteEntity::class,
+        EntryEntity::class,
         TagEntity::class,
-        NoteTagCrossRef::class,
-        NoteFts::class,
+        EntryTagCrossRef::class,
+        EntryFts::class,
         UserProfileEntity::class,
         PersonaSettingsEntity::class,
         PromptPackEntity::class,
@@ -44,7 +44,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
 @TypeConverters(DateTimeConverter::class)
 abstract class AxiomDatabase : RoomDatabase() {
 
-    abstract fun noteDao(): NoteDao
+    abstract fun entryDao(): EntryDao
     abstract fun tagDao(): TagDao
     abstract fun userProfileDao(): UserProfileDao
     abstract fun personaDao(): PersonaDao
