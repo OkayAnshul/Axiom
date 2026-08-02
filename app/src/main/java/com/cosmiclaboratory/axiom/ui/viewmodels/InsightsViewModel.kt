@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.AIInsight
-import com.cosmiclaboratory.axiom.domain.model.AnswerEntry
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.navigation.AxiomScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class InsightsUiState(
-    val entry: AnswerEntry? = null,
+    val entry: Entry? = null,
     val insight: AIInsight? = null,
     val isLoading: Boolean = true
 )

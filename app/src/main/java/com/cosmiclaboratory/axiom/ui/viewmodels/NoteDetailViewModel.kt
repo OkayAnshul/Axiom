@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.navigation.AxiomScreen
 import com.cosmiclaboratory.axiom.utils.PlainTextToMarkdownConverter
@@ -21,7 +21,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class NoteDetailViewModel @Inject constructor(
-    private val notesRepository: NotesRepository,
+    private val journalRepository: JournalRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     
@@ -49,7 +49,7 @@ class NoteDetailViewModel @Inject constructor(
     private fun loadNote(id: Long) {
         viewModelScope.launch {
             try {
-                val note = notesRepository.getNoteById(id)
+                val note = journalRepository.getById(id)
                 if (note != null) {
                     currentNote = note
                     _uiState.value = _uiState.value.copy(
@@ -355,7 +355,7 @@ class NoteDetailViewModel @Inject constructor(
                         content = contentText,
                         markdown = generatedMarkdown
                     )
-                    val id = notesRepository.insertNote(newNote)
+                    val id = journalRepository.upsert(newNote)
                     currentNote = newNote.copy(id = id)
                     _uiState.value = _uiState.value.copy(
                         isNewNote = false,
@@ -371,7 +371,7 @@ class NoteDetailViewModel @Inject constructor(
                             markdown = generatedMarkdown,
                             updatedAt = LocalDateTime.now()
                         )
-                        notesRepository.updateNote(updatedNote)
+                        journalRepository.upsert(updatedNote)
                         currentNote = updatedNote
                     }
                     _uiState.value = _uiState.value.copy(
@@ -392,7 +392,7 @@ class NoteDetailViewModel @Inject constructor(
         currentNote?.let { note ->
             viewModelScope.launch {
                 try {
-                    notesRepository.deleteNote(note)
+                    journalRepository.delete(note)
                 } catch (e: Exception) {
                     _uiState.value = _uiState.value.copy(
                         errorMessage = "Failed to delete note: ${e.message}"

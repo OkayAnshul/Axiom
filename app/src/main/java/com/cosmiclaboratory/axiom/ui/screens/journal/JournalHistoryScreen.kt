@@ -90,12 +90,12 @@ fun JournalHistoryScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Text(
-                                    entry.questionTextSnapshot,
+                                    entry.promptSnapshot ?: "",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontStyle = FontStyle.Italic
                                 )
                                 Text(
-                                    entry.plainText.take(160),
+                                    entry.content.take(160),
                                     style = MaterialTheme.typography.bodySmall,
                                     maxLines = 3
                                 )

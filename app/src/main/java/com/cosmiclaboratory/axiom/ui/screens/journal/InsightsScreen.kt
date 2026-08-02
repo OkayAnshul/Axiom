@@ -52,11 +52,11 @@ fun InsightsScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            entry.questionTextSnapshot,
+                            entry.promptSnapshot ?: "",
                             style = MaterialTheme.typography.titleSmall,
                             fontStyle = FontStyle.Italic
                         )
-                        Text(entry.plainText, style = MaterialTheme.typography.bodyMedium)
+                        Text(entry.content, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

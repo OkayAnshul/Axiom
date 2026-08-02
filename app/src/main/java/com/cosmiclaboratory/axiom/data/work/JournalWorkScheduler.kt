@@ -47,14 +47,14 @@ class JournalWorkScheduler @Inject constructor(
         )
     }
 
-    fun enqueueSummarize(answerEntryId: Long) {
+    fun enqueueSummarize(entryId: Long) {
         val request = OneTimeWorkRequestBuilder<SummarizeEntryWorker>()
             .setConstraints(networkConstraints())
-            .setInputData(workDataOf(SummarizeEntryWorker.KEY_ENTRY_ID to answerEntryId))
+            .setInputData(workDataOf(SummarizeEntryWorker.KEY_ENTRY_ID to entryId))
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
             .build()
         workManager.enqueueUniqueWork(
-            "ai-summarize-$answerEntryId",
+            "ai-summarize-$entryId",
             ExistingWorkPolicy.KEEP,
             request
         )

@@ -33,7 +33,7 @@ class NotesListWidget : GlanceAppWidget() {
                 context.applicationContext,
                 WidgetEntryPoint::class.java
             )
-            entryPoint.notesRepository().getAllNotes().first().take(3)
+            entryPoint.journalRepository().observeAll().first().take(3)
         } catch (e: Exception) {
             emptyList()
         }

@@ -4,7 +4,7 @@ import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.Persona
@@ -23,7 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class CompanionService @Inject constructor(
     private val ai: AiProvider,
-    private val entries: NotesRepository,
+    private val entries: JournalRepository,
     private val personaRepo: PersonaRepository,
     private val companionRepo: CompanionRepository,
     private val prefs: UserPreferences
@@ -40,11 +40,14 @@ class CompanionService @Inject constructor(
         }
         companionRepo.appendUser(threadId, userQuestion)
 
-        val ftsQuery = buildFtsQuery(userQuestion)
-        val candidates = if (ftsQuery.isNotBlank()) {
-            runCatching { entries.searchNotes(ftsQuery) }.getOrDefault(emptyList())
-        } else emptyList()
-        val topK = candidates.take(8)
+        // Raw question in — the repository sanitizes it. Pre-sanitizing here would
+        // double-process it and strip the OR operators the first pass produced.
+        // Retrieval now spans the whole corpus: before the entries merge this
+        // searched only free-form notes and was structurally blind to every
+        // guided journal answer.
+        val topK = runCatching { entries.searchForRetrieval(userQuestion) }
+            .getOrDefault(emptyList())
+            .take(8)
 
         val personaKey = prefs.activePersonaKey.first()
         val persona: Persona = personaRepo.getByKey(personaKey)
@@ -90,30 +93,4 @@ class CompanionService @Inject constructor(
         }
     }
 
-    /**
-     * FTS4 MATCH dislikes most natural-language queries. Strip stopwords, drop
-     * very short tokens, and OR-join. This is intentionally simple — refining
-     * retrieval precision past this point has diminishing returns when the LLM
-     * does the synthesis anyway.
-     */
-    private fun buildFtsQuery(question: String): String {
-        val tokens = question
-            .lowercase()
-            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
-            .split(Regex("\\s+"))
-            .filter { it.length >= 3 && it !in STOPWORDS }
-            .distinct()
-            .take(8)
-        return tokens.joinToString(" OR ")
-    }
-
-    private companion object {
-        val STOPWORDS = setOf(
-            "the", "and", "for", "with", "that", "this", "have", "had", "has",
-            "are", "was", "were", "been", "but", "did", "doing", "does", "you",
-            "your", "yours", "what", "when", "where", "how", "why", "who",
-            "about", "from", "into", "than", "then", "there", "these", "those",
-            "did", "i'm", "i've", "ive", "we", "they", "them", "their"
-        )
-    }
 }

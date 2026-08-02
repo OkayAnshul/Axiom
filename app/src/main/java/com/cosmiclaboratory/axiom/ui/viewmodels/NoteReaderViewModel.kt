@@ -2,7 +2,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
@@ -17,7 +17,7 @@ data class NoteReaderUiState(
 
 @HiltViewModel
 class NoteReaderViewModel @Inject constructor(
-    private val notesRepository: NotesRepository
+    private val journalRepository: JournalRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NoteReaderUiState())
@@ -28,7 +28,7 @@ class NoteReaderViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             
             try {
-                val note = notesRepository.getNoteById(noteId)
+                val note = journalRepository.getById(noteId)
                 if (note != null) {
                     _uiState.value = _uiState.value.copy(
                         note = note,
