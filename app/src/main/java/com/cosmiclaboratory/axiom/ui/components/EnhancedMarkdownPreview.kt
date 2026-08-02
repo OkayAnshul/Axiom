@@ -170,7 +170,7 @@ private fun EmptyState(readerMode: Boolean) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (readerMode) "Nothing to read yet..." else "Nothing to preview yet...",
+            text = if (readerMode) "Nothing to read yet" else "Your reader page is quiet",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
@@ -179,7 +179,7 @@ private fun EmptyState(readerMode: Boolean) {
         if (!readerMode) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Start typing to see your markdown come to life!",
+                text = "Start with one honest line.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
@@ -192,7 +192,7 @@ private fun EmptyState(readerMode: Boolean) {
 private fun ErrorState(content: String, showDebug: Boolean) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "No markdown elements found",
+            text = "Reader content is still forming",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error
         )

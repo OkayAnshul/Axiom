@@ -74,6 +74,20 @@ class TextEditorStateManager {
         
         val beforeSelection = text.substring(0, selection.start)
         val afterSelection = text.substring(selection.end)
+
+        if (!template.isMarkdownOnly) {
+            val naturalText = when {
+                template.template.contains("text") -> template.template.replace("text", selectedText)
+                template.template.endsWith(":") -> "$selectedText:"
+                else -> "${template.template} $selectedText".trim()
+            }
+            val newText = beforeSelection + naturalText + afterSelection
+            val newCursorPosition = selection.start + naturalText.length
+            return TextFieldValue(
+                text = newText,
+                selection = TextRange(newCursorPosition)
+            )
+        }
         
         // Extract clean markers for wrapping
         val (openMarker, closeMarker) = extractTemplateMarkers(template.template)

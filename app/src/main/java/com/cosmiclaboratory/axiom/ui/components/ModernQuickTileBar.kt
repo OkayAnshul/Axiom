@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,13 +30,12 @@ fun ModernQuickTileBar(
 ) {
     val haptic = LocalHapticFeedback.current
     
-    // Pure markdown quick format options
     val quickFormats = listOf(
-        QuickFormat("bold", Icons.Default.FormatBold, "Bold"),
-        QuickFormat("italic", Icons.Default.FormatItalic, "Italic"),
-        QuickFormat("h1", Icons.Default.Title, "Title"),
-        QuickFormat("h2", Icons.Default.Title, "Subtitle"),
-        QuickFormat("code", Icons.Default.Code, "Code"),
+        QuickFormat("h2", Icons.Default.Title, "Section"),
+        QuickFormat("task_list", Icons.Default.CheckBox, "Task"),
+        QuickFormat("quote", Icons.Default.FormatQuote, "Quote"),
+        QuickFormat("bullet_list", Icons.AutoMirrored.Filled.FormatListBulleted, "List"),
+        QuickFormat("link", Icons.Default.Link, "Link"),
         QuickFormat("more", Icons.Default.MoreHoriz, "More")
     )
     
@@ -130,13 +130,12 @@ fun ModernQuickTileBarLight(
 ) {
     val haptic = LocalHapticFeedback.current
     
-    // Pure markdown quick format options
     val quickFormats = listOf(
-        QuickFormat("bold", Icons.Default.FormatBold, "Bold"),
-        QuickFormat("italic", Icons.Default.FormatItalic, "Italic"),
-        QuickFormat("h1", Icons.Default.Title, "Title"),
-        QuickFormat("h2", Icons.Default.Title, "Subtitle"),
-        QuickFormat("code", Icons.Default.Code, "Code"),
+        QuickFormat("h2", Icons.Default.Title, "Section"),
+        QuickFormat("task_list", Icons.Default.CheckBox, "Task"),
+        QuickFormat("quote", Icons.Default.FormatQuote, "Quote"),
+        QuickFormat("bullet_list", Icons.AutoMirrored.Filled.FormatListBulleted, "List"),
+        QuickFormat("link", Icons.Default.Link, "Link"),
         QuickFormat("more", Icons.Default.MoreHoriz, "More")
     )
     

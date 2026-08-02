@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Per-app language support. Only en today; Phase 8 adds hi alongside a values-hi/
+  translation, at which point this list is what makes the system language picker
+  appear in App info.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+</locale-config>

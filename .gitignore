@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local archives / scratch
+*.zip
+.kotlin/

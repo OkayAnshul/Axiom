@@ -65,4 +65,18 @@ interface NoteDao {
         ORDER BY notes.updatedAt DESC
     """)
     suspend fun searchNotes(query: String): List<NoteEntity>
+
+    // v2: kind / mood / time-window queries
+
+    @Query("SELECT * FROM notes WHERE kind = :kind AND isArchived = 0 ORDER BY updatedAt DESC")
+    fun observeByKind(kind: String): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE isArchived = 0 ORDER BY updatedAt DESC LIMIT :limit")
+    fun observeRecent(limit: Int): Flow<List<NoteEntity>>
+
+    @Query("SELECT * FROM notes WHERE createdAt >= :start AND createdAt < :end AND isArchived = 0 ORDER BY createdAt DESC")
+    suspend fun forDay(start: java.time.LocalDateTime, end: java.time.LocalDateTime): List<NoteEntity>
+
+    @Query("SELECT DISTINCT date(createdAt) FROM notes WHERE isArchived = 0 ORDER BY createdAt DESC")
+    suspend fun distinctEntryDates(): List<String>
 }

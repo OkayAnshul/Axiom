@@ -42,7 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.components.EnhancedMarkdownPreview
 import com.cosmiclaboratory.axiom.ui.viewmodels.NoteReaderViewModel
-import com.cosmiclaboratory.axiom.utils.ExportManager
+import com.cosmiclaboratory.axiom.utils.PlainTextToMarkdownConverter
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
@@ -57,13 +57,12 @@ fun NoteReaderScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val exportManager = remember { ExportManager(context) }
     val listState = rememberLazyListState()
     
     // UI State
     var isUIVisible by remember { mutableStateOf(true) }
     var isSettingsVisible by remember { mutableStateOf(false) }
-    var isDarkMode by remember { mutableStateOf(false) }
+    var isDarkMode by remember { mutableStateOf(true) }
     var fontSize by remember { mutableStateOf(16f) }
     
     // Auto-hide UI timer
@@ -105,6 +104,10 @@ fun NoteReaderScreen(
             }
             
             uiState.note != null -> {
+                val note = uiState.note!!
+                val readerMarkdown = note.markdown.ifBlank {
+                    PlainTextToMarkdownConverter.convert(note.content, note.title)
+                }
                 // Main content
                 LazyColumn(
                     state = listState,
@@ -120,7 +123,7 @@ fun NoteReaderScreen(
                     // Note title
                     item {
                         Text(
-                            text = uiState.note!!.title.ifEmpty { "Untitled Note" },
+                            text = note.title.ifEmpty { "Untitled Note" },
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontSize = (fontSize + 8).sp,
                                 fontWeight = FontWeight.Bold,
@@ -138,7 +141,7 @@ fun NoteReaderScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Updated ${uiState.note!!.updatedAt}",
+                                text = "Updated ${note.updatedAt}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontSize = (fontSize - 2).sp
                                 ),
@@ -166,7 +169,7 @@ fun NoteReaderScreen(
                             )
                         ) {
                             EnhancedMarkdownPreview(
-                                content = uiState.note!!.content,
+                                content = readerMarkdown,
                                 modifier = Modifier.fillMaxWidth(),
                                 enableAnimations = true,
                                 readerMode = true,

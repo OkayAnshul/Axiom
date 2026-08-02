@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -73,7 +74,6 @@ fun ModernFormatBottomSheet(
                 
                 Spacer(modifier = Modifier.height(24.dp))
                 
-                // Markdown Text Style Section (H1-H6 headers for font sizing)
                 MarkdownTextStyleSection(
                     selectedStyle = selectedTextStyle,
                     onStyleChange = { style ->
@@ -85,7 +85,6 @@ fun ModernFormatBottomSheet(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 
-                // Pure Markdown Formatting Section
                 MarkdownFormattingSection(
                     selectedFormats = selectedFormats,
                     onFormatToggle = { format ->
@@ -108,7 +107,7 @@ private fun MarkdownTextStyleSection(
 ) {
     Column {
         Text(
-            text = "Markdown Headers",
+            text = "Text style",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = FormatPanelText
@@ -116,14 +115,13 @@ private fun MarkdownTextStyleSection(
             modifier = Modifier.padding(bottom = 16.dp)
         )
         
-        // Markdown header styles (H1-H6 for clean font sizing)
         val markdownStyles = listOf(
-            MarkdownHeaderStyle("Title", "H1", 32.sp, FontWeight.Bold),
-            MarkdownHeaderStyle("Subtitle", "H2", 28.sp, FontWeight.Bold),
-            MarkdownHeaderStyle("Heading", "H3", 24.sp, FontWeight.SemiBold),
-            MarkdownHeaderStyle("Subheading", "H4", 22.sp, FontWeight.SemiBold),
-            MarkdownHeaderStyle("Section", "H5", 18.sp, FontWeight.Medium),
-            MarkdownHeaderStyle("Note", "H6", 16.sp, FontWeight.Medium)
+            MarkdownHeaderStyle("Title", "Lead", 32.sp, FontWeight.Bold),
+            MarkdownHeaderStyle("Subtitle", "Sub", 28.sp, FontWeight.Bold),
+            MarkdownHeaderStyle("Heading", "Head", 24.sp, FontWeight.SemiBold),
+            MarkdownHeaderStyle("Subheading", "Part", 22.sp, FontWeight.SemiBold),
+            MarkdownHeaderStyle("Section", "Sec", 18.sp, FontWeight.Medium),
+            MarkdownHeaderStyle("Note", "Note", 16.sp, FontWeight.Medium)
         )
         
         LazyRow(
@@ -205,7 +203,7 @@ private fun MarkdownFormattingSection(
 ) {
     Column {
         Text(
-            text = "Markdown Formatting",
+            text = "Insert",
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = FormatPanelText
@@ -219,7 +217,7 @@ private fun MarkdownFormattingSection(
             MarkdownFormat("table", Icons.Default.TableChart, "Table"),
             MarkdownFormat("link", Icons.Default.Link, "Link"),
             MarkdownFormat("image", Icons.Default.Image, "Image"),
-            MarkdownFormat("bullet_list", Icons.Default.FormatListBulleted, "List"),
+            MarkdownFormat("bullet_list", Icons.AutoMirrored.Filled.FormatListBulleted, "List"),
             MarkdownFormat("task_list", Icons.Default.CheckBox, "Tasks")
         )
         

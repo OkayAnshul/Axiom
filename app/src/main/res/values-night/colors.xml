@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark window background. Matches AxiomColors.oledDark.canvas so the platform
+         window and the Compose surface agree and cold start shows no flash. -->
+    <color name="axiom_window_background">#FF000000</color>
+</resources>

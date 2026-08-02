@@ -1,5 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Axiom" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+      Base app theme — LIGHT variant. The dark parent lives in values-night/themes.xml.
+      There is no `android:Theme.*.DayNight.NoActionBar` in the platform namespace and
+      we deliberately don't depend on AppCompat, so resource qualifiers do the job
+      instead. windowBackground resolves per-qualifier too, so cold start never
+      flashes the wrong colour.
+
+      NOTE: this follows the SYSTEM setting. When the user picks an explicit in-app
+      override (ThemeMode.LIGHT/DARK/AMOLED) the two can disagree for the first frame
+      only; Compose corrects it immediately. Matching the platform window to an in-app
+      override would require recreating the Activity — a worse trade than one frame.
+    -->
+    <style name="Theme.Axiom" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/axiom_window_background</item>
+    </style>
+
+    <!--
+      Launch theme handed to androidx.core.splashscreen. The system draws this until
+      MainActivity releases the keep-on-screen condition, replacing the old
+      hand-rolled splash destination that blocked for a hardcoded 3.5 seconds.
+    -->
+    <style name="Theme.Axiom.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/axiom_window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Axiom</item>
+    </style>
 </resources>
