@@ -3,16 +3,18 @@ package com.cosmiclaboratory.axiom.ui.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -22,206 +24,181 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.navigation
+import androidx.navigation.navDeepLink
+import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
-import com.cosmiclaboratory.axiom.ui.screens.DeveloperScreen
-import com.cosmiclaboratory.axiom.ui.screens.NoteDetailScreen
-import com.cosmiclaboratory.axiom.ui.screens.NoteReaderScreen
-import com.cosmiclaboratory.axiom.ui.screens.NotesListScreen
-import com.cosmiclaboratory.axiom.ui.screens.SearchScreen
-import com.cosmiclaboratory.axiom.ui.screens.companion.CompanionScreen
-import com.cosmiclaboratory.axiom.ui.screens.journal.AnswerCaptureScreen
-import com.cosmiclaboratory.axiom.ui.screens.journal.InsightsScreen
-import com.cosmiclaboratory.axiom.ui.screens.journal.JournalHistoryScreen
-import com.cosmiclaboratory.axiom.ui.screens.journal.JournalSettingsScreen
+import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
 import com.cosmiclaboratory.axiom.ui.screens.today.TodayScreen
-import com.cosmiclaboratory.axiom.utils.ShareIntentHandler
+import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
+import kotlin.reflect.KClass
 
-private val TAB_ROUTES = setOf(
-    AxiomScreen.Today.route,
-    AxiomScreen.Library.route,
-    AxiomScreen.Companion.route
+private data class Tab(
+    val label: String,
+    val icon: ImageVector,
+    val route: Any,
+    val matches: KClass<*>
 )
 
 @Composable
 fun AxiomNavigation(
     navController: NavHostController,
-    sharedContent: ShareIntentHandler.SharedContent? = null,
-    onSharedContentConsumed: () -> Unit = {}
+    modifier: Modifier = Modifier,
+    startOnboarding: Boolean = false
 ) {
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute in TAB_ROUTES
+    val destination = backStackEntry?.destination
     val snackbarHostState = remember { SnackbarHostState() }
 
+    val tabs = remember {
+        listOf(
+            Tab("Today", Icons.Filled.WbSunny, Today, Today::class),
+            Tab("Journal", Icons.AutoMirrored.Filled.MenuBook, Journal, Journal::class),
+            Tab("Patterns", Icons.Filled.ShowChart, Patterns, Patterns::class),
+            Tab("Ask", Icons.Filled.AutoAwesome, Ask, Ask::class)
+        )
+    }
+
+    // Derived from the destination HIERARCHY, not a hardcoded route set — that
+    // set went stale every time a route was renamed.
+    val showBottomBar = destination?.hierarchyContains(Main::class) == true
+
     Scaffold(
+        modifier = modifier,
+        containerColor = AxiomTheme.colors.canvas,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute == AxiomScreen.Today.route,
-                        onClick = { navigateTab(navController, AxiomScreen.Today.route) },
-                        icon = { Icon(Icons.Filled.WbSunny, contentDescription = null) },
-                        label = { Text("Today") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == AxiomScreen.Library.route,
-                        onClick = { navigateTab(navController, AxiomScreen.Library.route) },
-                        icon = { Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null) },
-                        label = { Text("Library") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == AxiomScreen.Companion.route,
-                        onClick = { navigateTab(navController, AxiomScreen.Companion.route) },
-                        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-                        label = { Text("Companion") }
-                    )
+                NavigationBar(containerColor = AxiomTheme.colors.surface) {
+                    tabs.forEach { tab ->
+                        val selected = destination?.hierarchyContains(tab.matches) == true
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { navigateTab(navController, tab.route) },
+                            // Labels are always shown; an icon-only nav bar is the
+                            // same discoverability failure as an unlabelled button.
+                            icon = { Icon(tab.icon, contentDescription = null) },
+                            label = { Text(tab.label, style = AxiomTheme.type.uiLabelSmall) },
+                            alwaysShowLabel = true,
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = AxiomTheme.colors.onAccentSoft,
+                                selectedTextColor = AxiomTheme.colors.ink,
+                                indicatorColor = AxiomTheme.colors.accentSoft,
+                                unselectedIconColor = AxiomTheme.colors.inkFaint,
+                                unselectedTextColor = AxiomTheme.colors.inkFaint
+                            )
+                        )
+                    }
                 }
             }
         }
     ) { padding ->
         CompositionLocalProvider(LocalSnackbarHostState provides snackbarHostState) {
-        NavHost(
-            navController = navController,
-            startDestination = AxiomScreen.Today.route,
-            modifier = Modifier.padding(padding),
-            enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
-            exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { -it } },
-            popEnterTransition = { slideInHorizontally(animationSpec = tween(300)) { -it } },
-            popExitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
-        ) {
-            composable(
-                route = AxiomScreen.Today.route,
-                enterTransition = { fadeIn(animationSpec = tween(300)) },
-                exitTransition = { fadeOut(animationSpec = tween(300)) }
+            NavHost(
+                navController = navController,
+                startDestination = if (startOnboarding) Onboarding else Main,
+                modifier = Modifier.padding(padding),
+                // Fade + a slight scale, not a horizontal slide. Sliding implies a
+                // linear sequence, which is wrong for peer tabs.
+                enterTransition = { fadeIn(tween(180)) + scaleIn(tween(220), 0.97f) },
+                exitTransition = { fadeOut(tween(140)) },
+                popEnterTransition = { fadeIn(tween(180)) + scaleIn(tween(220), 1.02f) },
+                popExitTransition = { fadeOut(tween(140)) + scaleOut(tween(180), 0.98f) }
             ) {
-                TodayScreen(
-                    onNewEntry = { navController.navigate(AxiomScreen.NoteDetail.createRoute()) },
-                    onVoiceEntry = { navController.navigate(AxiomScreen.NoteDetail.createRoute()) },
-                    onOpenEntry = { id -> navController.navigate(AxiomScreen.NoteDetail.createRoute(id)) }
-                )
-            }
+                composable<Onboarding> {
+                    Placeholder("Onboarding", "Lands in Phase 7.")
+                }
 
-            composable(
-                route = AxiomScreen.Library.route,
-                enterTransition = { fadeIn(animationSpec = tween(300)) },
-                exitTransition = { fadeOut(animationSpec = tween(300)) }
-            ) {
-                NotesListScreen(
-                    onNoteClick = { id -> navController.navigate(AxiomScreen.NoteDetail.createRoute(id)) },
-                    onNewNoteClick = { navController.navigate(AxiomScreen.NoteDetail.createRoute()) },
-                    onSearchClick = { navController.navigate(AxiomScreen.Search.route) },
-                    onReaderClick = { id -> navController.navigate(AxiomScreen.NoteReader.createRoute(id)) },
-                    onTutorialClick = { /* tutorial removed in v2 — see MarkdownCheatsheet sheet in editor */ },
-                    onDeveloperClick = { navController.navigate(AxiomScreen.Developer.route) }
-                )
-            }
-
-            composable(
-                route = AxiomScreen.Companion.route,
-                enterTransition = { fadeIn(animationSpec = tween(300)) },
-                exitTransition = { fadeOut(animationSpec = tween(300)) }
-            ) {
-                CompanionScreen()
-            }
-
-            // Journal flows kept for backwards-compat with existing prompts/answers.
-            composable(
-                route = AxiomScreen.AnswerCapture.route,
-                arguments = AxiomScreen.AnswerCapture.arguments
-            ) {
-                AnswerCaptureScreen(
-                    onBack = { navController.popBackStack() },
-                    onCompleted = { entryId ->
-                        navController.navigate(AxiomScreen.Insights.createRoute(entryId)) {
-                            popUpTo(AxiomScreen.Today.route)
-                        }
+                navigation<Main>(startDestination = Today) {
+                    composable<Today>(
+                        deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.TODAY })
+                    ) {
+                        TodayScreen(
+                            onNewEntry = { navController.navigate(Composer()) },
+                            onVoiceEntry = { navController.navigate(Composer(voice = true)) },
+                            onOpenEntry = { id -> navController.navigate(Reader(id)) },
+                            onWriteAboutPrompt = { qId ->
+                                navController.navigate(Composer(questionId = qId))
+                            },
+                            onSeeAllEntries = { navigateTab(navController, Journal) },
+                            onOpenSettings = { navController.navigate(Settings) }
+                        )
                     }
-                )
-            }
 
-            composable(
-                route = AxiomScreen.Insights.route,
-                arguments = AxiomScreen.Insights.arguments
-            ) { InsightsScreen(onBack = { navController.popBackStack() }) }
-
-            composable(route = AxiomScreen.History.route) {
-                JournalHistoryScreen(
-                    onBack = { navController.popBackStack() },
-                    onEntryClick = { id -> navController.navigate(AxiomScreen.Insights.createRoute(id)) }
-                )
-            }
-
-            composable(route = AxiomScreen.JournalSettings.route) {
-                JournalSettingsScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(
-                route = AxiomScreen.NoteDetail.route,
-                arguments = AxiomScreen.NoteDetail.arguments
-            ) { backStackEntry ->
-                val noteId = backStackEntry.arguments?.getLong(AxiomScreen.NoteDetail.NOTE_ID_ARG)
-                    ?.takeIf { it != -1L }
-                NoteDetailScreen(
-                    noteId = noteId,
-                    sharedContent = sharedContent,
-                    onNavigateBack = { navController.popBackStack() },
-                    onSharedContentConsumed = onSharedContentConsumed
-                )
-            }
-
-            composable(
-                route = AxiomScreen.NoteReader.route,
-                arguments = AxiomScreen.NoteReader.arguments
-            ) { backStackEntry ->
-                val noteId = backStackEntry.arguments?.getLong(AxiomScreen.NoteReader.NOTE_ID_ARG) ?: 0L
-                NoteReaderScreen(
-                    noteId = noteId,
-                    onNavigateBack = { navController.popBackStack() },
-                    onEditNote = {
-                        navController.navigate(AxiomScreen.NoteDetail.createRoute(noteId)) {
-                            popUpTo(AxiomScreen.Library.route)
-                        }
+                    composable<Journal>(
+                        deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.JOURNAL })
+                    ) {
+                        Placeholder("Journal", "The timeline lands in Phase 5.")
                     }
-                )
-            }
 
-            composable(
-                route = AxiomScreen.Search.route,
-                enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
-                exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
-            ) {
-                SearchScreen(
-                    onNoteClick = { id ->
-                        navController.navigate(AxiomScreen.NoteDetail.createRoute(id)) {
-                            popUpTo(AxiomScreen.Library.route)
-                        }
-                    },
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
+                    composable<Patterns>(
+                        deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.PATTERNS })
+                    ) {
+                        Placeholder("Patterns", "Lands in Phase 7, on top of the ML work.")
+                    }
 
-            composable(
-                route = AxiomScreen.Developer.route,
-                enterTransition = { slideInHorizontally(animationSpec = tween(300)) { it } },
-                exitTransition = { slideOutHorizontally(animationSpec = tween(300)) { it } }
-            ) {
-                DeveloperScreen(onNavigateBack = { navController.popBackStack() })
+                    composable<Ask> {
+                        Placeholder("Ask", "Grounded chat lands in Phase 6.")
+                    }
+                }
+
+                composable<Composer>(
+                    deepLinks = listOf(
+                        navDeepLink { uriPattern = AxiomDeepLinks.COMPOSER },
+                        navDeepLink { uriPattern = "${AxiomDeepLinks.COMPOSER}?voice={voice}" }
+                    )
+                ) { entry ->
+                    val args = entry.toRoute<Composer>()
+                    Placeholder(
+                        "Composer",
+                        "entryId=${args.entryId} questionId=${args.questionId} voice=${args.voice}\nLands in Phase 4."
+                    )
+                }
+
+                composable<Reader>(
+                    deepLinks = listOf(navDeepLink { uriPattern = "${AxiomDeepLinks.SCHEME}://reader/{entryId}" })
+                ) { entry ->
+                    Placeholder("Reader", "entryId=${entry.toRoute<Reader>().entryId}\nLands in Phase 4.")
+                }
+
+                composable<EntryInsight> { Placeholder("Insight", "Lands in Phase 6.") }
+                composable<Search> { Placeholder("Search", "Lands in Phase 5.") }
+                composable<Calendar> { Placeholder("Calendar", "Lands in Phase 5.") }
+
+                composable<Settings> { Placeholder("Settings", "Lands in Phase 7.") }
+                composable<SettingsAi>(
+                    deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.SETTINGS_AI })
+                ) { Placeholder("AI settings", "Lands in Phase 7.") }
             }
-        }
         }
     }
 }
 
-private fun navigateTab(navController: NavHostController, route: String) {
-    if (navController.currentDestination?.route == route) return
+/** True when [target] appears anywhere in this destination's parent chain. */
+private fun NavDestination.hierarchyContains(target: KClass<*>): Boolean =
+    hierarchy.any { node -> node.hasRoute(target) }
+
+private fun navigateTab(navController: NavHostController, route: Any) {
     navController.navigate(route) {
-        popUpTo(AxiomScreen.Today.route) { saveState = true }
+        // Save/restore per-tab state, and pop to the graph root so the back stack
+        // cannot accumulate one entry per tab switch.
+        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
         restoreState = true
     }
+}
+
+/** Temporary surface for destinations that land in later phases. */
+@Composable
+private fun Placeholder(title: String, body: String) {
+    AxiomEmptyState(title = title, body = body)
 }
