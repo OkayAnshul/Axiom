@@ -2,7 +2,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val notesRepository: NotesRepository
+    private val journalRepository: JournalRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -56,7 +56,7 @@ class SearchViewModel @Inject constructor(
                     showHistory = false
                 )
                 
-                val results = notesRepository.searchNotes(query.trim())
+                val results = journalRepository.search(query.trim())
                 
                 // Add to search history if not already present
                 if (query.trim().isNotEmpty() && !searchHistory.contains(query.trim())) {

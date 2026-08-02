@@ -2,7 +2,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class NotesViewModel @Inject constructor(
-    private val notesRepository: NotesRepository
+    private val journalRepository: JournalRepository
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow(NotesUiState())
@@ -25,7 +25,7 @@ class NotesViewModel @Inject constructor(
     
     private fun loadNotes() {
         viewModelScope.launch {
-            notesRepository.getAllNotes().collect { notes ->
+            journalRepository.observeAll().collect { notes ->
                 _uiState.value = _uiState.value.copy(
                     entries = notes,
                     isLoading = false
@@ -42,7 +42,7 @@ class NotesViewModel @Inject constructor(
                     content = content,
                     markdown = content
                 )
-                notesRepository.insertNote(note)
+                journalRepository.upsert(note)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Failed to create note: ${e.message}"
@@ -61,7 +61,7 @@ class NotesViewModel @Inject constructor(
                     content = voiceText,
                     markdown = voiceText
                 )
-                notesRepository.insertNote(note)
+                journalRepository.upsert(note)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Failed to create voice note: ${e.message}"
@@ -82,7 +82,7 @@ class NotesViewModel @Inject constructor(
     fun updateNote(note: Entry) {
         viewModelScope.launch {
             try {
-                notesRepository.updateNote(note)
+                journalRepository.upsert(note)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Failed to update note: ${e.message}"
@@ -94,7 +94,7 @@ class NotesViewModel @Inject constructor(
     fun deleteNote(note: Entry) {
         viewModelScope.launch {
             try {
-                notesRepository.deleteNote(note)
+                journalRepository.delete(note)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     errorMessage = "Failed to delete note: ${e.message}"
@@ -115,7 +115,7 @@ class NotesViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                val searchResults = notesRepository.searchNotes(query)
+                val searchResults = journalRepository.search(query)
                 _uiState.value = _uiState.value.copy(
                     entries = searchResults,
                     isLoading = false

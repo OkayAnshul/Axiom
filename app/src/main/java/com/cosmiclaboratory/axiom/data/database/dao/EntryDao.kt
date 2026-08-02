@@ -3,80 +3,157 @@ package com.cosmiclaboratory.axiom.data.database.dao
 import androidx.room.*
 import com.cosmiclaboratory.axiom.data.database.entity.EntryEntity
 import com.cosmiclaboratory.axiom.data.database.entity.EntryTagCrossRef
-import com.cosmiclaboratory.axiom.data.database.entity.EntryFts
+import com.cosmiclaboratory.axiom.data.database.entity.EntryWithTags
 import com.cosmiclaboratory.axiom.data.database.entity.TagEntity
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDateTime
 
+/**
+ * The single entry DAO. Absorbs everything AnswerEntryDao used to do.
+ *
+ * Anything reaching an FTS `MATCH` here must already have been through
+ * [com.cosmiclaboratory.axiom.data.database.FtsQuerySanitizer] — raw user text
+ * throws SQLiteException on ordinary punctuation.
+ */
 @Dao
 interface EntryDao {
-    
-    @Query("SELECT * FROM entries WHERE isArchived = 0 ORDER BY updatedAt DESC")
-    fun getAllNotes(): Flow<List<EntryEntity>>
-    
-    @Query("SELECT * FROM entries WHERE id = :noteId")
-    suspend fun getNoteById(noteId: Long): EntryEntity?
-    
-    @Query("SELECT * FROM entries WHERE isFavorite = 1 AND isArchived = 0 ORDER BY updatedAt DESC")
-    fun getFavoriteNotes(): Flow<List<EntryEntity>>
-    
-    @Query("SELECT * FROM entries WHERE isArchived = 1 ORDER BY updatedAt DESC")
-    fun getArchivedNotes(): Flow<List<EntryEntity>>
-    
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertNote(note: EntryEntity): Long
-    
-    @Update
-    suspend fun updateNote(note: EntryEntity)
-    
-    @Delete
-    suspend fun deleteNote(note: EntryEntity)
-    
-    @Query("DELETE FROM entries WHERE id = :noteId")
-    suspend fun deleteNoteById(noteId: Long)
-    
-    // Tag relationships
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertNoteTagCrossRef(crossRef: EntryTagCrossRef)
-    
-    @Delete
-    suspend fun deleteNoteTagCrossRef(crossRef: EntryTagCrossRef)
-    
+
+    // ---- reads -------------------------------------------------------------
+
+    /**
+     * Entries with their tags in ONE query. The previous shape resolved tags with
+     * a suspend call per entry inside the Flow's map — N+1 round trips on every
+     * emission.
+     */
     @Transaction
-    @Query("""
+    @Query("SELECT * FROM entries WHERE isArchived = 0 ORDER BY updatedAt DESC")
+    fun observeAllWithTags(): Flow<List<EntryWithTags>>
+
+    @Transaction
+    @Query("SELECT * FROM entries WHERE isArchived = 0 AND isComplete = 1 ORDER BY createdAt DESC")
+    fun observeCompletedWithTags(): Flow<List<EntryWithTags>>
+
+    @Transaction
+    @Query("SELECT * FROM entries WHERE isFavorite = 1 AND isArchived = 0 ORDER BY updatedAt DESC")
+    fun observeFavoritesWithTags(): Flow<List<EntryWithTags>>
+
+    @Transaction
+    @Query("SELECT * FROM entries WHERE isArchived = 1 ORDER BY updatedAt DESC")
+    fun observeArchivedWithTags(): Flow<List<EntryWithTags>>
+
+    @Transaction
+    @Query("SELECT * FROM entries WHERE kind = :kind AND isArchived = 0 ORDER BY updatedAt DESC")
+    fun observeByKindWithTags(kind: String): Flow<List<EntryWithTags>>
+
+    @Transaction
+    @Query(
+        """
         SELECT entries.* FROM entries
-        INNER JOIN entry_tag_cross_ref ON entries.id = entry_tag_cross_ref.noteId
+        INNER JOIN entry_tag_cross_ref ON entries.id = entry_tag_cross_ref.entryId
         WHERE entry_tag_cross_ref.tagId = :tagId
         ORDER BY entries.updatedAt DESC
-    """)
-    fun getNotesByTag(tagId: Long): Flow<List<EntryEntity>>
-    
-    @Query("""
-        SELECT tags.* FROM tags
-        INNER JOIN entry_tag_cross_ref ON tags.id = entry_tag_cross_ref.tagId
-        WHERE entry_tag_cross_ref.noteId = :noteId
-    """)
-    suspend fun getTagsForNote(noteId: Long): List<TagEntity>
-    
-    // Full-text search
-    @Query("""
-        SELECT entries.* FROM entries
-        JOIN entry_fts ON entries.id = entry_fts.docid
-        WHERE entry_fts MATCH :query
-        ORDER BY entries.updatedAt DESC
-    """)
-    suspend fun searchNotes(query: String): List<EntryEntity>
+        """
+    )
+    fun observeByTagWithTags(tagId: Long): Flow<List<EntryWithTags>>
 
-    // v2: kind / mood / time-window queries
+    @Transaction
+    @Query("SELECT * FROM entries WHERE id = :entryId LIMIT 1")
+    suspend fun getWithTags(entryId: Long): EntryWithTags?
 
-    @Query("SELECT * FROM entries WHERE kind = :kind AND isArchived = 0 ORDER BY updatedAt DESC")
-    fun observeByKind(kind: String): Flow<List<EntryEntity>>
+    @Transaction
+    @Query("SELECT * FROM entries WHERE id = :entryId LIMIT 1")
+    fun observeWithTags(entryId: Long): Flow<EntryWithTags?>
 
-    @Query("SELECT * FROM entries WHERE isArchived = 0 ORDER BY updatedAt DESC LIMIT :limit")
-    fun observeRecent(limit: Int): Flow<List<EntryEntity>>
+    @Query("SELECT * FROM entries WHERE id = :entryId LIMIT 1")
+    suspend fun getById(entryId: Long): EntryEntity?
+
+    /** Drafts — started and never finished. Feeds Today's "continue writing". */
+    @Query(
+        """
+        SELECT * FROM entries
+        WHERE isComplete = 0 AND isArchived = 0 AND (content != '' OR title != '')
+        ORDER BY updatedAt DESC LIMIT :limit
+        """
+    )
+    suspend fun drafts(limit: Int): List<EntryEntity>
 
     @Query("SELECT * FROM entries WHERE createdAt >= :start AND createdAt < :end AND isArchived = 0 ORDER BY createdAt DESC")
-    suspend fun forDay(start: java.time.LocalDateTime, end: java.time.LocalDateTime): List<EntryEntity>
+    suspend fun forDay(start: LocalDateTime, end: LocalDateTime): List<EntryEntity>
 
     @Query("SELECT DISTINCT date(createdAt) FROM entries WHERE isArchived = 0 ORDER BY createdAt DESC")
     suspend fun distinctEntryDates(): List<String>
+
+    @Query("SELECT COUNT(*) FROM entries WHERE isArchived = 0")
+    suspend fun count(): Int
+
+    // ---- search ------------------------------------------------------------
+
+    @Transaction
+    @Query(
+        """
+        SELECT entries.* FROM entries
+        JOIN entry_fts ON entries.id = entry_fts.docid
+        WHERE entry_fts MATCH :query AND entries.isArchived = 0
+        ORDER BY entries.updatedAt DESC
+        """
+    )
+    suspend fun search(query: String): List<EntryWithTags>
+
+    /** Completed entries that already carry an AI insight — context for prompt generation. */
+    @Query(
+        """
+        SELECT e.* FROM entries e
+        JOIN ai_insights i ON i.entryId = e.id
+        WHERE e.isComplete = 1
+        ORDER BY e.createdAt DESC LIMIT :limit
+        """
+    )
+    suspend fun recentSummarized(limit: Int): List<EntryEntity>
+
+    // ---- writes ------------------------------------------------------------
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entry: EntryEntity): Long
+
+    @Update
+    suspend fun update(entry: EntryEntity)
+
+    @Delete
+    suspend fun delete(entry: EntryEntity)
+
+    @Query("DELETE FROM entries WHERE id = :entryId")
+    suspend fun deleteById(entryId: Long)
+
+    @Query("UPDATE entries SET isComplete = 1, updatedAt = :now WHERE id = :entryId")
+    suspend fun markComplete(entryId: Long, now: LocalDateTime)
+
+    @Query("UPDATE entries SET mood = :mood, moodCapturedAt = :capturedAt, updatedAt = :capturedAt WHERE id = :entryId")
+    suspend fun setMood(entryId: Long, mood: Int?, capturedAt: LocalDateTime)
+
+    @Query("UPDATE entries SET isFavorite = :favorite, updatedAt = :now WHERE id = :entryId")
+    suspend fun setFavorite(entryId: Long, favorite: Boolean, now: LocalDateTime)
+
+    @Query("UPDATE entries SET isArchived = :archived, updatedAt = :now WHERE id = :entryId")
+    suspend fun setArchived(entryId: Long, archived: Boolean, now: LocalDateTime)
+
+    // ---- tags --------------------------------------------------------------
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTagCrossRef(crossRef: EntryTagCrossRef)
+
+    /**
+     * Required for tag edits to be lossless. The old updateNote only ever
+     * inserted cross-refs, so removing a tag from an entry was impossible.
+     */
+    @Query("DELETE FROM entry_tag_cross_ref WHERE entryId = :entryId")
+    suspend fun deleteTagCrossRefsFor(entryId: Long)
+
+    @Query(
+        """
+        SELECT tags.* FROM tags
+        INNER JOIN entry_tag_cross_ref ON tags.id = entry_tag_cross_ref.tagId
+        WHERE entry_tag_cross_ref.entryId = :entryId
+        """
+    )
+    suspend fun tagsFor(entryId: Long): List<TagEntity>
 }

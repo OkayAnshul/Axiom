@@ -35,7 +35,7 @@ class SummarizeEntryWorker @AssistedInject constructor(
         if (existing != null) return Result.success()
 
         val entry = journalRepo.getById(entryId) ?: return Result.failure()
-        val plain = entry.plainText.ifBlank { entry.markdown }
+        val plain = entry.content.ifBlank { entry.markdown }
         if (plain.isBlank()) return Result.success()
 
         val personaKey = prefs.activePersonaKey.first()
@@ -46,7 +46,7 @@ class SummarizeEntryWorker @AssistedInject constructor(
                 val v = result.value
                 journalRepo.saveInsight(
                     AIInsightEntity(
-                        answerEntryId = entryId,
+                        entryId = entryId,
                         summary = v.summary,
                         followUpQuestionText = v.followUp,
                         themesCsv = v.themes.joinToString(","),

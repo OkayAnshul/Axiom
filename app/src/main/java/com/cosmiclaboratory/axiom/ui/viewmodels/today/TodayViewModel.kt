@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.DailySummaryRepository
-import com.cosmiclaboratory.axiom.data.repository.NotesRepository
+import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +26,7 @@ data class TodayUiState(
 
 @HiltViewModel
 class TodayViewModel @Inject constructor(
-    private val entries: NotesRepository,
+    private val entries: JournalRepository,
     private val summaries: DailySummaryRepository,
     private val prefs: UserPreferences
 ) : ViewModel() {
@@ -37,7 +37,7 @@ class TodayViewModel @Inject constructor(
     init {
         viewModelScope.launch { refresh() }
         viewModelScope.launch {
-            entries.getAllNotes().collect { all ->
+            entries.observeAll().collect { all ->
                 _state.value = _state.value.copy(recent = all.take(5))
             }
         }

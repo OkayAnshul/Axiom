@@ -3,7 +3,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
-import com.cosmiclaboratory.axiom.domain.model.AnswerEntry
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.usecase.journal.SearchEntriesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class JournalHistoryUiState(
-    val entries: List<AnswerEntry> = emptyList(),
+    val entries: List<Entry> = emptyList(),
     val query: String = "",
     val isSearching: Boolean = false
 )

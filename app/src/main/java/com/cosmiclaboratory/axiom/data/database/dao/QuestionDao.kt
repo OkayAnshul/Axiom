@@ -27,7 +27,7 @@ interface QuestionDao {
      */
     @Query("""
         SELECT q.* FROM questions q
-        LEFT JOIN answer_entries a ON a.questionId = q.id
+        LEFT JOIN entries a ON a.questionId = q.id AND a.isComplete = 1
         WHERE q.source = 'AI_FOLLOWUP' AND a.id IS NULL
         ORDER BY q.createdAt DESC LIMIT 1
     """)
@@ -38,7 +38,7 @@ interface QuestionDao {
      */
     @Query("""
         SELECT q.* FROM questions q
-        LEFT JOIN answer_entries a ON a.questionId = q.id
+        LEFT JOIN entries a ON a.questionId = q.id AND a.isComplete = 1
         WHERE q.source = 'CURATED'
           AND (q.theme = :theme OR :theme IS NULL)
           AND (a.id IS NULL OR a.createdAt < :cutoffIso)
@@ -48,7 +48,7 @@ interface QuestionDao {
 
     @Query("""
         SELECT q.* FROM questions q
-        LEFT JOIN answer_entries a ON a.questionId = q.id
+        LEFT JOIN entries a ON a.questionId = q.id AND a.isComplete = 1
         WHERE q.source = 'CURATED' AND a.id IS NULL
         ORDER BY RANDOM() LIMIT 1
     """)

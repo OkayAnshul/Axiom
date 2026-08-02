@@ -5,7 +5,6 @@ import androidx.room.Room
 import com.cosmiclaboratory.axiom.data.database.AxiomDatabase
 import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.AiPromptCacheDao
-import com.cosmiclaboratory.axiom.data.database.dao.AnswerEntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
 import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
@@ -63,8 +62,6 @@ object DatabaseModule {
     @Provides
     fun provideQuestionDao(database: AxiomDatabase): QuestionDao = database.questionDao()
 
-    @Provides
-    fun provideAnswerEntryDao(database: AxiomDatabase): AnswerEntryDao = database.answerEntryDao()
 
     @Provides
     fun provideAIInsightDao(database: AxiomDatabase): AIInsightDao = database.aiInsightDao()

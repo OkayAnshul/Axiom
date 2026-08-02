@@ -97,7 +97,7 @@ class AnswerCaptureViewModel @Inject constructor(
         return saveAnswer(
             existingId = _state.value.savedEntryId,
             questionId = q?.id,
-            questionTextSnapshot = q?.text.orEmpty(),
+            promptSnapshot = q?.text.orEmpty(),
             markdown = markdown,
             plainText = text,
             durationMs = System.currentTimeMillis() - startedAt

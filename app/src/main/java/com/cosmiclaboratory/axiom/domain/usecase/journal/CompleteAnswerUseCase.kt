@@ -8,8 +8,8 @@ class CompleteAnswerUseCase @Inject constructor(
     private val journalRepo: JournalRepository,
     private val scheduler: JournalWorkScheduler
 ) {
-    suspend operator fun invoke(answerEntryId: Long) {
-        journalRepo.markComplete(answerEntryId)
-        scheduler.enqueueSummarize(answerEntryId)
+    suspend operator fun invoke(entryId: Long) {
+        journalRepo.markComplete(entryId)
+        scheduler.enqueueSummarize(entryId)
     }
 }
