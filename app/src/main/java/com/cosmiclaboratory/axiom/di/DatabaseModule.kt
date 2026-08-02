@@ -10,7 +10,7 @@ import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
 import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
-import com.cosmiclaboratory.axiom.data.database.dao.NoteDao
+import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.PersonaDao
 import com.cosmiclaboratory.axiom.data.database.dao.PromptPackDao
 import com.cosmiclaboratory.axiom.data.database.dao.QuestionDao
@@ -42,8 +42,8 @@ object DatabaseModule {
     }
     
     @Provides
-    fun provideNoteDao(database: AxiomDatabase): NoteDao {
-        return database.noteDao()
+    fun provideEntryDao(database: AxiomDatabase): EntryDao {
+        return database.entryDao()
     }
     
     @Provides

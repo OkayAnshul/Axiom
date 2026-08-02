@@ -10,7 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.theme.NoteMetadataStyle
 import com.cosmiclaboratory.axiom.ui.theme.NoteTitleStyle
 import com.cosmiclaboratory.axiom.utils.MarkdownParser
@@ -19,7 +19,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteCard(
-    note: Note,
+    note: Entry,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onReaderClick: (() -> Unit)? = null
@@ -36,9 +36,9 @@ fun NoteCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Note title
+            // Entry title
             Text(
-                text = note.title.ifEmpty { "Untitled Note" },
+                text = note.title.ifEmpty { "Untitled Entry" },
                 style = NoteTitleStyle,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -126,7 +126,7 @@ fun NoteCard(
 }
 
 @Composable
-private fun formatLastUpdated(note: Note): String {
+private fun formatLastUpdated(note: Entry): String {
     val now = java.time.LocalDateTime.now()
     val updated = note.updatedAt
     

@@ -3,7 +3,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +27,7 @@ class NotesViewModel @Inject constructor(
         viewModelScope.launch {
             notesRepository.getAllNotes().collect { notes ->
                 _uiState.value = _uiState.value.copy(
-                    notes = notes,
+                    entries = notes,
                     isLoading = false
                 )
             }
@@ -37,7 +37,7 @@ class NotesViewModel @Inject constructor(
     fun createNote(title: String, content: String) {
         viewModelScope.launch {
             try {
-                val note = Note(
+                val note = Entry(
                     title = title,
                     content = content,
                     markdown = content
@@ -56,7 +56,7 @@ class NotesViewModel @Inject constructor(
             try {
                 // Generate a title from the first few words
                 val title = generateTitleFromVoiceText(voiceText)
-                val note = Note(
+                val note = Entry(
                     title = title,
                     content = voiceText,
                     markdown = voiceText
@@ -73,13 +73,13 @@ class NotesViewModel @Inject constructor(
     private fun generateTitleFromVoiceText(text: String): String {
         val words = text.trim().split(" ")
         return when {
-            words.isEmpty() -> "Voice Note"
+            words.isEmpty() -> "Voice Entry"
             words.size <= 5 -> text
             else -> words.take(5).joinToString(" ") + "..."
         }.take(50) // Limit title length
     }
     
-    fun updateNote(note: Note) {
+    fun updateNote(note: Entry) {
         viewModelScope.launch {
             try {
                 notesRepository.updateNote(note)
@@ -91,7 +91,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     
-    fun deleteNote(note: Note) {
+    fun deleteNote(note: Entry) {
         viewModelScope.launch {
             try {
                 notesRepository.deleteNote(note)
@@ -117,7 +117,7 @@ class NotesViewModel @Inject constructor(
             try {
                 val searchResults = notesRepository.searchNotes(query)
                 _uiState.value = _uiState.value.copy(
-                    notes = searchResults,
+                    entries = searchResults,
                     isLoading = false
                 )
             } catch (e: Exception) {
@@ -130,7 +130,7 @@ class NotesViewModel @Inject constructor(
 }
 
 data class NotesUiState(
-    val notes: List<Note> = emptyList(),
+    val entries: List<Entry> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )

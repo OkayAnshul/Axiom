@@ -3,7 +3,7 @@ package com.cosmiclaboratory.axiom.utils
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -18,7 +18,7 @@ class ExportManager(private val context: Context) {
         TEXT(".txt", "text/plain")
     }
     
-    fun exportNote(note: Note, format: ExportFormat): Intent? {
+    fun exportNote(note: Entry, format: ExportFormat): Intent? {
         return try {
             val fileName = sanitizeFileName("${note.title}_${getCurrentTimestamp()}")
             val file = createExportFile(fileName, format.extension)
@@ -42,7 +42,7 @@ class ExportManager(private val context: Context) {
         return File(exportsDir, "$fileName$extension")
     }
     
-    private fun writeMarkdownFile(file: File, note: Note) {
+    private fun writeMarkdownFile(file: File, note: Entry) {
         val markdown = note.markdown.ifBlank {
             PlainTextToMarkdownConverter.convert(note.content, note.title)
         }
@@ -55,7 +55,7 @@ class ExportManager(private val context: Context) {
         }
     }
     
-    private fun writeTextFile(file: File, note: Note) {
+    private fun writeTextFile(file: File, note: Entry) {
         FileWriter(file).use { writer ->
             writer.write("${note.title}\n")
             writer.write("${"=".repeat(note.title.length)}\n\n")

@@ -45,7 +45,7 @@ class QuickNoteTileService : TileService() {
     private fun updateTile() {
         qsTile?.let { tile ->
             tile.icon = Icon.createWithResource(this, R.drawable.ic_launcher_foreground)
-            tile.label = "Quick Note"
+            tile.label = "Quick Entry"
             tile.contentDescription = "Create a new note quickly"
             tile.state = Tile.STATE_ACTIVE
             tile.updateTile()

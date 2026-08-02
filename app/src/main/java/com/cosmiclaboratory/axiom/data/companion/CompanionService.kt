@@ -6,7 +6,7 @@ import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -23,7 +23,7 @@ import javax.inject.Singleton
 @Singleton
 class CompanionService @Inject constructor(
     private val ai: AiProvider,
-    private val notes: NotesRepository,
+    private val entries: NotesRepository,
     private val personaRepo: PersonaRepository,
     private val companionRepo: CompanionRepository,
     private val prefs: UserPreferences
@@ -31,7 +31,7 @@ class CompanionService @Inject constructor(
 
     data class Answer(
         val text: String,
-        val citedEntries: List<Note>
+        val citedEntries: List<Entry>
     )
 
     suspend fun ask(threadId: String, userQuestion: String): AiResult<Answer> {
@@ -42,7 +42,7 @@ class CompanionService @Inject constructor(
 
         val ftsQuery = buildFtsQuery(userQuestion)
         val candidates = if (ftsQuery.isNotBlank()) {
-            runCatching { notes.searchNotes(ftsQuery) }.getOrDefault(emptyList())
+            runCatching { entries.searchNotes(ftsQuery) }.getOrDefault(emptyList())
         } else emptyList()
         val topK = candidates.take(8)
 

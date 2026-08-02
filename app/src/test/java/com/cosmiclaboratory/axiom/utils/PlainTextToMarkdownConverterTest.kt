@@ -75,10 +75,10 @@ class PlainTextToMarkdownConverterTest {
     fun convert_canIncludeTitleForStandaloneMarkdown() {
         val result = PlainTextToMarkdownConverter.convert(
             plainText = "A clear entry.",
-            title = "Daily Note",
+            title = "Daily Entry",
             includeTitle = true
         )
 
-        assertEquals("# Daily Note\n\nA clear entry.", result)
+        assertEquals("# Daily Entry\n\nA clear entry.", result)
     }
 }

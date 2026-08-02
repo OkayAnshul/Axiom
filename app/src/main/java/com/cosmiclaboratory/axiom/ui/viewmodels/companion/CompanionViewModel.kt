@@ -6,7 +6,7 @@ import com.cosmiclaboratory.axiom.data.ai.AiResult
 import com.cosmiclaboratory.axiom.data.companion.CompanionService
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,7 +29,7 @@ data class CompanionUiState(
     val sending: Boolean = false,
     val error: String? = null,
     val keyConnected: Boolean = false,
-    val recentlyCitedEntries: List<Note> = emptyList()
+    val recentlyCitedEntries: List<Entry> = emptyList()
 )
 
 @HiltViewModel

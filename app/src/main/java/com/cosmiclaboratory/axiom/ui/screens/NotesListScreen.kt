@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.components.AnimatedAxiomTitle
 import com.cosmiclaboratory.axiom.ui.components.NoteCard
 import com.cosmiclaboratory.axiom.ui.components.VoiceInputFab
@@ -130,7 +130,7 @@ fun NotesListScreen(
                 }
             }
             
-            uiState.notes.isEmpty() -> {
+            uiState.entries.isEmpty() -> {
                 EmptyNotesState(
                     modifier = Modifier
                         .fillMaxSize()
@@ -148,7 +148,7 @@ fun NotesListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
-                        items = uiState.notes,
+                        items = uiState.entries,
                         key = { it.id }
                     ) { note ->
                         NoteCard(
@@ -205,7 +205,7 @@ private fun EmptyNotesState(
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Create Note")
+            Text("Create Entry")
         }
     }
 }

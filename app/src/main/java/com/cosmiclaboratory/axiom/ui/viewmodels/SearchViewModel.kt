@@ -3,7 +3,7 @@ package com.cosmiclaboratory.axiom.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.NotesRepository
-import com.cosmiclaboratory.axiom.domain.model.Note
+import com.cosmiclaboratory.axiom.domain.model.Entry
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -103,7 +103,7 @@ class SearchViewModel @Inject constructor(
 
 data class SearchUiState(
     val query: String = "",
-    val searchResults: List<Note> = emptyList(),
+    val searchResults: List<Entry> = emptyList(),
     val searchHistory: List<String> = emptyList(),
     val isSearching: Boolean = false,
     val hasSearched: Boolean = false,

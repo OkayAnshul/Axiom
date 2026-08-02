@@ -120,10 +120,10 @@ fun NoteReaderScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Note title
+                    // Entry title
                     item {
                         Text(
-                            text = note.title.ifEmpty { "Untitled Note" },
+                            text = note.title.ifEmpty { "Untitled Entry" },
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 fontSize = (fontSize + 8).sp,
                                 fontWeight = FontWeight.Bold,
@@ -134,7 +134,7 @@ fun NoteReaderScreen(
                         )
                     }
                     
-                    // Note metadata
+                    // Entry metadata
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -159,7 +159,7 @@ fun NoteReaderScreen(
                         )
                     }
                     
-                    // Note content
+                    // Entry content
                     item {
                         CompositionLocalProvider(
                             LocalTextStyle provides MaterialTheme.typography.bodyLarge.copy(
@@ -249,7 +249,7 @@ fun NoteReaderScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Note not found",
+                        text = "Entry not found",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error
                     )

@@ -1,7 +1,7 @@
 package com.cosmiclaboratory.axiom.data.repository
 
 import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
-import com.cosmiclaboratory.axiom.data.database.dao.NoteDao
+import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.entity.DailySummaryEntity
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import kotlinx.coroutines.flow.Flow
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 @Singleton
 class DailySummaryRepository @Inject constructor(
     private val dao: DailySummaryDao,
-    private val noteDao: NoteDao
+    private val entryDao: EntryDao
 ) {
     fun observeAll(): Flow<List<DailySummaryEntity>> = dao.observeAll()
 
@@ -24,7 +24,7 @@ class DailySummaryRepository @Inject constructor(
     suspend fun rebuildFor(date: LocalDate) {
         val start = date.atStartOfDay()
         val end = date.plusDays(1).atStartOfDay()
-        val entries = noteDao.forDay(start, end).filter { !it.isArchived }
+        val entries = entryDao.forDay(start, end).filter { !it.isArchived }
         if (entries.isEmpty()) {
             dao.upsert(DailySummaryEntity(date.toString(), 0, null, 0))
             return
@@ -48,6 +48,6 @@ class DailySummaryRepository @Inject constructor(
 
     /** All distinct dates with at least one non-archived entry. */
     suspend fun entryDates(): List<LocalDate> {
-        return noteDao.distinctEntryDates().mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
+        return entryDao.distinctEntryDates().mapNotNull { runCatching { LocalDate.parse(it) }.getOrNull() }
     }
 }

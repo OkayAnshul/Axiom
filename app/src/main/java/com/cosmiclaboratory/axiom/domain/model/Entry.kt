@@ -2,7 +2,7 @@ package com.cosmiclaboratory.axiom.domain.model
 
 import java.time.LocalDateTime
 
-data class Note(
+data class Entry(
     val id: Long = 0,
     val title: String,
     val content: String,

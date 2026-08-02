@@ -46,7 +46,7 @@ class NotesListWidget : GlanceAppWidget() {
     }
 
     @Composable
-    private fun NotesListContent(notes: List<com.cosmiclaboratory.axiom.domain.model.Note>) {
+    private fun NotesListContent(entries: List<com.cosmiclaboratory.axiom.domain.model.Entry>) {
         Column(
             modifier = GlanceModifier
                 .fillMaxSize()
@@ -71,7 +71,7 @@ class NotesListWidget : GlanceAppWidget() {
             
             Spacer(modifier = GlanceModifier.height(12.dp))
             
-            if (notes.isEmpty()) {
+            if (entries.isEmpty()) {
                 // Empty state
                 Column(
                     modifier = GlanceModifier.fillMaxSize(),
@@ -94,7 +94,7 @@ class NotesListWidget : GlanceAppWidget() {
                             .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Text(
-                            text = "Create First Note",
+                            text = "Create First Entry",
                             style = TextStyle(
                                 fontSize = 12.sp,
                                 color = ColorProvider(Color.White)
@@ -105,9 +105,9 @@ class NotesListWidget : GlanceAppWidget() {
             } else {
                 // Notes list
                 Column {
-                    notes.forEach { note ->
+                    entries.forEach { note ->
                         NoteItem(note)
-                        if (note != notes.last()) {
+                        if (note != entries.last()) {
                             Spacer(modifier = GlanceModifier.height(8.dp))
                         }
                     }
@@ -139,7 +139,7 @@ class NotesListWidget : GlanceAppWidget() {
     }
     
     @Composable
-    private fun NoteItem(note: com.cosmiclaboratory.axiom.domain.model.Note) {
+    private fun NoteItem(note: com.cosmiclaboratory.axiom.domain.model.Entry) {
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()

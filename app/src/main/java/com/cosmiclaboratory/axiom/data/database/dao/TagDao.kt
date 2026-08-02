@@ -29,7 +29,7 @@ interface TagDao {
     suspend fun deleteTagById(tagId: Long)
     
     @Query("""
-        SELECT COUNT(*) FROM note_tag_cross_ref 
+        SELECT COUNT(*) FROM entry_tag_cross_ref 
         WHERE tagId = :tagId
     """)
     suspend fun getTagUsageCount(tagId: Long): Int

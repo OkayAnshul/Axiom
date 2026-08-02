@@ -189,7 +189,7 @@ val MarkdownH5Style = TextStyle(
 val MarkdownH6Style = TextStyle(
     fontFamily = AxiomUiFont,
     fontWeight = FontWeight.Medium,
-    fontSize = 16.sp,          // Smallest - Note level
+    fontSize = 16.sp,          // Smallest - Entry level
     lineHeight = 20.sp,
     letterSpacing = 0.sp
 )

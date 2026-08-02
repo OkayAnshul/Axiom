@@ -17,7 +17,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.cosmiclaboratory.axiom.MainActivity
 import com.cosmiclaboratory.axiom.R
-import com.cosmiclaboratory.axiom.data.database.dao.NoteDao
+import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.notification.AxiomNotifications
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import dagger.assisted.Assisted
@@ -31,13 +31,13 @@ class DailyNudgeWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted params: WorkerParameters,
     private val prefs: UserPreferences,
-    private val noteDao: NoteDao
+    private val entryDao: EntryDao
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
         if (!prefs.dailyNudgeEnabled.first()) return Result.success()
         val today = LocalDate.now()
-        val wroteToday = noteDao.forDay(today.atStartOfDay(), today.plusDays(1).atStartOfDay()).isNotEmpty()
+        val wroteToday = entryDao.forDay(today.atStartOfDay(), today.plusDays(1).atStartOfDay()).isNotEmpty()
         if (wroteToday) return Result.success()
         post(applicationContext)
         return Result.success()

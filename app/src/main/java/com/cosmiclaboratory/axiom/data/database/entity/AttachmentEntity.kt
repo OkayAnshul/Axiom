@@ -10,7 +10,7 @@ import java.time.LocalDateTime
     tableName = "attachments",
     foreignKeys = [
         ForeignKey(
-            entity = NoteEntity::class,
+            entity = EntryEntity::class,
             parentColumns = ["id"],
             childColumns = ["entryId"],
             onDelete = ForeignKey.CASCADE
