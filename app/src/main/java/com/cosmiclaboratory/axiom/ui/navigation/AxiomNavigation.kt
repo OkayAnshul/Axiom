@@ -39,6 +39,8 @@ import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
 import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
+import com.cosmiclaboratory.axiom.ui.screens.journal.JournalScreen
+import com.cosmiclaboratory.axiom.ui.screens.search.SearchScreen
 import com.cosmiclaboratory.axiom.ui.screens.reader.ReaderScreen
 import com.cosmiclaboratory.axiom.ui.screens.today.TodayScreen
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -139,7 +141,12 @@ fun AxiomNavigation(
                     composable<Journal>(
                         deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.JOURNAL })
                     ) {
-                        Placeholder("Journal", "The timeline lands in Phase 5.")
+                        JournalScreen(
+                            onOpenEntry = { id -> navController.navigate(Reader(id)) },
+                            onNewEntry = { navController.navigate(Composer()) },
+                            onSearch = { navController.navigate(Search()) },
+                            onCalendar = { navController.navigate(Calendar) }
+                        )
                     }
 
                     composable<Patterns>(
@@ -175,7 +182,15 @@ fun AxiomNavigation(
                 }
 
                 composable<EntryInsight> { Placeholder("Insight", "Lands in Phase 6.") }
-                composable<Search> { Placeholder("Search", "Lands in Phase 5.") }
+                composable<Search> {
+                    SearchScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenEntry = { id -> navController.navigate(Reader(id)) },
+                        onAskInstead = {
+                            navController.navigate(Ask) { popUpTo(Main) }
+                        }
+                    )
+                }
                 composable<Calendar> { Placeholder("Calendar", "Lands in Phase 5.") }
 
                 composable<Settings> { Placeholder("Settings", "Lands in Phase 7.") }
