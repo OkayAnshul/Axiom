@@ -38,6 +38,8 @@ import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
+import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
+import com.cosmiclaboratory.axiom.ui.screens.reader.ReaderScreen
 import com.cosmiclaboratory.axiom.ui.screens.today.TodayScreen
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import kotlin.reflect.KClass
@@ -156,18 +158,20 @@ fun AxiomNavigation(
                         navDeepLink { uriPattern = AxiomDeepLinks.COMPOSER },
                         navDeepLink { uriPattern = "${AxiomDeepLinks.COMPOSER}?voice={voice}" }
                     )
-                ) { entry ->
-                    val args = entry.toRoute<Composer>()
-                    Placeholder(
-                        "Composer",
-                        "entryId=${args.entryId} questionId=${args.questionId} voice=${args.voice}\nLands in Phase 4."
+                ) {
+                    ComposerScreen(
+                        onBack = { navController.popBackStack() },
+                        onDone = { navController.popBackStack() }
                     )
                 }
 
                 composable<Reader>(
                     deepLinks = listOf(navDeepLink { uriPattern = "${AxiomDeepLinks.SCHEME}://reader/{entryId}" })
-                ) { entry ->
-                    Placeholder("Reader", "entryId=${entry.toRoute<Reader>().entryId}\nLands in Phase 4.")
+                ) {
+                    ReaderScreen(
+                        onBack = { navController.popBackStack() },
+                        onEdit = { id -> navController.navigate(Composer(entryId = id)) }
+                    )
                 }
 
                 composable<EntryInsight> { Placeholder("Insight", "Lands in Phase 6.") }
