@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
+import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +18,9 @@ data class MemoryUiState(
     val groups: Map<MemoryKind, List<MemoryItem>> = emptyMap(),
     val loaded: Boolean = false,
     /** The memory currently open in the edit sheet, if any. */
-    val editing: MemoryItem? = null
+    val editing: MemoryItem? = null,
+    /** True while the "tell it how to talk to you" sheet is open. */
+    val addingPreference: Boolean = false
 )
 
 @HiltViewModel
@@ -59,6 +62,31 @@ class MemoryViewModel @Inject constructor(
     fun delete(item: MemoryItem) {
         lastDeleted = item
         viewModelScope.launch { memories.delete(item.id) }
+    }
+
+    fun startAddingPreference() = _state.update { it.copy(addingPreference = true) }
+
+    fun cancelAddingPreference() = _state.update { it.copy(addingPreference = false) }
+
+    /**
+     * A preference the user typed themselves. Saved at full weight and marked
+     * user-edited, so extraction may reinforce it but can never reword it —
+     * being told how to talk to someone should not be overridden by a guess.
+     */
+    fun addPreference(text: String) {
+        _state.update { it.copy(addingPreference = false) }
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        viewModelScope.launch {
+            val id = memories.insert(
+                kind = MemoryKind.PREFERENCE,
+                text = clean,
+                weight = 1f,
+                source = MemorySource.MANUAL,
+                sourceId = null
+            )
+            memories.markUserEdited(id)
+        }
     }
 
     fun undoDelete() {

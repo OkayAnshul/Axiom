@@ -2,6 +2,7 @@ package com.cosmiclaboratory.axiom.ui.screens.memory
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
@@ -44,6 +46,7 @@ import com.cosmiclaboratory.axiom.ui.design.components.AxiomCard
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomIconButton
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomScaffold
+import com.cosmiclaboratory.axiom.ui.design.components.AxiomTopBarAction
 import com.cosmiclaboratory.axiom.ui.design.components.CardTone
 import com.cosmiclaboratory.axiom.ui.design.components.SectionHeader
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -73,7 +76,14 @@ fun MemoryScreen(
         title = "What I remember",
         screenTag = "screen:memories",
         modifier = modifier,
-        navigationIcon = { AxiomIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack) }
+        navigationIcon = { AxiomIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack) },
+        actions = {
+            AxiomTopBarAction(
+                Icons.Outlined.Add,
+                "Tell it how to talk to you",
+                onClick = viewModel::startAddingPreference
+            )
+        }
     ) { padding ->
         if (state.loaded && state.groups.isEmpty()) {
             AxiomEmptyState(
@@ -133,6 +143,63 @@ fun MemoryScreen(
             onDismiss = viewModel::cancelEditing
         )
     }
+
+    if (state.addingPreference) {
+        AddPreferenceSheet(
+            onSave = viewModel::addPreference,
+            onDismiss = viewModel::cancelAddingPreference
+        )
+    }
+}
+
+/**
+ * The direct route to changing how the companion talks. Saying it in
+ * conversation works too — extraction listens for it — but a person who wants
+ * to be told less to "just listen" should not have to wait to be understood.
+ */
+@Composable
+private fun AddPreferenceSheet(
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val c = AxiomTheme.colors
+    var text by rememberSaveable { mutableStateOf("") }
+    AxiomBottomSheet(title = "How should I talk to you?", onDismiss = onDismiss) {
+        Text(
+            "Anything you write here becomes a rule the companion follows, and it will " +
+                "never be reworded on its own.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = c.inkMuted
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        Box {
+            if (text.isEmpty()) {
+                Text(
+                    "Keep replies short. Don't give advice unless I ask.",
+                    style = AxiomTheme.type.uiBody,
+                    color = c.inkFaint
+                )
+            }
+            BasicTextField(
+                value = text,
+                onValueChange = { text = it },
+                textStyle = AxiomTheme.type.uiBody.copy(color = c.ink),
+                cursorBrush = SolidColor(c.accent),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("field:preference-add")
+            )
+        }
+        Spacer(Modifier.height(AxiomTheme.space.lg))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", style = AxiomTheme.type.uiLabel, color = c.inkMuted)
+            }
+            TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank()) {
+                Text("Save", style = AxiomTheme.type.uiLabel, color = c.accent)
+            }
+        }
+    }
 }
 
 @Composable
@@ -165,6 +232,7 @@ private fun MemoryRow(
                     text = when (memory.source) {
                         MemorySource.CONVERSATION -> "From a conversation"
                         MemorySource.ENTRY -> "From a journal entry — read it"
+                        MemorySource.MANUAL -> "You told me this directly"
                     },
                     style = AxiomTheme.type.uiMeta,
                     color = if (sourceEntryId != null) c.accent else c.inkFaint,

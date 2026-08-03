@@ -5,7 +5,13 @@ import java.time.LocalDateTime
 enum class MemoryKind { PERSON, FACT, GOAL, THEME, PREFERENCE, EVENT }
 
 /** Where a memory was first noticed — powers "why do you remember this". */
-enum class MemorySource { CONVERSATION, ENTRY }
+enum class MemorySource {
+    CONVERSATION,
+    ENTRY,
+
+    /** Typed by the user in "What I remember" — not inferred from anything. */
+    MANUAL
+}
 
 data class MemoryItem(
     val id: Long,

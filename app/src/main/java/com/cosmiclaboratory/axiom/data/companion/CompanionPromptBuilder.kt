@@ -3,6 +3,8 @@ package com.cosmiclaboratory.axiom.data.companion
 import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
+import com.cosmiclaboratory.axiom.domain.style.ReplyLength
+import com.cosmiclaboratory.axiom.domain.style.StyleProfile
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.TextStyle
@@ -31,6 +33,8 @@ class CompanionPromptBuilder @Inject constructor() {
         val now: LocalDateTime,
         val moodToday: Int?,
         val streakDays: Int,
+        /** How to talk to this person — measured from their writing, plus what they've said. */
+        val style: StyleProfile = StyleProfile(),
         /** Named feeling read from today's writing, when the user chose nothing. */
         val emotionToday: Emotion? = null,
         /** At most one pattern, phrased as the finder already phrased it. */
@@ -47,7 +51,7 @@ class CompanionPromptBuilder @Inject constructor() {
         appendLine("You are a trusted friend, not an assistant and not a therapist.")
         appendLine()
         appendLine("How you talk:")
-        appendLine("- Warm, specific, and brief — usually one to four sentences. Match their energy and length.")
+        appendLine("- Warm, specific, and brief. Match their energy and length.")
         appendLine(
             "- Plain, natural language. Never use canned phrases: \"Thank you for sharing\", " +
                 "\"How does that make you feel?\", \"I'm here for you if you need anything\", " +
@@ -58,12 +62,29 @@ class CompanionPromptBuilder @Inject constructor() {
             "- At most one question per reply, and only when it genuinely helps. Often the right move " +
                 "is to simply acknowledge, or sit with them. No advice unless they ask or clearly want it."
         )
-        appendLine("- If they write in Hindi or Hinglish, mirror them.")
 
         if (ctx.personaFragment.isNotBlank()) {
             appendLine()
+            appendLine("Where you started from — a leaning, not a rule:")
             appendLine(ctx.personaFragment.trim())
         }
+
+        // How to talk to *this* person, kept with the other style instructions
+        // rather than buried among biographical facts. Anything they have said
+        // themselves outranks anything measured.
+        val style = ctx.style
+        appendLine()
+        appendLine("How this person likes to be talked to:")
+        appendLine("- ${style.languageMix.instruction}")
+        if (style.measured) {
+            appendLine("- ${style.replyLength.instruction}")
+        } else {
+            appendLine("- ${ReplyLength.MODERATE.instruction} You do not know them well yet.")
+        }
+        style.statedPreferences.take(MAX_PREFERENCES).forEach { preference ->
+            appendLine("- ${preference.trim().take(MEMORY_ITEM_CAP)}")
+        }
+        appendLine("  These outrank the leaning above whenever they disagree.")
 
         val memorySection = renderMemories(ctx.memories)
         if (memorySection.isNotEmpty()) {
@@ -141,6 +162,7 @@ class CompanionPromptBuilder @Inject constructor() {
         return window
     }
 
+    /** Preferences are excluded here — they live in the style block, not among facts. */
     private fun renderMemories(memories: Map<MemoryKind, List<MemoryItem>>): String = buildString {
         KIND_ORDER.forEach { kind ->
             val items = memories[kind].orEmpty()
@@ -166,14 +188,14 @@ class CompanionPromptBuilder @Inject constructor() {
         const val INSIGHT_CAP = 200
         const val SUMMARY_CAP = 1_200
         const val MEMORY_ITEM_CAP = 120
+        const val MAX_PREFERENCES = 4
 
         private val KIND_ORDER = listOf(
             MemoryKind.PERSON,
             MemoryKind.GOAL,
             MemoryKind.THEME,
             MemoryKind.FACT,
-            MemoryKind.EVENT,
-            MemoryKind.PREFERENCE
+            MemoryKind.EVENT
         )
 
         private val KIND_LABELS = mapOf(
@@ -181,8 +203,7 @@ class CompanionPromptBuilder @Inject constructor() {
             MemoryKind.GOAL to "Goals",
             MemoryKind.THEME to "Recurring themes",
             MemoryKind.FACT to "Facts",
-            MemoryKind.EVENT to "Recent events",
-            MemoryKind.PREFERENCE to "Preferences"
+            MemoryKind.EVENT to "Recent events"
         )
     }
 }
