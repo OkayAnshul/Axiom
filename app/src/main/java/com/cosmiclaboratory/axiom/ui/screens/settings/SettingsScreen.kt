@@ -1,5 +1,9 @@
 package com.cosmiclaboratory.axiom.ui.screens.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
@@ -54,6 +61,31 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showTimeSheet by remember { mutableStateOf(false) }
+
+    /*
+     * POST_NOTIFICATIONS is declared in the manifest but was never requested,
+     * so on API 33+ every check-in would have been silently dropped. Asked here
+     * rather than at launch: permission prompts land far better attached to the
+     * feature the user just switched on.
+     */
+    var pendingNotificationAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val notificationPermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // Enable regardless: a denied permission still leaves the in-app
+        // conversation working, and the toggle should reflect their intent.
+        pendingNotificationAction?.invoke()
+        pendingNotificationAction = null
+    }
+    fun requestNotifications(action: () -> Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            pendingNotificationAction = action
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            action()
+        }
+    }
 
     AxiomScaffold(
         title = "Settings",
@@ -100,13 +132,42 @@ fun SettingsScreen(
             )
             SettingRow(
                 icon = Icons.Outlined.Notifications,
-                title = "Daily reminder",
-                summary = if (state.dailyNudgeEnabled) "On" else "Off",
-                onClick = { viewModel.setDailyNudge(!state.dailyNudgeEnabled) },
+                title = "Check in when I'm quiet",
+                summary = if (state.dailyNudgeEnabled) {
+                    "Not before ${formatMinuteOfDay(state.checkInMinuteOfDay)} · tap to change"
+                } else {
+                    "Off — the companion only speaks when you open the app"
+                },
+                onClick = { showTimeSheet = true },
                 trailing = {
                     Switch(
                         checked = state.dailyNudgeEnabled,
-                        onCheckedChange = viewModel::setDailyNudge,
+                        onCheckedChange = { enabled ->
+                            if (enabled) requestNotifications { viewModel.setDailyNudge(true) }
+                            else viewModel.setDailyNudge(false)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AxiomTheme.colors.onAccent,
+                            checkedTrackColor = AxiomTheme.colors.accent
+                        )
+                    )
+                }
+            )
+            SettingRow(
+                icon = Icons.Outlined.Notifications,
+                title = "Weekly reflection",
+                summary = if (state.weeklyRecapEnabled) "Sunday evenings" else "Off",
+                onClick = {
+                    if (state.weeklyRecapEnabled) viewModel.setWeeklyRecap(false)
+                    else requestNotifications { viewModel.setWeeklyRecap(true) }
+                },
+                trailing = {
+                    Switch(
+                        checked = state.weeklyRecapEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) requestNotifications { viewModel.setWeeklyRecap(true) }
+                            else viewModel.setWeeklyRecap(false)
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = AxiomTheme.colors.onAccent,
                             checkedTrackColor = AxiomTheme.colors.accent
@@ -128,7 +189,63 @@ fun SettingsScreen(
             )
         }
     }
+
+    if (showTimeSheet) {
+        CheckInTimeSheet(
+            selected = state.checkInMinuteOfDay,
+            onPick = { minute ->
+                viewModel.setCheckInMinuteOfDay(minute)
+                showTimeSheet = false
+            },
+            onDismiss = { showTimeSheet = false }
+        )
+    }
 }
+
+/**
+ * Four times rather than a clock face: this is "when is it welcome to hear
+ * from me", not an alarm. Delivery is approximate anyway — the companion
+ * speaks at or after this time, once the device is awake.
+ */
+@Composable
+private fun CheckInTimeSheet(
+    selected: Int,
+    onPick: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AxiomBottomSheet(title = "Not before", onDismiss = onDismiss) {
+        listOf(
+            9 * 60 to "Morning",
+            13 * 60 to "Midday",
+            18 * 60 to "Evening",
+            21 * 60 to "Night"
+        ).forEach { (minute, label) ->
+            AxiomCard(
+                tone = if (minute == selected) CardTone.Accent else CardTone.Neutral,
+                onClick = { onPick(minute) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AxiomTheme.space.xs)
+            ) {
+                Text(label, style = AxiomTheme.type.uiTitleSmall, color = AxiomTheme.colors.ink)
+                Text(
+                    formatMinuteOfDay(minute),
+                    style = AxiomTheme.type.uiBodySmall,
+                    color = AxiomTheme.colors.inkMuted
+                )
+            }
+        }
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        Text(
+            "You'll only hear from the companion on days you haven't written or talked.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = AxiomTheme.colors.inkMuted
+        )
+    }
+}
+
+private fun formatMinuteOfDay(minuteOfDay: Int): String =
+    "%02d:%02d".format(minuteOfDay / 60, minuteOfDay % 60)
 
 @Composable
 fun SettingsAiScreen(

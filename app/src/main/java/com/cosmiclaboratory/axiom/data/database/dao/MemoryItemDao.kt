@@ -38,4 +38,12 @@ interface MemoryItemDao {
         "UPDATE memory_items SET weight = MIN(1.0, weight + :bump), timesSeen = timesSeen + 1, lastSeenAt = :now WHERE id = :id"
     )
     suspend fun reinforce(id: Long, now: LocalDateTime, bump: Float = 0.15f)
+
+    /** Open loops whose moment has passed — the companion owes the user a "how did it go?". */
+    @Query("SELECT * FROM memory_items WHERE dueAt IS NOT NULL AND dueAt <= :now ORDER BY dueAt ASC LIMIT :limit")
+    suspend fun dueOpenLoops(now: LocalDateTime, limit: Int): List<MemoryItemEntity>
+
+    /** Asked about; never nag twice. The memory itself survives, only the loop closes. */
+    @Query("UPDATE memory_items SET dueAt = NULL WHERE id = :id")
+    suspend fun closeLoop(id: Long)
 }

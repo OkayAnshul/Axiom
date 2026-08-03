@@ -17,5 +17,7 @@ data class MemoryItem(
     val lastSeenAt: LocalDateTime,
     val source: MemorySource,
     val sourceId: Long?,
-    val userEdited: Boolean
+    val userEdited: Boolean,
+    /** Set when this is an open loop the companion should ask about after this time. */
+    val dueAt: LocalDateTime? = null
 )

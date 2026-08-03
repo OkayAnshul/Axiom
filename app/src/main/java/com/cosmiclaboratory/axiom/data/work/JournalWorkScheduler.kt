@@ -79,6 +79,24 @@ class JournalWorkScheduler @Inject constructor(
         )
     }
 
+    /**
+     * The companion's hourly tick. Deliberately has NO network constraint: the
+     * keyless check-in is composed locally and must still arrive, and a message
+     * that waits for wifi is a message that arrives at the wrong moment.
+     */
+    fun scheduleProactiveCheckIns() {
+        val request = PeriodicWorkRequestBuilder<ProactiveCheckInWorker>(1, TimeUnit.HOURS).build()
+        workManager.enqueueUniquePeriodicWork(
+            ProactiveCheckInWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    fun cancelProactiveCheckIns() {
+        workManager.cancelUniqueWork(ProactiveCheckInWorker.UNIQUE_NAME)
+    }
+
     private fun networkConstraints() = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()

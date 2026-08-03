@@ -23,7 +23,13 @@ data class MemoryItemEntity(
     /** entryId when sourceType is ENTRY; companion message id when CONVERSATION. */
     val sourceId: Long? = null,
     /** User-edited memories are never auto-revised by extraction, only reinforced. */
-    val userEdited: Boolean = false
+    val userEdited: Boolean = false,
+    /**
+     * An open loop: something the companion should circle back to after this
+     * moment ("interview on Tuesday" → ask on Wednesday). Null means nothing to
+     * follow up. Cleared once asked, so the companion never nags twice.
+     */
+    val dueAt: LocalDateTime? = null
 )
 
 fun MemoryItemEntity.toDomainModel(): MemoryItem = MemoryItem(
@@ -36,5 +42,6 @@ fun MemoryItemEntity.toDomainModel(): MemoryItem = MemoryItem(
     lastSeenAt = lastSeenAt,
     source = runCatching { MemorySource.valueOf(sourceType) }.getOrDefault(MemorySource.CONVERSATION),
     sourceId = sourceId,
-    userEdited = userEdited
+    userEdited = userEdited,
+    dueAt = dueAt
 )

@@ -65,7 +65,8 @@ class MemoryRepository @Inject constructor(
                 lastSeenAt = item.lastSeenAt,
                 sourceType = item.source.name,
                 sourceId = item.sourceId,
-                userEdited = item.userEdited
+                userEdited = item.userEdited,
+                dueAt = item.dueAt
             )
         )
     }
@@ -79,6 +80,7 @@ class MemoryRepository @Inject constructor(
         weight: Float,
         source: MemorySource,
         sourceId: Long?,
+        dueAt: LocalDateTime? = null,
         now: LocalDateTime = LocalDateTime.now()
     ): Long = dao.upsert(
         MemoryItemEntity(
@@ -88,9 +90,16 @@ class MemoryRepository @Inject constructor(
             createdAt = now,
             lastSeenAt = now,
             sourceType = source.name,
-            sourceId = sourceId
+            sourceId = sourceId,
+            dueAt = dueAt
         )
     )
+
+    /** Open loops the companion owes a follow-up on, oldest first. */
+    suspend fun dueOpenLoops(now: LocalDateTime = LocalDateTime.now(), limit: Int = 3): List<MemoryItem> =
+        dao.dueOpenLoops(now, limit).map { it.toDomainModel() }
+
+    suspend fun closeLoop(id: Long) = dao.closeLoop(id)
 
     /** Same-kind snapshot used by extraction for dedup context. */
     suspend fun snapshotForExtraction(limit: Int = 40): List<MemoryItem> {

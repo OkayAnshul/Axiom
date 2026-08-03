@@ -8,15 +8,13 @@ import com.cosmiclaboratory.axiom.data.database.entity.CompanionMessageEntity
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
-import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
+import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
 import com.cosmiclaboratory.axiom.data.voice.CompanionSpeaker
 import com.cosmiclaboratory.axiom.data.voice.MultilingualVoiceManager
 import com.cosmiclaboratory.axiom.data.voice.extractSpeakableSentences
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
-import com.cosmiclaboratory.axiom.domain.model.Persona
-import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionResult
@@ -50,8 +48,6 @@ data class CompanionUiState(
     val streamingText: String? = null,
     val error: AxiomError? = null,
     val keyConnected: Boolean = false,
-    val personas: List<Persona> = emptyList(),
-    val activePersona: PersonaKey = PersonaKey.CALM,
     /** Entries cited by the most recent answer, rendered as tappable chips. */
     val citedEntries: List<Entry> = emptyList(),
     // ---- ritual header (the Today remnant: one thin row, not a dashboard) ----
@@ -87,7 +83,7 @@ class CompanionViewModel @Inject constructor(
     private val companionRepo: CompanionRepository,
     private val entries: JournalRepository,
     private val questions: QuestionRepository,
-    private val personas: PersonaRepository,
+    private val memories: MemoryRepository,
     private val prefs: UserPreferences,
     private val voice: MultilingualVoiceManager,
     private val speaker: CompanionSpeaker
@@ -127,14 +123,6 @@ class CompanionViewModel @Inject constructor(
             prefs.observeGroqKeyPresent().collect { present ->
                 _state.update { it.copy(keyConnected = present) }
             }
-        }
-        viewModelScope.launch {
-            personas.observeAll().collect { list ->
-                _state.update { it.copy(personas = list) }
-            }
-        }
-        viewModelScope.launch {
-            _state.update { it.copy(activePersona = prefs.activePersonaKey.first()) }
         }
         viewModelScope.launch {
             // Streak, mood and the draft chip all derive from the corpus, so they
@@ -263,12 +251,24 @@ class CompanionViewModel @Inject constructor(
      * Built locally — no LLM, no key, no latency, works offline — and persisted
      * as a normal assistant message with source LOCAL so it joins the history
      * window (the companion should remember having greeted).
+     *
+     * An open loop always wins over a generic prompt: being asked "how did the
+     * interview go?" is the whole difference between a companion and a form.
      */
     private suspend fun maybePostDailyOpener() {
         val latest = companionRepo.latestMessage(THREAD_ID)
         if (latest != null && latest.createdAt.toLocalDate() == LocalDate.now()) return
         val name = prefs.displayName.first()
         val greeting = greetingFor(LocalTime.now(), name)
+
+        val loop = runCatching { memories.dueOpenLoops(limit = 1) }.getOrDefault(emptyList()).firstOrNull()
+        if (loop != null) {
+            companionRepo.appendLocal(THREAD_ID, "$greeting. Earlier you mentioned: ${loop.text} How did that go?")
+            // Asked once. The memory survives; only the follow-up closes.
+            runCatching { memories.closeLoop(loop.id) }
+            return
+        }
+
         val prompt = runCatching { questions.nextQuestion(prefs.activePersonaKey.first()) }
             .getOrNull()?.text ?: FALLBACK_PROMPTS.random()
         companionRepo.appendLocal(THREAD_ID, "$greeting. $prompt")
@@ -320,13 +320,6 @@ class CompanionViewModel @Inject constructor(
     }
 
     fun setDraft(value: String) = _state.update { it.copy(draft = value) }
-
-    fun setPersona(key: PersonaKey) {
-        viewModelScope.launch {
-            prefs.setActivePersona(key)
-            _state.update { it.copy(activePersona = key) }
-        }
-    }
 
     fun send() {
         val text = _state.value.draft.trim()

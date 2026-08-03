@@ -35,5 +35,9 @@ class AxiomApplication : Application(), Configuration.Provider {
         // ago but never scheduled — the "personalized prompt" path could never
         // fire until this line existed.
         workScheduler.schedulePeriodicInitiatorBatch()
+        // The companion's hourly tick. Enqueued with KEEP, and the worker itself
+        // no-ops when both proactive settings are off, so this is safe to call
+        // on every launch.
+        workScheduler.scheduleProactiveCheckIns()
     }
 }
