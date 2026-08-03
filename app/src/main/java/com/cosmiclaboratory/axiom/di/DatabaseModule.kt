@@ -7,7 +7,7 @@ import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.AiPromptCacheDao
 import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
-import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
+import com.cosmiclaboratory.axiom.data.database.dao.CompanionThreadStateDao
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
 import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.PersonaDao
@@ -76,8 +76,9 @@ object DatabaseModule {
     fun provideAttachmentDao(database: AxiomDatabase): AttachmentDao = database.attachmentDao()
 
     @Provides
-    fun provideDailySummaryDao(database: AxiomDatabase): DailySummaryDao = database.dailySummaryDao()
+    fun provideCompanionDao(database: AxiomDatabase): CompanionDao = database.companionDao()
 
     @Provides
-    fun provideCompanionDao(database: AxiomDatabase): CompanionDao = database.companionDao()
+    fun provideCompanionThreadStateDao(database: AxiomDatabase): CompanionThreadStateDao =
+        database.companionThreadStateDao()
 }

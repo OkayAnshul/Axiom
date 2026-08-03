@@ -156,6 +156,7 @@ private fun KindBadge(kind: EntryKind) {
     val text = when (kind) {
         EntryKind.PROMPTED -> "Prompted"
         EntryKind.VOICE -> "Voice"
+        EntryKind.CONVERSATION -> "From a conversation"
         EntryKind.FREE_FORM -> return
     }
     Text(

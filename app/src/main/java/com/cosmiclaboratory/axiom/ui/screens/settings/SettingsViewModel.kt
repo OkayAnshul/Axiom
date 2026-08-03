@@ -9,6 +9,7 @@ import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
+import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.toAxiomError
 import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
@@ -39,7 +40,10 @@ data class SettingsUiState(
     val personas: List<Persona> = emptyList(),
     val activePersona: PersonaKey = PersonaKey.CALM,
     val dailyNudgeEnabled: Boolean = false,
-    val entryCount: Int = 0
+    val entryCount: Int = 0,
+    val voiceLanguage: VoiceLanguage = VoiceLanguage.ENGLISH_IN,
+    val whisperFallbackEnabled: Boolean = true,
+    val autoSpeakEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -61,7 +65,10 @@ class SettingsViewModel @Inject constructor(
                     themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
                     activePersona = prefs.activePersonaKey.first(),
                     dailyNudgeEnabled = prefs.dailyNudgeEnabled.first(),
-                    entryCount = entries.count()
+                    entryCount = entries.count(),
+                    voiceLanguage = VoiceLanguage.fromStorage(prefs.preferredVoiceLanguage.first()),
+                    whisperFallbackEnabled = prefs.whisperFallbackEnabled.first(),
+                    autoSpeakEnabled = prefs.autoSpeakEnabled.first()
                 )
             }
         }
@@ -94,6 +101,21 @@ class SettingsViewModel @Inject constructor(
     fun setDailyNudge(enabled: Boolean) {
         _state.update { it.copy(dailyNudgeEnabled = enabled) }
         viewModelScope.launch { prefs.setDailyNudgeEnabled(enabled) }
+    }
+
+    fun setVoiceLanguage(language: VoiceLanguage) {
+        _state.update { it.copy(voiceLanguage = language) }
+        viewModelScope.launch { prefs.setPreferredVoiceLanguage(language.name) }
+    }
+
+    fun setWhisperFallback(enabled: Boolean) {
+        _state.update { it.copy(whisperFallbackEnabled = enabled) }
+        viewModelScope.launch { prefs.setWhisperFallbackEnabled(enabled) }
+    }
+
+    fun setAutoSpeak(enabled: Boolean) {
+        _state.update { it.copy(autoSpeakEnabled = enabled) }
+        viewModelScope.launch { prefs.setAutoSpeakEnabled(enabled) }
     }
 
     fun setKeyDraft(value: String) =

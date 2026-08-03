@@ -6,11 +6,14 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
+import com.cosmiclaboratory.axiom.data.companion.MemoryExtractor
 import com.cosmiclaboratory.axiom.data.database.entity.AIInsightEntity
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
+import com.cosmiclaboratory.axiom.domain.model.EntryKind
+import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -24,7 +27,8 @@ class SummarizeEntryWorker @AssistedInject constructor(
     private val prefs: UserPreferences,
     private val personaRepo: PersonaRepository,
     private val journalRepo: JournalRepository,
-    private val questionRepo: QuestionRepository
+    private val questionRepo: QuestionRepository,
+    private val extractor: MemoryExtractor
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -58,6 +62,12 @@ class SummarizeEntryWorker @AssistedInject constructor(
                 )
                 if (v.followUp.isNotBlank()) {
                     questionRepo.saveFollowUp(entryId, v.followUp)
+                }
+                // Best-effort memory extraction. CONVERSATION digests are skipped —
+                // their raw transcript was already extracted by the digest worker,
+                // and extracting the digest again would double-count everything.
+                if (entry.kind != EntryKind.CONVERSATION) {
+                    runCatching { extractor.extract(plain, MemorySource.ENTRY, entryId) }
                 }
                 Result.success()
             }

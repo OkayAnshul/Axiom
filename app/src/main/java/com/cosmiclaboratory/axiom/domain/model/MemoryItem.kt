@@ -2,12 +2,20 @@ package com.cosmiclaboratory.axiom.domain.model
 
 import java.time.LocalDateTime
 
-enum class MemoryKind { THEME, CLAIM, GOAL }
+enum class MemoryKind { PERSON, FACT, GOAL, THEME, PREFERENCE, EVENT }
+
+/** Where a memory was first noticed — powers "why do you remember this". */
+enum class MemorySource { CONVERSATION, ENTRY }
 
 data class MemoryItem(
     val id: Long,
     val kind: MemoryKind,
     val text: String,
     val weight: Float,
-    val lastSeenAt: LocalDateTime
+    val timesSeen: Int,
+    val createdAt: LocalDateTime,
+    val lastSeenAt: LocalDateTime,
+    val source: MemorySource,
+    val sourceId: Long?,
+    val userEdited: Boolean
 )

@@ -9,7 +9,8 @@ internal data class ChatCompletionRequest(
     val messages: List<ChatMessage>,
     val temperature: Float = 0.7f,
     @SerialName("max_tokens") val maxTokens: Int = 400,
-    @SerialName("response_format") val responseFormat: ResponseFormat? = ResponseFormat()
+    @SerialName("response_format") val responseFormat: ResponseFormat? = ResponseFormat(),
+    val stream: Boolean = false
 )
 
 @Serializable
@@ -66,7 +67,18 @@ internal data class WhisperTranscriptionResponse(
 )
 
 @Serializable
-internal data class CompanionAnswerPayload(
-    val answer: String = "",
-    @SerialName("cited_entry_ids") val citedEntryIds: List<Long> = emptyList()
+internal data class ChatCompletionChunk(
+    val model: String? = null,
+    val choices: List<ChunkChoice> = emptyList()
+)
+
+@Serializable
+internal data class ChunkChoice(
+    val delta: ChunkDelta = ChunkDelta(),
+    @SerialName("finish_reason") val finishReason: String? = null
+)
+
+@Serializable
+internal data class ChunkDelta(
+    val content: String? = null
 )

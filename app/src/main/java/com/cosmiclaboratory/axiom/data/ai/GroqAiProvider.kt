@@ -9,19 +9,29 @@ import com.cosmiclaboratory.axiom.data.ai.dto.ResponseFormat
 import com.cosmiclaboratory.axiom.data.ai.dto.WhisperTranscriptionResponse
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.domain.model.Persona
+import com.cosmiclaboratory.axiom.data.ai.dto.ChatCompletionChunk
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.utils.io.readUTF8Line
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.Json
 import java.io.File
 import javax.inject.Inject
@@ -63,7 +73,7 @@ class GroqAiProvider @Inject constructor(
     override suspend fun testConnection(): AiResult<Unit> {
         val key = prefs.groqApiKey() ?: return AiResult.NoKey
         val request = ChatCompletionRequest(
-            model = TEXT_MODEL,
+            model = GroqModels.BACKGROUND,
             messages = listOf(ChatMessage(role = "user", content = "ping")),
             maxTokens = 1,
             responseFormat = null
@@ -83,7 +93,8 @@ class GroqAiProvider @Inject constructor(
     override suspend fun chat(
         systemPrompt: String,
         messages: List<Pair<String, String>>,
-        maxTokens: Int
+        maxTokens: Int,
+        model: String
     ): AiResult<String> {
         val key = prefs.groqApiKey() ?: return AiResult.NoKey
         val payload = buildList {
@@ -91,7 +102,7 @@ class GroqAiProvider @Inject constructor(
             messages.forEach { (role, content) -> add(ChatMessage(role = role, content = content)) }
         }
         val request = ChatCompletionRequest(
-            model = TEXT_MODEL,
+            model = model,
             messages = payload,
             maxTokens = maxTokens,
             responseFormat = null
@@ -104,7 +115,92 @@ class GroqAiProvider @Inject constructor(
             }.body()
             val content = response.choices.firstOrNull()?.message?.content?.trim()
                 ?: return AiResult.Parse(IllegalStateException("Empty Groq response"))
-            AiResult.Ok(content, response.usage?.totalTokens ?: 0, response.model ?: TEXT_MODEL)
+            AiResult.Ok(content, response.usage?.totalTokens ?: 0, response.model ?: model)
+        }.getOrElse { mapError(it) }
+    }
+
+    override fun chatStream(
+        systemPrompt: String,
+        messages: List<Pair<String, String>>,
+        maxTokens: Int,
+        model: String
+    ): Flow<ChatStreamEvent> = flow {
+        val key = prefs.groqApiKey()
+        if (key == null) {
+            emit(ChatStreamEvent.Failed(AiResult.NoKey, ""))
+            return@flow
+        }
+        val payload = buildList {
+            add(ChatMessage(role = "system", content = systemPrompt))
+            messages.forEach { (role, content) -> add(ChatMessage(role = role, content = content)) }
+        }
+        val request = ChatCompletionRequest(
+            model = model,
+            messages = payload,
+            maxTokens = maxTokens,
+            responseFormat = null,
+            stream = true
+        )
+        val accumulated = StringBuilder()
+        var modelName = model
+        try {
+            client.preparePost(CHAT_ENDPOINT) {
+                contentType(ContentType.Application.Json)
+                headers { append(HttpHeaders.Authorization, "Bearer $key") }
+                setBody(request)
+                // The client-wide 30s budget is sized for one-shot calls; a
+                // stream stays open for its whole generation.
+                timeout { requestTimeoutMillis = STREAM_TIMEOUT_MS }
+            }.execute { response ->
+                val channel = response.bodyAsChannel()
+                while (true) {
+                    val line = channel.readUTF8Line() ?: break
+                    when (val parsed = parseGroqSseLine(line, json)) {
+                        is SseLine.Delta -> {
+                            parsed.model?.let { modelName = it }
+                            if (parsed.text.isNotEmpty()) {
+                                accumulated.append(parsed.text)
+                                emit(ChatStreamEvent.Delta(parsed.text))
+                            }
+                        }
+                        SseLine.Done -> return@execute
+                        null -> Unit
+                    }
+                }
+            }
+            emit(ChatStreamEvent.Done(accumulated.toString(), 0, modelName))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            emit(ChatStreamEvent.Failed(mapError(e), accumulated.toString()))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    override suspend fun completeJson(
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int,
+        model: String
+    ): AiResult<String> {
+        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val request = ChatCompletionRequest(
+            model = model,
+            messages = listOf(
+                ChatMessage(role = "system", content = systemPrompt),
+                ChatMessage(role = "user", content = userPrompt)
+            ),
+            maxTokens = maxTokens,
+            responseFormat = ResponseFormat()
+        )
+        return runCatching {
+            val response: ChatCompletionResponse = client.post(CHAT_ENDPOINT) {
+                contentType(ContentType.Application.Json)
+                headers { append(HttpHeaders.Authorization, "Bearer $key") }
+                setBody(request)
+            }.body()
+            val content = response.choices.firstOrNull()?.message?.content?.trim()
+                ?: return AiResult.Parse(IllegalStateException("Empty Groq response"))
+            AiResult.Ok(content, response.usage?.totalTokens ?: 0, response.model ?: model)
         }.getOrElse { mapError(it) }
     }
 
@@ -127,7 +223,7 @@ class GroqAiProvider @Inject constructor(
                                     append(HttpHeaders.ContentDisposition, "filename=\"${audioFile.name}\"")
                                 }
                             )
-                            append("model", WHISPER_MODEL)
+                            append("model", GroqModels.WHISPER)
                             append("response_format", "verbose_json")
                             language?.let { append("language", it) }
                             append("temperature", "0")
@@ -135,7 +231,7 @@ class GroqAiProvider @Inject constructor(
                     )
                 )
             }.body()
-            AiResult.Ok(response.text.trim(), 0, WHISPER_MODEL)
+            AiResult.Ok(response.text.trim(), 0, GroqModels.WHISPER)
         }.getOrElse { mapError(it) }
     }
 
@@ -146,7 +242,7 @@ class GroqAiProvider @Inject constructor(
         parse: (String) -> T
     ): AiResult<T> {
         val request = ChatCompletionRequest(
-            model = TEXT_MODEL,
+            model = GroqModels.BACKGROUND,
             messages = builder.buildMessages(persona, userPrompt),
             responseFormat = ResponseFormat()
         )
@@ -159,7 +255,7 @@ class GroqAiProvider @Inject constructor(
             val content = response.choices.firstOrNull()?.message?.content?.trim()
                 ?: return AiResult.Parse(IllegalStateException("Empty Groq response"))
             try {
-                AiResult.Ok(parse(content), response.usage?.totalTokens ?: 0, response.model ?: TEXT_MODEL)
+                AiResult.Ok(parse(content), response.usage?.totalTokens ?: 0, response.model ?: GroqModels.BACKGROUND)
             } catch (e: Throwable) {
                 AiResult.Parse(e)
             }
@@ -178,7 +274,29 @@ class GroqAiProvider @Inject constructor(
     private companion object {
         const val CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
         const val TRANSCRIPTION_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions"
-        const val TEXT_MODEL = "llama-3.1-8b-instant"
-        const val WHISPER_MODEL = "whisper-large-v3-turbo"
+        const val STREAM_TIMEOUT_MS = 120_000L
     }
+}
+
+/** One parsed server-sent-event line from a Groq streaming response. */
+internal sealed interface SseLine {
+    data class Delta(val text: String, val model: String?) : SseLine
+    data object Done : SseLine
+}
+
+/**
+ * Parses a single line of a Groq SSE stream. Pure so it can be unit-tested
+ * without Ktor. Returns null for anything that is not a data line or that
+ * carries no delta (keep-alive blanks, role-only first chunk, finish chunk).
+ */
+internal fun parseGroqSseLine(line: String, json: Json): SseLine? {
+    val trimmed = line.trim()
+    if (!trimmed.startsWith("data:")) return null
+    val payload = trimmed.removePrefix("data:").trim()
+    if (payload.isEmpty()) return null
+    if (payload == "[DONE]") return SseLine.Done
+    val chunk = runCatching { json.decodeFromString(ChatCompletionChunk.serializer(), payload) }
+        .getOrNull() ?: return null
+    val content = chunk.choices.firstOrNull()?.delta?.content ?: return null
+    return SseLine.Delta(content, chunk.model)
 }
