@@ -7,6 +7,7 @@ import com.cosmiclaboratory.axiom.data.ai.AiResult
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
+import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
@@ -40,6 +41,9 @@ data class SettingsUiState(
     val personas: List<Persona> = emptyList(),
     val activePersona: PersonaKey = PersonaKey.CALM,
     val dailyNudgeEnabled: Boolean = false,
+    val weeklyRecapEnabled: Boolean = true,
+    /** Earliest moment the companion may check in, as minutes past midnight. */
+    val checkInMinuteOfDay: Int = 21 * 60,
     val entryCount: Int = 0,
     val voiceLanguage: VoiceLanguage = VoiceLanguage.ENGLISH_IN,
     val whisperFallbackEnabled: Boolean = true,
@@ -51,7 +55,8 @@ class SettingsViewModel @Inject constructor(
     private val prefs: UserPreferences,
     private val personas: PersonaRepository,
     private val entries: JournalRepository,
-    private val ai: AiProvider
+    private val ai: AiProvider,
+    private val scheduler: JournalWorkScheduler
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SettingsUiState())
@@ -65,6 +70,8 @@ class SettingsViewModel @Inject constructor(
                     themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
                     activePersona = prefs.activePersonaKey.first(),
                     dailyNudgeEnabled = prefs.dailyNudgeEnabled.first(),
+                    weeklyRecapEnabled = prefs.weeklyRecapEnabled.first(),
+                    checkInMinuteOfDay = prefs.dailyNudgeMinuteOfDay.first(),
                     entryCount = entries.count(),
                     voiceLanguage = VoiceLanguage.fromStorage(prefs.preferredVoiceLanguage.first()),
                     whisperFallbackEnabled = prefs.whisperFallbackEnabled.first(),
@@ -100,7 +107,29 @@ class SettingsViewModel @Inject constructor(
 
     fun setDailyNudge(enabled: Boolean) {
         _state.update { it.copy(dailyNudgeEnabled = enabled) }
-        viewModelScope.launch { prefs.setDailyNudgeEnabled(enabled) }
+        viewModelScope.launch {
+            prefs.setDailyNudgeEnabled(enabled)
+            syncProactiveSchedule()
+        }
+    }
+
+    fun setWeeklyRecap(enabled: Boolean) {
+        _state.update { it.copy(weeklyRecapEnabled = enabled) }
+        viewModelScope.launch {
+            prefs.setWeeklyRecapEnabled(enabled)
+            syncProactiveSchedule()
+        }
+    }
+
+    fun setCheckInMinuteOfDay(minuteOfDay: Int) {
+        _state.update { it.copy(checkInMinuteOfDay = minuteOfDay) }
+        viewModelScope.launch { prefs.setDailyNudgeMinuteOfDay(minuteOfDay) }
+    }
+
+    /** The hourly tick exists only while something proactive is switched on. */
+    private suspend fun syncProactiveSchedule() {
+        val wanted = prefs.dailyNudgeEnabled.first() || prefs.weeklyRecapEnabled.first()
+        if (wanted) scheduler.scheduleProactiveCheckIns() else scheduler.cancelProactiveCheckIns()
     }
 
     fun setVoiceLanguage(language: VoiceLanguage) {

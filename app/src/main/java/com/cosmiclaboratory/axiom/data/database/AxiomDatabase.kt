@@ -19,7 +19,10 @@ import com.cosmiclaboratory.axiom.data.database.dao.UserProfileDao
 import com.cosmiclaboratory.axiom.data.database.entity.*
 
 /**
- * Version 5 is the companion pivot: memory_items grows provenance columns
+ * Version 6 adds memory_items.dueAt — open loops the companion should circle
+ * back on ("how did the interview go?").
+ *
+ * Version 5 was the companion pivot: memory_items grew provenance columns
  * (timesSeen, createdAt, sourceType, sourceId, userEdited), companion_messages
  * gains a `source` column, companion_thread_state is new, and the never-populated
  * daily_summaries table is gone.
@@ -55,7 +58,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
         CompanionMessageEntity::class,
         CompanionThreadStateEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverter::class)

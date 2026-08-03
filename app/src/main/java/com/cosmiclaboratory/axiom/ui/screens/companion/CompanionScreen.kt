@@ -24,9 +24,7 @@ import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.RecordVoiceOver
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,7 +42,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.components.*
@@ -70,6 +67,7 @@ fun CompanionScreen(
     onOpenEntry: (Long) -> Unit,
     onConnectAi: () -> Unit,
     onOpenMemories: () -> Unit,
+    onOpenSettings: () -> Unit,
     onSaveToJournal: (String) -> Unit,
     onContinueDraft: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -77,7 +75,6 @@ fun CompanionScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
-    var showPersonas by remember { mutableStateOf(false) }
     var showDisclosure by remember { mutableStateOf(false) }
 
     // Mic permission gates both the composer mic and the hands-free toggle.
@@ -119,7 +116,9 @@ fun CompanionScreen(
                 tint = if (state.handsFree) AxiomTheme.colors.accent else AxiomTheme.colors.ink
             )
             AxiomTopBarAction(Icons.Outlined.Psychology, "What I remember", onClick = onOpenMemories)
-            AxiomTopBarAction(Icons.Outlined.Tune, "Change voice", onClick = { showPersonas = true })
+            // Home is where settings belong, and since Today was folded into the
+            // conversation this is the only place left to reach them from.
+            AxiomTopBarAction(Icons.Outlined.Settings, "Settings", onClick = onOpenSettings)
             if (state.messages.isNotEmpty()) {
                 AxiomTopBarAction(Icons.Outlined.DeleteSweep, "Clear conversation", viewModel::clearThread)
             }
@@ -230,18 +229,6 @@ fun CompanionScreen(
                 onMic = { withMicPermission(viewModel::toggleListening) }
             )
         }
-    }
-
-    if (showPersonas) {
-        PersonaSheet(
-            personas = state.personas,
-            active = state.activePersona,
-            autoSpeak = state.autoSpeak,
-            ttsAvailable = state.ttsAvailable,
-            onAutoSpeak = viewModel::setAutoSpeak,
-            onPick = { viewModel.setPersona(it); showPersonas = false },
-            onDismiss = { showPersonas = false }
-        )
     }
 
     if (showDisclosure) {
@@ -391,62 +378,6 @@ private fun CompanionComposerBar(
             enabled = enabled && draft.isNotBlank(),
             tint = c.accent
         )
-    }
-}
-
-@Composable
-private fun PersonaSheet(
-    personas: List<com.cosmiclaboratory.axiom.domain.model.Persona>,
-    active: PersonaKey,
-    autoSpeak: Boolean,
-    ttsAvailable: Boolean,
-    onAutoSpeak: (Boolean) -> Unit,
-    onPick: (PersonaKey) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AxiomBottomSheet(title = "Companion voice", onDismiss = onDismiss) {
-        personas.forEach { persona ->
-            AxiomCard(
-                tone = if (persona.key == active) CardTone.Accent else CardTone.Neutral,
-                onClick = { onPick(persona.key) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = AxiomTheme.space.xs)
-            ) {
-                Text(persona.displayName, style = AxiomTheme.type.uiTitleSmall, color = AxiomTheme.colors.ink)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    persona.systemPromptFragment,
-                    style = AxiomTheme.type.uiBodySmall,
-                    color = AxiomTheme.colors.inkMuted,
-                    maxLines = 2
-                )
-            }
-        }
-        if (ttsAvailable) {
-            Spacer(Modifier.height(AxiomTheme.space.base))
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Speak replies aloud", style = AxiomTheme.type.uiBody, color = AxiomTheme.colors.ink)
-                    Text(
-                        "Generated on this device — spoken words never leave your phone.",
-                        style = AxiomTheme.type.uiBodySmall,
-                        color = AxiomTheme.colors.inkMuted
-                    )
-                }
-                Switch(
-                    checked = autoSpeak,
-                    onCheckedChange = onAutoSpeak,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = AxiomTheme.colors.onAccent,
-                        checkedTrackColor = AxiomTheme.colors.accent
-                    )
-                )
-            }
-        }
     }
 }
 

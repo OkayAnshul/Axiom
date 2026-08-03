@@ -146,6 +146,7 @@ fun AxiomNavigation(
                             onOpenEntry = { id -> navController.navigate(Reader(id)) },
                             onConnectAi = { navController.navigate(SettingsAi) },
                             onOpenMemories = { navController.navigate(Memories) },
+                            onOpenSettings = { navController.navigate(Settings) },
                             onSaveToJournal = { text ->
                                 navController.navigate(Composer(initialText = text))
                             },

@@ -42,6 +42,9 @@ class UserPreferences @Inject constructor(
     val dailyNudgeEnabled: Flow<Boolean> = store.data.map { it[KEY_DAILY_NUDGE_ENABLED] ?: false }
     val dailyNudgeMinuteOfDay: Flow<Int> = store.data.map { it[KEY_DAILY_NUDGE_MINUTE] ?: (21 * 60) }
 
+    /** ISO date of the last unprompted companion message — enforces one per day. */
+    val lastProactiveDate: Flow<String> = store.data.map { it[KEY_LAST_PROACTIVE_DATE].orEmpty() }
+
     // v2: theme override (-1 = follow system, 0 = light, 1 = dark, 2 = amoled)
     val themeOverride: Flow<Int> = store.data.map { it[KEY_THEME_OVERRIDE] ?: -1 }
 
@@ -106,6 +109,10 @@ class UserPreferences @Inject constructor(
         store.edit { it[KEY_DAILY_NUDGE_MINUTE] = value.coerceIn(0, 24 * 60 - 1) }
     }
 
+    suspend fun setLastProactiveDate(isoDate: String) {
+        store.edit { it[KEY_LAST_PROACTIVE_DATE] = isoDate }
+    }
+
     suspend fun setThemeOverride(value: Int) {
         store.edit { it[KEY_THEME_OVERRIDE] = value.coerceIn(-1, 2) }
     }
@@ -122,6 +129,7 @@ class UserPreferences @Inject constructor(
         val KEY_AUTO_SPEAK = booleanPreferencesKey("auto_speak_enabled")
         val KEY_DAILY_NUDGE_ENABLED = booleanPreferencesKey("daily_nudge_enabled")
         val KEY_DAILY_NUDGE_MINUTE = intPreferencesKey("daily_nudge_minute")
+        val KEY_LAST_PROACTIVE_DATE = stringPreferencesKey("last_proactive_date")
         val KEY_THEME_OVERRIDE = intPreferencesKey("theme_override")
     }
 }

@@ -6,8 +6,10 @@ import com.cosmiclaboratory.axiom.data.ai.PromptTemplates
 import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,7 +29,17 @@ class MemoryExtractor @Inject constructor(
 ) {
 
     @Serializable
-    private data class NewMemory(val kind: String = "", val text: String = "", val confidence: Float = 0.5f)
+    private data class NewMemory(
+        val kind: String = "",
+        val text: String = "",
+        val confidence: Float = 0.5f,
+        /**
+         * Days from today when a friend would naturally check back in about this.
+         * Relative rather than an absolute date on purpose: small models do
+         * calendar arithmetic badly but "in about 2 days" reliably.
+         */
+        @SerialName("follow_up_in_days") val followUpInDays: Int? = null
+    )
 
     @Serializable
     private data class Revision(val id: Long = 0, val text: String = "")
@@ -92,7 +104,10 @@ class MemoryExtractor @Inject constructor(
                     text = text,
                     weight = NEW_BASE_WEIGHT + NEW_CONFIDENCE_WEIGHT * candidate.confidence.coerceIn(0f, 1f),
                     source = source,
-                    sourceId = sourceId
+                    sourceId = sourceId,
+                    dueAt = candidate.followUpInDays
+                        ?.takeIf { it in MIN_FOLLOW_UP_DAYS..MAX_FOLLOW_UP_DAYS }
+                        ?.let { LocalDateTime.now().plusDays(it.toLong()) }
                 )
             }
         }
@@ -104,6 +119,10 @@ class MemoryExtractor @Inject constructor(
         const val DUPLICATE_THRESHOLD = 0.6
         const val NEW_BASE_WEIGHT = 0.3f
         const val NEW_CONFIDENCE_WEIGHT = 0.4f
+
+        /** Same-day follow-ups feel like surveillance; beyond a season it is no longer a loop. */
+        const val MIN_FOLLOW_UP_DAYS = 1
+        const val MAX_FOLLOW_UP_DAYS = 90
     }
 }
 
