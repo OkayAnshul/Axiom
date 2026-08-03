@@ -11,8 +11,10 @@ import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.Entry
+import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.patterns.PatternFinder
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
+import com.cosmiclaboratory.axiom.domain.style.StyleProfiler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -125,6 +127,17 @@ class CompanionEngine @Inject constructor(
         val persona = personaRepo.getByKey(prefs.activePersonaKey.first())
         val memoryBlock = memories.topForPrompt(now)
 
+        // How they write is measured from their own turns, not the companion's.
+        val userTurns = companionRepo
+            .recentMessages(threadId, STYLE_SAMPLE_MESSAGES)
+            .filter { it.role == CompanionMessageEntity.Role.USER.name }
+            .map { it.content }
+        val style = StyleProfiler.profile(
+            userMessages = userTurns,
+            preferences = memoryBlock[MemoryKind.PREFERENCE].orEmpty(),
+            now = now
+        )
+
         // One pattern at most. A companion that opens with three statistics
         // about you is a dashboard wearing a friend's voice.
         val noticed = runCatching {
@@ -153,7 +166,8 @@ class CompanionEngine @Inject constructor(
             // Only flagged as inferred when the user has not chosen a mood, so
             // the companion never hedges about something they told it directly.
             emotionToday = inferredToday?.emotion.takeIf { chosenToday == null },
-            noticed = noticed
+            noticed = noticed,
+            style = style
         )
     }
 
@@ -184,6 +198,8 @@ class CompanionEngine @Inject constructor(
         if (message.role == CompanionMessageEntity.Role.USER.name) "user" else "assistant"
 
     private companion object {
+        /** Wider than the history window: style should settle over more than one sitting. */
+        const val STYLE_SAMPLE_MESSAGES = 40
         const val REPLY_MAX_TOKENS = 500
         const val MENTION_BUMP = 0.05f
         const val MIN_TOKEN_LENGTH = 5

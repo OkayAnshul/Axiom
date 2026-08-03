@@ -4,6 +4,9 @@ import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
+import com.cosmiclaboratory.axiom.domain.style.LanguageMix
+import com.cosmiclaboratory.axiom.domain.style.ReplyLength
+import com.cosmiclaboratory.axiom.domain.style.StyleProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -32,10 +35,11 @@ class CompanionPromptBuilderTest {
         moodToday: Int? = null,
         streakDays: Int = 0,
         emotionToday: Emotion? = null,
-        noticed: String? = null
+        noticed: String? = null,
+        style: StyleProfile = StyleProfile()
     ) = CompanionPromptBuilder.Context(
         displayName, personaFragment, memories, rollingSummary,
-        recentInsights, excerpts, now, moodToday, streakDays, emotionToday, noticed
+        recentInsights, excerpts, now, moodToday, streakDays, style, emotionToday, noticed
     )
 
     // ---- system prompt sections --------------------------------------------
@@ -147,6 +151,70 @@ class CompanionPromptBuilderTest {
             context(personaFragment = "Your natural register is playful.")
         )
         assertTrue(prompt.contains("Your natural register is playful."))
+    }
+
+    // ---- style block --------------------------------------------------------
+
+    @Test
+    fun `an unmeasured profile admits it does not know them yet`() {
+        val prompt = builder.buildSystemPrompt(context())
+        assertTrue(prompt.contains("How this person likes to be talked to:"))
+        assertTrue(prompt.contains("You do not know them well yet."))
+    }
+
+    @Test
+    fun `measured length and language become instructions`() {
+        val prompt = builder.buildSystemPrompt(
+            context(
+                style = StyleProfile(
+                    replyLength = ReplyLength.BRIEF,
+                    languageMix = LanguageMix.HINGLISH,
+                    measured = true
+                )
+            )
+        )
+        assertTrue(prompt.contains("One or two sentences back"))
+        assertTrue(prompt.contains("Mix it back, naturally"))
+        assertFalse(prompt.contains("do not know them well yet"))
+    }
+
+    @Test
+    fun `stated preferences render and are said to outrank the persona`() {
+        val prompt = builder.buildSystemPrompt(
+            context(
+                personaFragment = "Your natural register is playful.",
+                style = StyleProfile(
+                    statedPreferences = listOf("Do not give advice unless asked."),
+                    measured = true
+                )
+            )
+        )
+        assertTrue(prompt.contains("Where you started from — a leaning, not a rule:"))
+        assertTrue(prompt.contains("Do not give advice unless asked."))
+        assertTrue(prompt.contains("These outrank the leaning above"))
+    }
+
+    @Test
+    fun `preferences do not leak into the biographical memory block`() {
+        val prompt = builder.buildSystemPrompt(
+            context(
+                memories = mapOf(
+                    MemoryKind.PREFERENCE to listOf(memory(MemoryKind.PREFERENCE, "Likes short replies")),
+                    MemoryKind.PERSON to listOf(memory(MemoryKind.PERSON, "Riya, younger sister"))
+                )
+            )
+        )
+        // The memory block is about who they are, not how to speak to them.
+        assertFalse(prompt.contains("Preferences:"))
+        assertTrue(prompt.contains("People:"))
+    }
+
+    @Test
+    fun `only the first few preferences are sent`() {
+        val many = (1..10).map { "Preference number $it." }
+        val prompt = builder.buildSystemPrompt(context(style = StyleProfile(statedPreferences = many)))
+        assertTrue(prompt.contains("Preference number ${CompanionPromptBuilder.MAX_PREFERENCES}."))
+        assertFalse(prompt.contains("Preference number ${CompanionPromptBuilder.MAX_PREFERENCES + 1}."))
     }
 
     // ---- inferred feeling and noticed patterns -----------------------------

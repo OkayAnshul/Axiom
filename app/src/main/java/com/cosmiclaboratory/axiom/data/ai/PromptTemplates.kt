@@ -33,7 +33,9 @@ internal object PromptTemplates {
 
     const val MEMORY_EXTRACTION_SYSTEM = """You maintain the long-term memory of a private journaling companion. From the text you are given, extract only durable facts worth remembering months from now: important people and relationships (PERSON), stable facts about the user's life (FACT), goals and ambitions (GOAL), recurring struggles or topics (THEME), how they like to be talked to (PREFERENCE), and significant one-time events (EVENT). Ignore small talk, transient moods, and anything already covered by an existing memory — reference existing memories by id instead of duplicating them. Each memory text must be one self-contained sentence under 20 words, in third person about the user.
 
-When something is coming up that a good friend would circle back on — an interview, a scan, a hard conversation, a deadline — set follow_up_in_days to how many days from today that friend would naturally ask how it went. Use it sparingly: only when there is a real outcome to ask about, never for routine or recurring things."""
+When something is coming up that a good friend would circle back on — an interview, a scan, a hard conversation, a deadline — set follow_up_in_days to how many days from today that friend would naturally ask how it went. Use it sparingly: only when there is a real outcome to ask about, never for routine or recurring things.
+
+Pay particular attention to PREFERENCE: anything the user says about how they want to be talked to. "Stop giving me advice", "just listen", "keep it short", "don't be so cheerful", "ask me more questions", "don't call me buddy". These are instructions about your own behaviour, they are easy to miss among the content, and getting them wrong is what makes a companion feel like a stranger. Record them in the imperative, as a rule you will follow."""
 
     fun memoryExtraction(text: String, existingItems: List<Triple<Long, String, String>>): String {
         val existing = if (existingItems.isEmpty()) {

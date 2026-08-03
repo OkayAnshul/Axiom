@@ -52,6 +52,12 @@ class MemoryRepository @Inject constructor(
 
     suspend fun exists(id: Long): Boolean = dao.getById(id) != null
 
+    /** Protects a memory from being reworded by extraction. */
+    suspend fun markUserEdited(id: Long) {
+        val existing = dao.getById(id) ?: return
+        dao.update(existing.copy(userEdited = true))
+    }
+
     /** Puts back a just-deleted memory exactly as it was — powers undo. */
     suspend fun restore(item: MemoryItem) {
         dao.upsert(
@@ -141,7 +147,10 @@ class MemoryRepository @Inject constructor(
             MemoryKind.THEME to 4,
             MemoryKind.FACT to 4,
             MemoryKind.EVENT to 2,
-            MemoryKind.PREFERENCE to 1
+            // Raised in Phase 12: preferences no longer compete with facts for
+            // prompt space — they render in the style block, where they are the
+            // point rather than a footnote.
+            MemoryKind.PREFERENCE to 4
         )
 
         private const val DECAY_DAYS = 90.0
