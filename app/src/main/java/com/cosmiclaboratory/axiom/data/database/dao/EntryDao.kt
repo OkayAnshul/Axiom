@@ -130,6 +130,16 @@ interface EntryDao {
     @Query("UPDATE entries SET mood = :mood, moodCapturedAt = :capturedAt, updatedAt = :capturedAt WHERE id = :entryId")
     suspend fun setMood(entryId: Long, mood: Int?, capturedAt: LocalDateTime)
 
+    /**
+     * Records an inferred feeling, but only where the user has not chosen one.
+     * The `mood IS NULL` guard is in the statement rather than in a read-then-
+     * write so a mood tapped while the summarizer was in flight can never be
+     * silently overwritten by the model's guess. moodCapturedAt stays null,
+     * which is how the rest of the app tells inferred from chosen.
+     */
+    @Query("UPDATE entries SET mood = :mood, emotion = :emotion WHERE id = :entryId AND mood IS NULL")
+    suspend fun setInferredMood(entryId: Long, mood: Int, emotion: String): Int
+
     @Query("UPDATE entries SET isFavorite = :favorite, updatedAt = :now WHERE id = :entryId")
     suspend fun setFavorite(entryId: Long, favorite: Boolean, now: LocalDateTime)
 

@@ -13,9 +13,11 @@ import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
 import com.cosmiclaboratory.axiom.data.voice.CompanionSpeaker
 import com.cosmiclaboratory.axiom.data.voice.MultilingualVoiceManager
 import com.cosmiclaboratory.axiom.data.voice.extractSpeakableSentences
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
+import com.cosmiclaboratory.axiom.domain.model.humanizedMemory
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionResult
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
@@ -53,6 +55,10 @@ data class CompanionUiState(
     // ---- ritual header (the Today remnant: one thin row, not a dashboard) ----
     val streak: StreakCalculator.Result = StreakCalculator.Result(0, 0, List(7) { false }),
     val todayMood: Int? = null,
+    /** Named feeling read from today's writing, when the user hasn't chosen one. */
+    val todayEmotion: Emotion? = null,
+    /** True when [todayMood] came from inference — the chip then reads as correctable. */
+    val todayMoodInferred: Boolean = false,
     /** Most recent unfinished entry, surfaced as a "continue writing" chip. */
     val writingDraft: Entry? = null,
     /** The last user message that failed to send — powers "Save to your journal". */
@@ -263,7 +269,10 @@ class CompanionViewModel @Inject constructor(
 
         val loop = runCatching { memories.dueOpenLoops(limit = 1) }.getOrDefault(emptyList()).firstOrNull()
         if (loop != null) {
-            companionRepo.appendLocal(THREAD_ID, "$greeting. Earlier you mentioned: ${loop.text} How did that go?")
+            companionRepo.appendLocal(
+                THREAD_ID,
+                "$greeting. Earlier you mentioned: ${loop.text.humanizedMemory()} How did that go?"
+            )
             // Asked once. The memory survives; only the follow-up closes.
             runCatching { memories.closeLoop(loop.id) }
             return
@@ -277,10 +286,16 @@ class CompanionViewModel @Inject constructor(
     private suspend fun refreshRitual() {
         val today = LocalDate.now()
         val todaysEntries = runCatching { entries.forDay(today) }.getOrDefault(emptyList())
+        // A mood the user chose outranks one that was read from their writing.
+        val chosen = todaysEntries.firstOrNull { e -> e.mood != null && e.moodCapturedAt != null }
+        val inferred = todaysEntries.firstOrNull { e -> e.mood != null && e.moodCapturedAt == null }
+        val source = chosen ?: inferred
         _state.update {
             it.copy(
                 streak = StreakCalculator.compute(entries.entryDates()),
-                todayMood = todaysEntries.firstNotNullOfOrNull { e -> e.mood },
+                todayMood = source?.mood,
+                todayEmotion = inferred?.emotion.takeIf { chosen == null },
+                todayMoodInferred = chosen == null && inferred != null,
                 writingDraft = entries.drafts(1).firstOrNull()
             )
         }

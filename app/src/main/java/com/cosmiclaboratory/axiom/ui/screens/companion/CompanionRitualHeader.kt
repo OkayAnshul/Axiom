@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import com.cosmiclaboratory.axiom.ui.design.components.MoodDot
@@ -38,6 +39,8 @@ import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 fun CompanionRitualHeader(
     streak: StreakCalculator.Result,
     todayMood: Int?,
+    todayEmotion: Emotion?,
+    todayMoodInferred: Boolean,
     writingDraft: Entry?,
     onRecordMood: (Int) -> Unit,
     onContinueDraft: (Long) -> Unit,
@@ -71,7 +74,13 @@ fun CompanionRitualHeader(
                 MoodDot(mood = todayMood)
                 Spacer(Modifier.width(AxiomTheme.space.xs))
                 Text(
-                    text = if (todayMood != null) moodLabel(todayMood) else "How's today?",
+                    // An inferred feeling is offered as a reading to correct, not
+                    // stated as fact — hence the word, and the hedge.
+                    text = when {
+                        todayMoodInferred && todayEmotion != null -> "Sounds like ${todayEmotion.label}"
+                        todayMood != null -> moodLabel(todayMood)
+                        else -> "How's today?"
+                    },
                     style = AxiomTheme.type.uiLabelSmall,
                     color = if (todayMood != null) c.ink else c.inkMuted
                 )

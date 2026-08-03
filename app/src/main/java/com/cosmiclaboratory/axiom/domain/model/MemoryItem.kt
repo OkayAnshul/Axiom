@@ -21,3 +21,21 @@ data class MemoryItem(
     /** Set when this is an open loop the companion should ask about after this time. */
     val dueAt: LocalDateTime? = null
 )
+
+/**
+ * Memories are stored in the third person ("the user's sister") because that
+ * is how they read inside the model's prompt. Shown back to the person they
+ * are about, that voice is jarring — so anything user-facing addresses them
+ * directly instead.
+ */
+fun String.humanizedMemory(): String {
+    var text = this
+    THIRD_PERSON.forEach { (pattern, replacement) -> text = pattern.replace(text, replacement) }
+    return text.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+}
+
+private val THIRD_PERSON: List<Pair<Regex, String>> = listOf(
+    Regex("""\bthe user's\b""", RegexOption.IGNORE_CASE) to "your",
+    Regex("""\bthe user\b""", RegexOption.IGNORE_CASE) to "you",
+    Regex("""\buser's\b""", RegexOption.IGNORE_CASE) to "your"
+)

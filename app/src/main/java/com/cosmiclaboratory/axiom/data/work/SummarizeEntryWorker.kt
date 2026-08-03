@@ -12,6 +12,7 @@ import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
+import com.cosmiclaboratory.axiom.domain.model.EmotionMapper
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import dagger.assisted.Assisted
@@ -62,6 +63,12 @@ class SummarizeEntryWorker @AssistedInject constructor(
                 )
                 if (v.followUp.isNotBlank()) {
                     questionRepo.saveFollowUp(entryId, v.followUp)
+                }
+                // The mood word was being asked for, stored, and then ignored —
+                // never displayed, never scaled, never written back. It now
+                // becomes the entry's feeling unless the user chose one.
+                EmotionMapper.fromWord(v.mood)?.let { emotion ->
+                    journalRepo.setInferredMood(entryId, emotion)
                 }
                 // Best-effort memory extraction. CONVERSATION digests are skipped —
                 // their raw transcript was already extracted by the digest worker,

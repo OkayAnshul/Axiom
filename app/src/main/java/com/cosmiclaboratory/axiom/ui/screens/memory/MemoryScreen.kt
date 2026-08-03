@@ -37,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
+import com.cosmiclaboratory.axiom.domain.model.humanizedMemory
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomBottomSheet
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomCard
@@ -145,7 +146,8 @@ private fun MemoryRow(
     AxiomCard(tone = CardTone.Neutral, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(memory.text, style = AxiomTheme.type.uiBody, color = c.ink)
+                // Stored third-person for the model; addressed to the reader here.
+                Text(memory.text.humanizedMemory(), style = AxiomTheme.type.uiBody, color = c.ink)
                 Spacer(Modifier.height(AxiomTheme.space.xs))
                 Text(
                     buildString {

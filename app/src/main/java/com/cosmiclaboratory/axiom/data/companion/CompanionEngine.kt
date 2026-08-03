@@ -11,6 +11,7 @@ import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.Entry
+import com.cosmiclaboratory.axiom.domain.patterns.PatternFinder
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -118,13 +119,25 @@ class CompanionEngine @Inject constructor(
         val now = LocalDateTime.now()
         val today = LocalDate.now()
         val entryDates = runCatching { entries.entryDates() }.getOrDefault(emptyList())
-        val moodToday = runCatching { entries.forDay(today) }.getOrDefault(emptyList())
-            .firstNotNullOfOrNull { it.mood }
+        val todaysEntries = runCatching { entries.forDay(today) }.getOrDefault(emptyList())
+        val chosenToday = todaysEntries.firstOrNull { it.mood != null && it.moodCapturedAt != null }
+        val inferredToday = todaysEntries.firstOrNull { it.mood != null && it.moodCapturedAt == null }
         val persona = personaRepo.getByKey(prefs.activePersonaKey.first())
+        val memoryBlock = memories.topForPrompt(now)
+
+        // One pattern at most. A companion that opens with three statistics
+        // about you is a dashboard wearing a friend's voice.
+        val noticed = runCatching {
+            PatternFinder.find(
+                entries = entries.observeCompleted().first(),
+                memories = memoryBlock.values.flatten(),
+                today = today
+            ).firstOrNull()?.text
+        }.getOrNull()
         return CompanionPromptBuilder.Context(
             displayName = prefs.displayName.first(),
             personaFragment = persona?.systemPromptFragment.orEmpty(),
-            memories = memories.topForPrompt(now),
+            memories = memoryBlock,
             rollingSummary = companionRepo.threadState(threadId).rollingSummary,
             recentInsights = runCatching { entries.recentSummariesForContext() }.getOrDefault(emptyList()),
             excerpts = topK.map { entry ->
@@ -135,8 +148,12 @@ class CompanionEngine @Inject constructor(
                 )
             },
             now = now,
-            moodToday = moodToday,
-            streakDays = StreakCalculator.compute(entryDates, today).current
+            moodToday = (chosenToday ?: inferredToday)?.mood,
+            streakDays = StreakCalculator.compute(entryDates, today).current,
+            // Only flagged as inferred when the user has not chosen a mood, so
+            // the companion never hedges about something they told it directly.
+            emotionToday = inferredToday?.emotion.takeIf { chosenToday == null },
+            noticed = noticed
         )
     }
 

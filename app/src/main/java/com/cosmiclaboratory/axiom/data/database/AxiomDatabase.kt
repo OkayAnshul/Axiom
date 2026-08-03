@@ -19,7 +19,10 @@ import com.cosmiclaboratory.axiom.data.database.dao.UserProfileDao
 import com.cosmiclaboratory.axiom.data.database.entity.*
 
 /**
- * Version 6 adds memory_items.dueAt — open loops the companion should circle
+ * Version 7 adds entries.emotion — the named feeling inferred from the writing,
+ * carrying what the 1..5 mood number cannot.
+ *
+ * Version 6 added memory_items.dueAt — open loops the companion should circle
  * back on ("how did the interview go?").
  *
  * Version 5 was the companion pivot: memory_items grew provenance columns
@@ -58,7 +61,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
         CompanionMessageEntity::class,
         CompanionThreadStateEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverter::class)

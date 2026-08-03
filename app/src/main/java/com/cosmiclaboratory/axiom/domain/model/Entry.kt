@@ -24,6 +24,8 @@ data class Entry(
     val mood: Int? = null,
     /** null with a non-null [mood] means the mood was inferred, not chosen. */
     val moodCapturedAt: LocalDateTime? = null,
+    /** The named feeling behind [mood], when one was inferred from the writing. */
+    val emotion: Emotion? = null,
     /** 1..5 */
     val energy: Int? = null,
     val questionId: Long? = null,

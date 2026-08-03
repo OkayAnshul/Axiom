@@ -12,6 +12,7 @@ import com.cosmiclaboratory.axiom.data.companion.MemoryExtractor
 import com.cosmiclaboratory.axiom.data.database.entity.CompanionMessageEntity
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
+import com.cosmiclaboratory.axiom.domain.model.EmotionMapper
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
@@ -95,7 +96,8 @@ class ConversationDigestWorker @AssistedInject constructor(
         val (body, moodWord) = splitMoodLine(raw)
         if (body.isBlank()) return
         val sessionDate = session.last().createdAt.toLocalDate()
-        val mood = moodWordToScale(moodWord)
+        val emotion = EmotionMapper.fromWord(moodWord)
+        val mood = emotion?.valence
 
         val existing = journalRepo.forDay(sessionDate)
             .firstOrNull { it.kind == EntryKind.CONVERSATION }
@@ -108,7 +110,8 @@ class ConversationDigestWorker @AssistedInject constructor(
                     wordCount = content.split(WHITESPACE).size,
                     charCount = content.length,
                     // Respect a user-chosen mood; only fill inferred mood into a blank.
-                    mood = existing.mood ?: mood
+                    mood = existing.mood ?: mood,
+                    emotion = existing.emotion ?: emotion
                 )
             )
         } else {
@@ -123,6 +126,7 @@ class ConversationDigestWorker @AssistedInject constructor(
                     mood = mood,
                     // null moodCapturedAt marks the mood as inferred, not chosen.
                     moodCapturedAt = null,
+                    emotion = emotion,
                     wordCount = body.split(WHITESPACE).size,
                     charCount = body.length
                 )
@@ -138,16 +142,6 @@ class ConversationDigestWorker @AssistedInject constructor(
         } else {
             raw.trim() to null
         }
-    }
-
-    private fun moodWordToScale(word: String?): Int? = when (word) {
-        null -> null
-        in setOf("awful", "terrible", "devastated", "hopeless", "miserable") -> 1
-        in setOf("sad", "low", "anxious", "stressed", "frustrated", "angry", "worried", "tired", "drained", "lonely") -> 2
-        in setOf("okay", "neutral", "fine", "mixed", "calm", "steady") -> 3
-        in setOf("good", "content", "hopeful", "relieved", "motivated", "grateful", "productive") -> 4
-        in setOf("great", "happy", "excited", "joyful", "thrilled", "proud", "energized") -> 5
-        else -> null
     }
 
     companion object {
