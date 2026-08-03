@@ -8,7 +8,7 @@ import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.AiPromptCacheDao
 import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
-import com.cosmiclaboratory.axiom.data.database.dao.DailySummaryDao
+import com.cosmiclaboratory.axiom.data.database.dao.CompanionThreadStateDao
 import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
 import com.cosmiclaboratory.axiom.data.database.dao.PersonaDao
@@ -19,7 +19,12 @@ import com.cosmiclaboratory.axiom.data.database.dao.UserProfileDao
 import com.cosmiclaboratory.axiom.data.database.entity.*
 
 /**
- * Version 4 collapses `answer_entries` into `entries`; the answer-entry tables and
+ * Version 5 is the companion pivot: memory_items grows provenance columns
+ * (timesSeen, createdAt, sourceType, sourceId, userEdited), companion_messages
+ * gains a `source` column, companion_thread_state is new, and the never-populated
+ * daily_summaries table is gone.
+ *
+ * Version 4 collapsed `answer_entries` into `entries`; the answer-entry tables and
  * their FTS index are gone.
  *
  * exportSchema is OFF and fallbackToDestructiveMigration is still in place because
@@ -47,10 +52,10 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
         MemoryItemEntity::class,
         AiPromptCacheEntity::class,
         AttachmentEntity::class,
-        DailySummaryEntity::class,
-        CompanionMessageEntity::class
+        CompanionMessageEntity::class,
+        CompanionThreadStateEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverter::class)
@@ -66,8 +71,8 @@ abstract class AxiomDatabase : RoomDatabase() {
     abstract fun memoryItemDao(): MemoryItemDao
     abstract fun aiPromptCacheDao(): AiPromptCacheDao
     abstract fun attachmentDao(): AttachmentDao
-    abstract fun dailySummaryDao(): DailySummaryDao
     abstract fun companionDao(): CompanionDao
+    abstract fun companionThreadStateDao(): CompanionThreadStateDao
 
     companion object {
         const val DATABASE_NAME = "axiom_database"

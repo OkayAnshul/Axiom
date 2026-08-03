@@ -16,7 +16,15 @@ data class CompanionMessageEntity(
     val role: String,
     val content: String,
     val createdAt: LocalDateTime,
-    val citedEntryIdsCsv: String = ""
+    val citedEntryIdsCsv: String = "",
+    /**
+     * How the message came to be: USER typed it, MODEL generated it, LOCAL is
+     * an assistant-styled message the app composed on-device (daily opener).
+     * LOCAL messages join the history window — the companion should remember
+     * having greeted — but cost nothing and work offline.
+     */
+    val source: String = Source.MODEL.name
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM }
+    enum class Source { USER, MODEL, LOCAL }
 }

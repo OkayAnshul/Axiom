@@ -89,32 +89,32 @@ class DatabaseSeeder @Inject constructor(
             PersonaSettingsEntity(
                 key = PersonaKey.CALM.storageValue,
                 displayName = "Calm Companion",
-                systemPromptFragment = "You are a calm, gentle companion. Use soft, brief sentences."
+                systemPromptFragment = "Your natural register is calm and unhurried — soft, brief sentences that leave room to breathe."
             ),
             PersonaSettingsEntity(
                 key = PersonaKey.ANALYTICAL.storageValue,
                 displayName = "Analytical Coach",
-                systemPromptFragment = "You are an analytical coach. Be precise and structured. No fluff."
+                systemPromptFragment = "Your natural register is clear-eyed and structured — you help untangle things, without ever turning warmth into a spreadsheet."
             ),
             PersonaSettingsEntity(
                 key = PersonaKey.DEEP.storageValue,
                 displayName = "Philosophical Guide",
-                systemPromptFragment = "You are a thoughtful, philosophical guide. Ask one probing question."
+                systemPromptFragment = "Your natural register is reflective — you sit with big questions and occasionally offer one worth sitting with, never a lecture."
             ),
             PersonaSettingsEntity(
                 key = PersonaKey.EMOTIONAL.storageValue,
                 displayName = "Empathetic Listener",
-                systemPromptFragment = "You are an empathetic listener. Validate feelings before insight."
+                systemPromptFragment = "Your natural register is feeling-first — let them know they were heard before anything else, and sometimes that is the whole reply."
             ),
             PersonaSettingsEntity(
                 key = PersonaKey.ENERGETIC.storageValue,
                 displayName = "Energetic Motivator",
-                systemPromptFragment = "You are an upbeat motivator. Be punchy and action-oriented."
+                systemPromptFragment = "Your natural register is bright and encouraging — celebrate the small stuff, but read the room on hard days."
             ),
             PersonaSettingsEntity(
                 key = PersonaKey.SARCASTIC.storageValue,
                 displayName = "Witty Friend",
-                systemPromptFragment = "You are a witty, lightly sarcastic friend. Stay kind."
+                systemPromptFragment = "Your natural register is playful — tease gently the way an old friend does, and drop the wit entirely when they're hurting."
             )
         )
     }

@@ -35,6 +35,9 @@ class UserPreferences @Inject constructor(
     val preferredVoiceLanguage: Flow<String> = store.data.map { it[KEY_VOICE_LANG] ?: "ENGLISH_IN" }
     val whisperFallbackEnabled: Flow<Boolean> = store.data.map { it[KEY_WHISPER_FALLBACK] ?: true }
 
+    /** Speak companion replies aloud automatically (on-device TTS, never leaves the phone). */
+    val autoSpeakEnabled: Flow<Boolean> = store.data.map { it[KEY_AUTO_SPEAK] ?: false }
+
     // v2: nudges
     val dailyNudgeEnabled: Flow<Boolean> = store.data.map { it[KEY_DAILY_NUDGE_ENABLED] ?: false }
     val dailyNudgeMinuteOfDay: Flow<Int> = store.data.map { it[KEY_DAILY_NUDGE_MINUTE] ?: (21 * 60) }
@@ -91,6 +94,10 @@ class UserPreferences @Inject constructor(
         store.edit { it[KEY_WHISPER_FALLBACK] = value }
     }
 
+    suspend fun setAutoSpeakEnabled(value: Boolean) {
+        store.edit { it[KEY_AUTO_SPEAK] = value }
+    }
+
     suspend fun setDailyNudgeEnabled(value: Boolean) {
         store.edit { it[KEY_DAILY_NUDGE_ENABLED] = value }
     }
@@ -112,6 +119,7 @@ class UserPreferences @Inject constructor(
         val KEY_DISPLAY_NAME = stringPreferencesKey("display_name")
         val KEY_VOICE_LANG = stringPreferencesKey("preferred_voice_language")
         val KEY_WHISPER_FALLBACK = booleanPreferencesKey("whisper_fallback_enabled")
+        val KEY_AUTO_SPEAK = booleanPreferencesKey("auto_speak_enabled")
         val KEY_DAILY_NUDGE_ENABLED = booleanPreferencesKey("daily_nudge_enabled")
         val KEY_DAILY_NUDGE_MINUTE = intPreferencesKey("daily_nudge_minute")
         val KEY_THEME_OVERRIDE = intPreferencesKey("theme_override")

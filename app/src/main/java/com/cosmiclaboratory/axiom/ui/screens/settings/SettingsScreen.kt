@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Switch
@@ -32,9 +33,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
+import androidx.compose.material.icons.outlined.KeyboardVoice
 
 /**
  * Settings hub. Every row shows its CURRENT VALUE — nothing is hidden behind a
@@ -45,6 +48,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenAi: () -> Unit,
     onOpenAppearance: () -> Unit,
+    onOpenMemories: () -> Unit,
+    onOpenVoice: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -68,6 +73,19 @@ fun SettingsScreen(
                 summary = if (state.keyConnected) "Connected · ${state.activePersona.name.lowercase()}"
                 else "Not connected — everything else works offline",
                 onClick = onOpenAi
+            )
+            SettingRow(
+                icon = Icons.Outlined.Psychology,
+                title = "What Axiom remembers",
+                summary = "See, edit or delete every remembered detail",
+                onClick = onOpenMemories
+            )
+            SettingRow(
+                icon = Icons.Outlined.KeyboardVoice,
+                title = "Voice",
+                summary = state.voiceLanguage.displayLabel +
+                    if (state.autoSpeakEnabled) " · speaks replies" else "",
+                onClick = onOpenVoice
             )
             SettingRow(
                 icon = Icons.Outlined.Palette,
@@ -298,6 +316,77 @@ fun SettingsAppearanceScreen(
                     color = c.inkMuted
                 )
             }
+        }
+    }
+}
+
+/**
+ * Voice settings: input language routing and spoken replies. The privacy line
+ * per option is explicit because the Hinglish path is the one place voice
+ * audio leaves the device — the user should choose that knowingly.
+ */
+@Composable
+fun SettingsVoiceScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val c = AxiomTheme.colors
+
+    AxiomScaffold(
+        title = "Voice",
+        screenTag = "screen:settings-voice",
+        modifier = modifier,
+        navigationIcon = { AxiomIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack) }
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = AxiomTheme.space.screenH)
+        ) {
+            SectionHeader("Speech recognition")
+            Spacer(Modifier.height(AxiomTheme.space.sm))
+            VoiceLanguage.entries.forEach { language ->
+                AxiomCard(
+                    tone = if (language == state.voiceLanguage) CardTone.Accent else CardTone.Neutral,
+                    onClick = { viewModel.setVoiceLanguage(language) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = AxiomTheme.space.xs)
+                ) {
+                    Text(language.displayLabel, style = AxiomTheme.type.uiTitleSmall, color = c.ink)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        if (language.onDevice) "Recognized on this device — audio never leaves your phone"
+                        else "Audio is uploaded to Groq with your key for transcription",
+                        style = AxiomTheme.type.uiBodySmall,
+                        color = c.inkMuted
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(AxiomTheme.space.lg))
+            SectionHeader("Spoken replies")
+            Spacer(Modifier.height(AxiomTheme.space.sm))
+            SettingRow(
+                icon = Icons.Outlined.AutoAwesome,
+                title = "Speak replies aloud",
+                summary = "On-device voice — spoken words never leave your phone",
+                onClick = { viewModel.setAutoSpeak(!state.autoSpeakEnabled) },
+                trailing = {
+                    Switch(
+                        checked = state.autoSpeakEnabled,
+                        onCheckedChange = viewModel::setAutoSpeak,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = c.onAccent,
+                            checkedTrackColor = c.accent
+                        )
+                    )
+                }
+            )
         }
     }
 }

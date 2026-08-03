@@ -12,13 +12,13 @@ import kotlinx.serialization.Serializable
  * rename to "library", so the share deep link silently never trimmed its stack.
  */
 
-/** Wrapper subgraph for the four tabs. Bottom bar shows only inside this. */
+/** Wrapper subgraph for the three tabs. Bottom bar shows only inside this. */
 @Serializable data object Main
 
-@Serializable data object Today
+/** The home surface: the companion conversation. */
+@Serializable data object Companion
 @Serializable data object Journal
 @Serializable data object Patterns
-@Serializable data object Ask
 
 @Serializable data object Onboarding
 
@@ -40,15 +40,22 @@ data class Composer(
 @Serializable data class Search(val initialQuery: String = "")
 @Serializable data object Calendar
 
+/** "What I remember" — the companion's memory, fully visible, editable, deletable. */
+@Serializable data object Memories
+
 @Serializable data object Settings
 @Serializable data object SettingsAi
 @Serializable data object SettingsAppearance
+@Serializable data object SettingsVoice
 
 /** Deep-link URIs. Declared once so widgets, the tile and notifications agree. */
 object AxiomDeepLinks {
     const val SCHEME = "axiom"
     const val COMPOSER = "$SCHEME://composer"
     const val COMPOSER_VOICE = "$SCHEME://composer?voice=true"
+    const val COMPANION = "$SCHEME://companion"
+
+    /** Legacy alias kept so placed widgets and the QS tile keep working — routes to the companion. */
     const val TODAY = "$SCHEME://today"
     const val JOURNAL = "$SCHEME://journal"
     const val PATTERNS = "$SCHEME://patterns"

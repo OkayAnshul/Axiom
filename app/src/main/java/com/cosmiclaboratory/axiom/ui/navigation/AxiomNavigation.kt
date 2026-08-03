@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ShowChart
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -38,18 +37,19 @@ import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomEmptyState
-import com.cosmiclaboratory.axiom.ui.screens.ask.AskScreen
+import com.cosmiclaboratory.axiom.ui.screens.companion.CompanionScreen
 import com.cosmiclaboratory.axiom.ui.screens.onboarding.OnboardingScreen
 import com.cosmiclaboratory.axiom.ui.screens.patterns.PatternsScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAiScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAppearanceScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsScreen
+import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsVoiceScreen
 import com.cosmiclaboratory.axiom.ui.screens.calendar.CalendarScreen
 import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
 import com.cosmiclaboratory.axiom.ui.screens.journal.JournalScreen
+import com.cosmiclaboratory.axiom.ui.screens.memory.MemoryScreen
 import com.cosmiclaboratory.axiom.ui.screens.search.SearchScreen
 import com.cosmiclaboratory.axiom.ui.screens.reader.ReaderScreen
-import com.cosmiclaboratory.axiom.ui.screens.today.TodayScreen
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import kotlin.reflect.KClass
 
@@ -72,10 +72,9 @@ fun AxiomNavigation(
 
     val tabs = remember {
         listOf(
-            Tab("Today", Icons.Filled.WbSunny, Today, Today::class),
+            Tab("Companion", Icons.Filled.AutoAwesome, Companion, Companion::class),
             Tab("Journal", Icons.AutoMirrored.Filled.MenuBook, Journal, Journal::class),
-            Tab("Patterns", Icons.Filled.ShowChart, Patterns, Patterns::class),
-            Tab("Ask", Icons.Filled.AutoAwesome, Ask, Ask::class)
+            Tab("Patterns", Icons.Filled.ShowChart, Patterns, Patterns::class)
         )
     }
 
@@ -135,19 +134,24 @@ fun AxiomNavigation(
                     )
                 }
 
-                navigation<Main>(startDestination = Today) {
-                    composable<Today>(
-                        deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.TODAY })
+                navigation<Main>(startDestination = Companion) {
+                    composable<Companion>(
+                        deepLinks = listOf(
+                            navDeepLink { uriPattern = AxiomDeepLinks.COMPANION },
+                            // Legacy alias: placed widgets/tiles still point here.
+                            navDeepLink { uriPattern = AxiomDeepLinks.TODAY }
+                        )
                     ) {
-                        TodayScreen(
-                            onNewEntry = { navController.navigate(Composer()) },
-                            onVoiceEntry = { navController.navigate(Composer(voice = true)) },
+                        CompanionScreen(
                             onOpenEntry = { id -> navController.navigate(Reader(id)) },
-                            onWriteAboutPrompt = { qId ->
-                                navController.navigate(Composer(questionId = qId))
+                            onConnectAi = { navController.navigate(SettingsAi) },
+                            onOpenMemories = { navController.navigate(Memories) },
+                            onSaveToJournal = { text ->
+                                navController.navigate(Composer(initialText = text))
                             },
-                            onSeeAllEntries = { navigateTab(navController, Journal) },
-                            onOpenSettings = { navController.navigate(Settings) }
+                            onContinueDraft = { id ->
+                                navController.navigate(Composer(entryId = id))
+                            }
                         )
                     }
 
@@ -168,12 +172,6 @@ fun AxiomNavigation(
                         PatternsScreen()
                     }
 
-                    composable<Ask> {
-                        AskScreen(
-                            onOpenEntry = { id -> navController.navigate(Reader(id)) },
-                            onConnectAi = { navController.navigate(SettingsAi) }
-                        )
-                    }
                 }
 
                 composable<Composer>(
@@ -202,7 +200,7 @@ fun AxiomNavigation(
                         onBack = { navController.popBackStack() },
                         onOpenEntry = { id -> navController.navigate(Reader(id)) },
                         onAskInstead = {
-                            navController.navigate(Ask) { popUpTo(Main) }
+                            navController.navigate(Companion) { popUpTo(Main) }
                         }
                     )
                 }
@@ -214,15 +212,27 @@ fun AxiomNavigation(
                     )
                 }
 
+                composable<Memories> {
+                    MemoryScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenEntry = { id -> navController.navigate(Reader(id)) }
+                    )
+                }
+
                 composable<Settings> {
                     SettingsScreen(
                         onBack = { navController.popBackStack() },
                         onOpenAi = { navController.navigate(SettingsAi) },
-                        onOpenAppearance = { navController.navigate(SettingsAppearance) }
+                        onOpenAppearance = { navController.navigate(SettingsAppearance) },
+                        onOpenMemories = { navController.navigate(Memories) },
+                        onOpenVoice = { navController.navigate(SettingsVoice) }
                     )
                 }
                 composable<SettingsAppearance> {
                     SettingsAppearanceScreen(onBack = { navController.popBackStack() })
+                }
+                composable<SettingsVoice> {
+                    SettingsVoiceScreen(onBack = { navController.popBackStack() })
                 }
                 composable<SettingsAi>(
                     deepLinks = listOf(navDeepLink { uriPattern = AxiomDeepLinks.SETTINGS_AI })
