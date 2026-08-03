@@ -3,6 +3,7 @@ package com.cosmiclaboratory.axiom.data.database.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.Tag
@@ -47,6 +48,12 @@ data class EntryEntity(
     val mood: Int? = null,
     /** null => the mood was inferred rather than chosen by the user. */
     val moodCapturedAt: LocalDateTime? = null,
+    /**
+     * [com.cosmiclaboratory.axiom.domain.model.Emotion] name, inferred from the
+     * writing. Carries the feeling the number cannot: "anxious" and "angry" are
+     * both mood 2.
+     */
+    val emotion: String? = null,
     /** 1..5, optional second axis. */
     val energy: Int? = null,
     val questionId: Long? = null,
@@ -76,6 +83,7 @@ fun EntryEntity.toDomainModel(tags: List<Tag> = emptyList()): Entry = Entry(
     isComplete = isComplete,
     mood = mood,
     moodCapturedAt = moodCapturedAt,
+    emotion = Emotion.fromStorage(emotion),
     energy = energy,
     questionId = questionId,
     promptSnapshot = promptSnapshot,
@@ -100,6 +108,7 @@ fun Entry.toEntity(): EntryEntity = EntryEntity(
     isComplete = isComplete,
     mood = mood,
     moodCapturedAt = moodCapturedAt,
+    emotion = emotion?.name,
     energy = energy,
     questionId = questionId,
     promptSnapshot = promptSnapshot,

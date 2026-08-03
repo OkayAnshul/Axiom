@@ -1,5 +1,6 @@
 package com.cosmiclaboratory.axiom.data.companion
 
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import java.time.LocalDate
@@ -29,7 +30,11 @@ class CompanionPromptBuilder @Inject constructor() {
         val excerpts: List<Excerpt>,
         val now: LocalDateTime,
         val moodToday: Int?,
-        val streakDays: Int
+        val streakDays: Int,
+        /** Named feeling read from today's writing, when the user chose nothing. */
+        val emotionToday: Emotion? = null,
+        /** At most one pattern, phrased as the finder already phrased it. */
+        val noticed: String? = null
     )
 
     fun buildSystemPrompt(ctx: Context): String = buildString {
@@ -85,9 +90,24 @@ class CompanionPromptBuilder @Inject constructor() {
             }
         }
 
+        if (ctx.noticed != null) {
+            appendLine()
+            appendLine("Something you've noticed over time:")
+            appendLine(ctx.noticed.trim())
+            appendLine(
+                "Only bring this up if it fits what they're saying right now, and say it " +
+                    "as an observation you could be wrong about — never as a diagnosis or a statistic."
+            )
+        }
+
         appendLine()
         val weekday = ctx.now.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        val moodLine = ctx.moodToday?.let { "$it/5" } ?: "not recorded"
+        val moodLine = when {
+            ctx.moodToday != null && ctx.emotionToday != null ->
+                "reads as ${ctx.emotionToday.label} (${ctx.moodToday}/5), which they have not confirmed"
+            ctx.moodToday != null -> "${ctx.moodToday}/5, their own choice"
+            else -> "not recorded"
+        }
         appendLine("Right now it is $weekday ${timeOfDay(ctx.now.hour)}. Mood today: $moodLine.")
         if (ctx.streakDays > 0) {
             appendLine("Writing streak: ${ctx.streakDays} days — mention only if it comes up naturally.")

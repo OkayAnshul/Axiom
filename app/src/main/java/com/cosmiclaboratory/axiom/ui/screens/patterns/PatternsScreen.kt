@@ -69,6 +69,34 @@ fun PatternsScreen(
                 )
             }
 
+            // The headline: what the companion has actually noticed, in the
+            // same words it would use in conversation. Absent rather than
+            // apologetic when there is nothing solid to say.
+            if (state.findings.isNotEmpty()) {
+                item("noticed") {
+                    AxiomCard(tone = CardTone.Ai) {
+                        Text("What I've noticed", style = AxiomTheme.type.uiOverline, color = c.aiTint)
+                        Spacer(Modifier.height(AxiomTheme.space.sm))
+                        Column(verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.sm)) {
+                            state.findings.take(4).forEach { finding ->
+                                Text(
+                                    finding.text,
+                                    style = AxiomTheme.type.uiBody,
+                                    color = c.ink
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(AxiomTheme.space.sm))
+                        Text(
+                            "Worked out on this device from what you've written. " +
+                                "Nothing here was sent anywhere.",
+                            style = AxiomTheme.type.uiBodySmall,
+                            color = c.inkFaint
+                        )
+                    }
+                }
+            }
+
             item("streak") {
                 PatternCard(
                     title = "Consistency",
@@ -88,21 +116,49 @@ fun PatternsScreen(
             item("mood") {
                 PatternCard(
                     title = "Mood",
-                    subtitle = "${state.moodDaysRecorded} of ${state.moodSeries.size} days recorded",
+                    subtitle = "${state.moodDaysRecorded} of ${state.moodSeries.size} days recorded" +
+                        if (state.inferredMoodCount > 0) " · ${state.inferredMoodCount} read from your writing" else "",
                     onInfo = {
-                        infoText = "Each point is the average mood you recorded that day. " +
-                            "Days without a mood are left as gaps rather than plotted as " +
-                            "zero — a day you didn't record isn't a bad day."
+                        infoText = "Each point is the average mood for that day. Some are moods " +
+                            "you tapped; the rest are read from the words you wrote, and a mood " +
+                            "you choose always overrides one that was inferred. Days with " +
+                            "neither are left as gaps rather than plotted as zero — a day you " +
+                            "didn't record isn't a bad day."
                     }
                 ) {
                     if (state.moodDaysRecorded < 2) {
                         Text(
-                            "Record a mood on a couple more days to see a trend.",
+                            "A couple more days of writing and a trend will show up here.",
                             style = AxiomTheme.type.uiBodySmall,
                             color = c.inkFaint
                         )
                     } else {
                         Sparkline(points = state.moodSeries)
+                    }
+
+                    if (state.dominantEmotions.isNotEmpty()) {
+                        Spacer(Modifier.height(AxiomTheme.space.base))
+                        Text("Most often", style = AxiomTheme.type.uiOverline, color = c.inkFaint)
+                        Spacer(Modifier.height(AxiomTheme.space.xs))
+                        Row(horizontalArrangement = Arrangement.spacedBy(AxiomTheme.space.xs)) {
+                            state.dominantEmotions.forEach { (emotion, count) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .clip(AxiomTheme.shapes.xs)
+                                        .background(c.surfaceSunken)
+                                        .padding(horizontal = AxiomTheme.space.sm, vertical = 4.dp)
+                                ) {
+                                    MoodDot(mood = emotion.valence, size = 8.dp)
+                                    Spacer(Modifier.width(AxiomTheme.space.xs))
+                                    Text(
+                                        "${emotion.label} · $count",
+                                        style = AxiomTheme.type.uiLabelSmall,
+                                        color = c.inkMuted
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -167,15 +223,15 @@ fun PatternsScreen(
                 }
             }
 
-            // The socket the ML work plugs into. Stated rather than hidden, so
-            // the tab explains its own trajectory instead of looking unfinished.
+            // Trend detection and discovered themes landed; what remains is
+            // named honestly rather than left as a vague promise.
             item("coming") {
                 AxiomCard(tone = CardTone.Ai) {
                     Text("Coming here", style = AxiomTheme.type.uiOverline, color = c.aiTint)
                     Spacer(Modifier.height(AxiomTheme.space.xs))
                     Text(
-                        "Mood forecasting, trend detection and auto-discovered themes — " +
-                            "all computed on this device, no key required.",
+                        "Mood forecasting and search that understands meaning rather than " +
+                            "matching words — both computed on this device, no key required.",
                         style = AxiomTheme.type.uiBodySmall,
                         color = c.inkMuted
                     )

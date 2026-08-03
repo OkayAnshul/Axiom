@@ -3,7 +3,14 @@ package com.cosmiclaboratory.axiom.ui.screens.patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
+import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
+import com.cosmiclaboratory.axiom.domain.model.MemoryItem
+import com.cosmiclaboratory.axiom.domain.model.MemoryKind
+import com.cosmiclaboratory.axiom.domain.patterns.Finding
+import com.cosmiclaboratory.axiom.domain.patterns.PatternFinder
+import com.cosmiclaboratory.axiom.domain.patterns.dominantEmotions
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +42,13 @@ data class PatternsUiState(
     val entriesPerWeek: Float = 0f,
     /** Entry counts bucketed by hour of day, 24 slots. */
     val hourHistogram: List<Int> = List(24) { 0 },
-    val topThemes: List<Pair<String, Int>> = emptyList()
+    val topThemes: List<Pair<String, Int>> = emptyList(),
+    /** Named feelings inferred from the writing, most frequent first. */
+    val dominantEmotions: List<Pair<Emotion, Int>> = emptyList(),
+    /** How many of the recorded moods came from inference rather than a tap. */
+    val inferredMoodCount: Int = 0,
+    /** Things the companion noticed, strongest first. */
+    val findings: List<Finding> = emptyList()
 ) {
     /** Below this, statistics are noise rather than pattern. */
     val hasEnoughData: Boolean get() = entryCount >= MIN_ENTRIES
@@ -45,7 +58,8 @@ data class PatternsUiState(
 
 @HiltViewModel
 class PatternsViewModel @Inject constructor(
-    private val entries: JournalRepository
+    private val entries: JournalRepository,
+    private val memories: MemoryRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(PatternsUiState())
@@ -53,12 +67,19 @@ class PatternsViewModel @Inject constructor(
 
     /** Latest corpus, held so a range change can recompute without re-querying. */
     private var latest: List<Entry> = emptyList()
+    private var latestMemories: List<MemoryItem> = emptyList()
 
     init {
         viewModelScope.launch {
             entries.observeCompleted().collect { all ->
                 latest = all
                 recompute(all)
+            }
+        }
+        viewModelScope.launch {
+            memories.observeAll().collect { all ->
+                latestMemories = all
+                recompute(latest)
             }
         }
     }
@@ -110,8 +131,59 @@ class PatternsViewModel @Inject constructor(
                     .entries
                     .sortedByDescending { entry -> entry.value }
                     .take(6)
-                    .map { entry -> entry.key to entry.value }
+                    .map { entry -> entry.key to entry.value },
+                dominantEmotions = windowed.dominantEmotions(),
+                // moodCapturedAt is null exactly when the feeling was inferred.
+                inferredMoodCount = windowed.count { e -> e.mood != null && e.moodCapturedAt == null },
+                findings = PatternFinder.find(
+                    entries = windowed,
+                    memories = latestMemories,
+                    personMentions = personMentions(windowed),
+                    today = today
+                )
             )
         }
+    }
+
+    /**
+     * Which entries name which person, resolved in memory against the corpus
+     * already loaded rather than through FTS: the window is at most a year of a
+     * personal journal, and a query per remembered person would be far more
+     * expensive than one pass of contains().
+     */
+    private fun personMentions(windowed: List<Entry>): Map<String, List<Entry>> {
+        val names = latestMemories
+            .filter { it.kind == MemoryKind.PERSON }
+            .mapNotNull { nameFrom(it.text) }
+            .distinct()
+            .take(MAX_PEOPLE)
+        if (names.isEmpty()) return emptyMap()
+
+        return names.associateWith { name ->
+            windowed.filter { entry ->
+                entry.content.contains(name, ignoreCase = true) ||
+                    entry.title.contains(name, ignoreCase = true)
+            }
+        }.filterValues { it.isNotEmpty() }
+    }
+
+    /**
+     * Memories read "Riya is the user's younger sister" — the person's name is
+     * the leading capitalised word. Words the extractor itself uses are skipped
+     * so "The user's manager" does not become a person called "The".
+     */
+    private fun nameFrom(memoryText: String): String? = memoryText
+        .split(NON_NAME)
+        .firstOrNull { token ->
+            token.length >= MIN_NAME_LENGTH &&
+                token.first().isUpperCase() &&
+                token.lowercase() !in NON_NAMES
+        }
+
+    private companion object {
+        const val MAX_PEOPLE = 5
+        const val MIN_NAME_LENGTH = 3
+        val NON_NAME = Regex("[^\\p{L}]+")
+        val NON_NAMES = setOf("the", "their", "they", "user", "his", "her", "and", "has", "was")
     }
 }

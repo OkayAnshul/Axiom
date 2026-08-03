@@ -1,5 +1,6 @@
 package com.cosmiclaboratory.axiom.data.companion
 
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
@@ -29,10 +30,12 @@ class CompanionPromptBuilderTest {
         recentInsights: List<String> = emptyList(),
         excerpts: List<CompanionPromptBuilder.Excerpt> = emptyList(),
         moodToday: Int? = null,
-        streakDays: Int = 0
+        streakDays: Int = 0,
+        emotionToday: Emotion? = null,
+        noticed: String? = null
     ) = CompanionPromptBuilder.Context(
         displayName, personaFragment, memories, rollingSummary,
-        recentInsights, excerpts, now, moodToday, streakDays
+        recentInsights, excerpts, now, moodToday, streakDays, emotionToday, noticed
     )
 
     // ---- system prompt sections --------------------------------------------
@@ -131,7 +134,9 @@ class CompanionPromptBuilderTest {
     @Test
     fun `streak and mood render when present`() {
         val prompt = builder.buildSystemPrompt(context(moodToday = 4, streakDays = 5))
-        assertTrue(prompt.contains("Mood today: 4/5."))
+        // Phase 11 qualifies the mood by where it came from, so the companion
+        // can hedge about a reading and not about a choice.
+        assertTrue(prompt.contains("Mood today: 4/5, their own choice."))
         assertTrue(prompt.contains("Writing streak: 5 days"))
         assertTrue(prompt.contains("Monday evening"))
     }
@@ -142,6 +147,35 @@ class CompanionPromptBuilderTest {
             context(personaFragment = "Your natural register is playful.")
         )
         assertTrue(prompt.contains("Your natural register is playful."))
+    }
+
+    // ---- inferred feeling and noticed patterns -----------------------------
+
+    @Test
+    fun `an inferred mood is marked unconfirmed, a chosen one is not`() {
+        val inferred = builder.buildSystemPrompt(context(moodToday = 2, emotionToday = Emotion.ANXIETY))
+        assertTrue(inferred.contains("reads as anxiety (2/5), which they have not confirmed"))
+
+        val chosen = builder.buildSystemPrompt(context(moodToday = 4))
+        assertTrue(chosen.contains("4/5, their own choice"))
+        assertFalse(chosen.contains("not confirmed"))
+    }
+
+    @Test
+    fun `a noticed pattern comes with instructions to hold it lightly`() {
+        val prompt = builder.buildSystemPrompt(
+            context(noticed = "Mondays tend to be harder than the rest of your week.")
+        )
+        assertTrue(prompt.contains("Something you've noticed over time:"))
+        assertTrue(prompt.contains("Mondays tend to be harder"))
+        assertTrue(prompt.contains("could be wrong about"))
+        assertTrue(prompt.contains("never as a diagnosis or a statistic"))
+    }
+
+    @Test
+    fun `no pattern means no section`() {
+        val prompt = builder.buildSystemPrompt(context())
+        assertFalse(prompt.contains("Something you've noticed"))
     }
 
     // ---- history window ----------------------------------------------------

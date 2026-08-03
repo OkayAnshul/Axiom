@@ -11,6 +11,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.EntryTagCrossRef
 import com.cosmiclaboratory.axiom.data.database.entity.toDomainModel
 import com.cosmiclaboratory.axiom.data.database.entity.toEntity
 import com.cosmiclaboratory.axiom.domain.model.AIInsight
+import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.Tag
@@ -123,6 +124,11 @@ class JournalRepository @Inject constructor(
 
     suspend fun setMood(id: Long, mood: Int?) =
         entryDao.setMood(id, mood, LocalDateTime.now())
+
+    /** Records an inferred feeling; a mood the user chose always wins. */
+    suspend fun setInferredMood(id: Long, emotion: Emotion) {
+        entryDao.setInferredMood(id, emotion.valence, emotion.name)
+    }
 
     suspend fun setFavorite(id: Long, favorite: Boolean) =
         entryDao.setFavorite(id, favorite, LocalDateTime.now())

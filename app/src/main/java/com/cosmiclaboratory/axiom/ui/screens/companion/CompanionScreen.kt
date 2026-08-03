@@ -128,6 +128,8 @@ fun CompanionScreen(
             CompanionRitualHeader(
                 streak = state.streak,
                 todayMood = state.todayMood,
+                todayEmotion = state.todayEmotion,
+                todayMoodInferred = state.todayMoodInferred,
                 writingDraft = state.writingDraft,
                 onRecordMood = viewModel::recordMood,
                 onContinueDraft = onContinueDraft,
