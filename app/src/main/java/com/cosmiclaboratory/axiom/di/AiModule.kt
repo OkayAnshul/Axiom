@@ -1,7 +1,7 @@
 package com.cosmiclaboratory.axiom.di
 
 import com.cosmiclaboratory.axiom.data.ai.AiProvider
-import com.cosmiclaboratory.axiom.data.ai.GroqAiProvider
+import com.cosmiclaboratory.axiom.data.ai.RoutingAiProvider
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -50,7 +50,12 @@ object AiNetworkModule {
 @InstallIn(SingletonComponent::class)
 abstract class AiBindingsModule {
 
+    /**
+     * Everything asks for AiProvider and gets the router, which forwards to
+     * whichever vendor the user chose. Nothing else in the app knows there is
+     * more than one.
+     */
     @Binds
     @Singleton
-    abstract fun bindAiProvider(impl: GroqAiProvider): AiProvider
+    abstract fun bindAiProvider(impl: RoutingAiProvider): AiProvider
 }

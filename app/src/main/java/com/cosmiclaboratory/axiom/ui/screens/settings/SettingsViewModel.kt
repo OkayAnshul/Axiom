@@ -8,6 +8,7 @@ import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
+import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
@@ -34,7 +35,11 @@ sealed interface KeyTestState {
 data class SettingsUiState(
     val displayName: String = "",
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** Any vendor has a key — "is AI switched on at all". */
     val keyConnected: Boolean = false,
+    val aiVendor: AiVendor = AiVendor.GROQ,
+    /** The currently selected vendor specifically has a key. */
+    val vendorKeyConnected: Boolean = false,
     val keyDraft: String = "",
     val keyMasked: Boolean = true,
     val keyTest: KeyTestState = KeyTestState.Idle,
@@ -73,6 +78,8 @@ class SettingsViewModel @Inject constructor(
                     weeklyRecapEnabled = prefs.weeklyRecapEnabled.first(),
                     checkInMinuteOfDay = prefs.dailyNudgeMinuteOfDay.first(),
                     entryCount = entries.count(),
+                    aiVendor = prefs.aiVendor.first(),
+                    vendorKeyConnected = prefs.apiKey(prefs.aiVendor.first()) != null,
                     voiceLanguage = VoiceLanguage.fromStorage(prefs.preferredVoiceLanguage.first()),
                     whisperFallbackEnabled = prefs.whisperFallbackEnabled.first(),
                     autoSpeakEnabled = prefs.autoSpeakEnabled.first()
@@ -82,6 +89,17 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             prefs.observeGroqKeyPresent().collect { present ->
                 _state.update { it.copy(keyConnected = present) }
+            }
+        }
+        viewModelScope.launch {
+            AiVendor.entries.forEach { vendor ->
+                launch {
+                    prefs.observeKeyPresent(vendor).collect { present ->
+                        _state.update { s ->
+                            if (s.aiVendor == vendor) s.copy(vendorKeyConnected = present) else s
+                        }
+                    }
+                }
             }
         }
         viewModelScope.launch {
@@ -161,16 +179,17 @@ class SettingsViewModel @Inject constructor(
     fun saveAndTestKey() {
         val candidate = _state.value.keyDraft.trim()
         if (candidate.isBlank()) return
+        val vendor = _state.value.aiVendor
         _state.update { it.copy(keyTest = KeyTestState.Testing) }
         viewModelScope.launch {
-            val previous = prefs.groqApiKey()
-            prefs.setGroqApiKey(candidate)
+            val previous = prefs.apiKey(vendor)
+            prefs.setApiKey(vendor, candidate)
             when (val result = ai.testConnection()) {
                 is AiResult.Ok -> _state.update {
                     it.copy(keyTest = KeyTestState.Success, keyDraft = "")
                 }
                 else -> {
-                    prefs.setGroqApiKey(previous)
+                    prefs.setApiKey(vendor, previous)
                     _state.update {
                         it.copy(
                             keyTest = KeyTestState.Failed(
@@ -184,9 +203,22 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun removeKey() {
+        val vendor = _state.value.aiVendor
         viewModelScope.launch {
-            prefs.setGroqApiKey(null)
+            prefs.setApiKey(vendor, null)
             _state.update { it.copy(keyTest = KeyTestState.Idle, keyDraft = "") }
+        }
+    }
+
+    /**
+     * Switching vendor never discards the other key — someone trying Gemini for
+     * a week should be able to go back to Groq without fetching a new one.
+     */
+    fun setAiVendor(vendor: AiVendor) {
+        _state.update { it.copy(aiVendor = vendor, keyTest = KeyTestState.Idle, keyDraft = "") }
+        viewModelScope.launch {
+            prefs.setAiVendor(vendor)
+            _state.update { it.copy(vendorKeyConnected = prefs.apiKey(vendor) != null) }
         }
     }
 }

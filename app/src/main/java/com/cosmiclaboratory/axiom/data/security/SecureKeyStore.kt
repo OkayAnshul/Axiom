@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -16,12 +17,15 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Hardware-backed (where available) storage for the user's Groq API key.
+ * Hardware-backed (where available) storage for the user's API keys.
  *
  * Why not DataStore: DataStore stores values in plaintext on device. On a backed-up,
  * rooted, or extracted profile, the key is recoverable. EncryptedSharedPreferences uses
  * a MasterKey rooted in the Android Keystore, so the encryption key itself never
  * leaves the secure enclave on devices that have one.
+ *
+ * Keys are stored per vendor rather than as one "the API key", so switching
+ * provider does not throw away the other credential.
  */
 @Singleton
 class SecureKeyStore @Inject constructor(
@@ -40,25 +44,45 @@ class SecureKeyStore @Inject constructor(
         )
     }
 
-    suspend fun groqApiKey(): String? = withContext(Dispatchers.IO) {
-        prefs.getString(KEY_GROQ, null)?.takeIf { it.isNotBlank() }
+    private fun storageKey(vendor: AiVendor): String = when (vendor) {
+        AiVendor.GROQ -> KEY_GROQ
+        AiVendor.GEMINI -> KEY_GEMINI
     }
 
-    suspend fun setGroqApiKey(value: String?) = withContext(Dispatchers.IO) {
+    suspend fun apiKey(vendor: AiVendor): String? = withContext(Dispatchers.IO) {
+        prefs.getString(storageKey(vendor), null)?.takeIf { it.isNotBlank() }
+    }
+
+    suspend fun setApiKey(vendor: AiVendor, value: String?) = withContext(Dispatchers.IO) {
+        val key = storageKey(vendor)
         prefs.edit().apply {
-            if (value.isNullOrBlank()) remove(KEY_GROQ) else putString(KEY_GROQ, value)
+            if (value.isNullOrBlank()) remove(key) else putString(key, value)
             apply()
         }
         Unit
     }
 
-    fun observeKeyPresent(): Flow<Boolean> = callbackFlow {
-        trySend(prefs.contains(KEY_GROQ) && !prefs.getString(KEY_GROQ, null).isNullOrBlank())
+    suspend fun groqApiKey(): String? = apiKey(AiVendor.GROQ)
+
+    suspend fun setGroqApiKey(value: String?) = setApiKey(AiVendor.GROQ, value)
+
+    /** Emits whether the given vendor currently has a key. */
+    fun observeKeyPresent(vendor: AiVendor): Flow<Boolean> = callbackFlow {
+        val key = storageKey(vendor)
+        fun present() = !prefs.getString(key, null).isNullOrBlank()
+        trySend(present())
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed ->
-            if (changed == KEY_GROQ) {
-                trySend(prefs.contains(KEY_GROQ) && !prefs.getString(KEY_GROQ, null).isNullOrBlank())
-            }
+            if (changed == key) trySend(present())
         }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.flowOn(Dispatchers.IO).distinctUntilChanged()
+
+    /** Emits whether ANY vendor has a key — "is AI switched on at all". */
+    fun observeAnyKeyPresent(): Flow<Boolean> = callbackFlow {
+        fun anyPresent() = AiVendor.entries.any { !prefs.getString(storageKey(it), null).isNullOrBlank() }
+        trySend(anyPresent())
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> trySend(anyPresent()) }
         prefs.registerOnSharedPreferenceChangeListener(listener)
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.flowOn(Dispatchers.IO).distinctUntilChanged()
@@ -66,5 +90,6 @@ class SecureKeyStore @Inject constructor(
     private companion object {
         const val FILE_NAME = "axiom_secure_prefs"
         const val KEY_GROQ = "groq_api_key"
+        const val KEY_GEMINI = "gemini_api_key"
     }
 }
