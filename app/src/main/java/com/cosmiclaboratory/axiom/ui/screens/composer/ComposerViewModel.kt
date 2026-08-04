@@ -202,8 +202,8 @@ class ComposerViewModel @Inject constructor(
             if (id != null) {
                 entries.markComplete(id)
                 runCatching { workScheduler.enqueueSummarize(id) }
-                // No-ops when a key exists; the summarizer reads mood better.
-                runCatching { workScheduler.enqueueLocalMood(id) }
+                // No-ops when a key exists; the summarizer does both jobs better.
+                runCatching { workScheduler.enqueueLocalInsight(id) }
             }
             onDone(id)
         }
