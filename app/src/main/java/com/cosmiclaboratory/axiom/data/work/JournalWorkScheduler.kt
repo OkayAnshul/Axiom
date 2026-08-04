@@ -80,15 +80,16 @@ class JournalWorkScheduler @Inject constructor(
     }
 
     /**
-     * On-device mood reading. No network constraint and no key required — the
-     * whole point is that it works for someone who never connects one.
+     * On-device mood and commitment reading. No network constraint and no key
+     * required — the whole point is that it works for someone who never
+     * connects one.
      */
-    fun enqueueLocalMood(entryId: Long) {
-        val request = OneTimeWorkRequestBuilder<LocalMoodWorker>()
-            .setInputData(workDataOf(LocalMoodWorker.KEY_ENTRY_ID to entryId))
+    fun enqueueLocalInsight(entryId: Long) {
+        val request = OneTimeWorkRequestBuilder<LocalInsightWorker>()
+            .setInputData(workDataOf(LocalInsightWorker.KEY_ENTRY_ID to entryId))
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
             .build()
-        workManager.enqueueUniqueWork("local-mood-$entryId", ExistingWorkPolicy.KEEP, request)
+        workManager.enqueueUniqueWork("local-insight-$entryId", ExistingWorkPolicy.KEEP, request)
     }
 
     /**
