@@ -177,6 +177,10 @@ class JournalRepository @Inject constructor(
         return entryDao.search(q).map { it.toDomainModel() }
     }
 
+    /** Every non-archived entry, for building the on-device semantic index. */
+    suspend fun allForIndexing(): List<Entry> =
+        entryDao.allForBackup().filterNot { it.isArchived }.map { it.toDomainModel() }
+
     // ---- tags --------------------------------------------------------------
 
     fun observeAllTags(): Flow<List<Tag>> =

@@ -5,6 +5,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.MemoryItemEntity
 import com.cosmiclaboratory.axiom.data.database.entity.toDomainModel
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
+import com.cosmiclaboratory.axiom.domain.memory.MemoryConsolidator
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -56,6 +57,31 @@ class MemoryRepository @Inject constructor(
     suspend fun markUserEdited(id: Long) {
         val existing = dao.getById(id) ?: return
         dao.update(existing.copy(userEdited = true))
+    }
+
+    /** Every memory, for periodic consolidation. */
+    suspend fun all(): List<MemoryItem> = dao.getAll().map { it.toDomainModel() }
+
+    /**
+     * Applies a consolidation plan: survivors are written back with their
+     * combined history, then absorbed and pruned rows are removed. Survivors
+     * are saved BEFORE anything is deleted, so an interruption leaves
+     * duplicates rather than a hole.
+     */
+    suspend fun applyConsolidation(plan: MemoryConsolidator.Plan): Int {
+        var removed = 0
+        plan.merges.forEach { merge ->
+            restore(merge.survivor)
+            merge.absorbedIds.forEach { id ->
+                dao.deleteById(id)
+                removed++
+            }
+        }
+        plan.pruneIds.forEach { id ->
+            dao.deleteById(id)
+            removed++
+        }
+        return removed
     }
 
     /** Puts back a just-deleted memory exactly as it was — powers undo. */

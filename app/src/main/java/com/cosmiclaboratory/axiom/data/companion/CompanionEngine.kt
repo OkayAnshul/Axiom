@@ -9,6 +9,7 @@ import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
 import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
+import com.cosmiclaboratory.axiom.data.repository.SemanticIndexProvider
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
@@ -51,6 +52,7 @@ class CompanionEngine @Inject constructor(
     private val personaRepo: PersonaRepository,
     private val companionRepo: CompanionRepository,
     private val memories: MemoryRepository,
+    private val semanticIndex: SemanticIndexProvider,
     private val prefs: UserPreferences,
     private val promptBuilder: CompanionPromptBuilder,
     private val scheduler: JournalWorkScheduler
@@ -80,8 +82,15 @@ class CompanionEngine @Inject constructor(
         // so it fires once, after the user has actually gone quiet.
         scheduler.scheduleConversationDigest(threadId)
 
-        val topK = runCatching { entries.searchForRetrieval(text) }
+        // Hybrid retrieval. Keyword hits lead because an exact word match is
+        // the strongest signal there is; the semantic index then fills the
+        // remaining slots with entries that are about the same thing in
+        // different words — which is most of what a journal search needs.
+        val keywordHits = runCatching { entries.searchForRetrieval(text) }.getOrDefault(emptyList())
+        val semanticHits = runCatching { semanticIndex.search(text, CompanionPromptBuilder.MAX_EXCERPTS) }
             .getOrDefault(emptyList())
+        val topK = (keywordHits + semanticHits)
+            .distinctBy { it.id }
             .filter { it.content.isNotBlank() || it.markdown.isNotBlank() }
             .take(CompanionPromptBuilder.MAX_EXCERPTS)
 
