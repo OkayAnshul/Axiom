@@ -22,6 +22,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
 
 /** Events the UI receives for one companion reply. Terminal: [Done] or [Failed]. */
 sealed interface CompanionReplyEvent {
@@ -190,7 +191,7 @@ class CompanionEngine @Inject constructor(
 
     private fun tokenize(text: String): Set<String> =
         text.lowercase()
-            .split(NON_WORD)
+            .split(TextTokens.SEPARATOR)
             .filter { it.length >= MIN_TOKEN_LENGTH }
             .toSet()
 
@@ -203,6 +204,5 @@ class CompanionEngine @Inject constructor(
         const val REPLY_MAX_TOKENS = 500
         const val MENTION_BUMP = 0.05f
         const val MIN_TOKEN_LENGTH = 5
-        val NON_WORD = Regex("[^\\p{L}\\p{Nd}]+")
     }
 }

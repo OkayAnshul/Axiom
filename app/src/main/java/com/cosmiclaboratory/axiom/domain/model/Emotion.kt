@@ -1,5 +1,7 @@
 package com.cosmiclaboratory.axiom.domain.model
 
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
+
 /**
  * A named feeling, inferred from what the user wrote rather than tapped on a
  * scale.
@@ -51,10 +53,9 @@ object EmotionMapper {
         if (word.isEmpty()) return null
         SYNONYMS[word]?.let { return it }
         // Models like to answer "quietly hopeful" or "a bit anxious".
-        return word.split(NON_LETTERS).firstNotNullOfOrNull { SYNONYMS[it] }
+        return word.split(TextTokens.SEPARATOR).firstNotNullOfOrNull { SYNONYMS[it] }
     }
 
-    private val NON_LETTERS = Regex("[^\\p{L}]+")
 
     private val SYNONYMS: Map<String, Emotion> = buildMap {
         fun put(emotion: Emotion, vararg words: String) {

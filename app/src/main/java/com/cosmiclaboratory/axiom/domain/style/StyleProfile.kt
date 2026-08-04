@@ -2,6 +2,7 @@ package com.cosmiclaboratory.axiom.domain.style
 
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import java.time.LocalDateTime
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
 
 /** How long the companion's replies should run to match this person. */
 enum class ReplyLength(val instruction: String) {
@@ -105,7 +106,7 @@ object StyleProfiler {
             return if (latinShare >= MIN_LATIN_SHARE_FOR_MIX) LanguageMix.HINGLISH else LanguageMix.HINDI
         }
 
-        val words = text.lowercase().split(NON_WORD).filter { it.isNotBlank() }
+        val words = TextTokens.words(text)
         if (words.isEmpty()) return LanguageMix.ENGLISH
         val markers = words.count { it in ROMAN_HINDI_MARKERS }
         return if (markers >= 2 && markers.toDouble() / words.size >= 0.04) {
@@ -117,7 +118,6 @@ object StyleProfiler {
 
     private val DEVANAGARI_RANGE = 'ऀ'..'ॿ'
     private val WHITESPACE = Regex("\\s+")
-    private val NON_WORD = Regex("[^\\p{L}]+")
 
     /**
      * Romanised Hindi function words. Every entry must NOT be an English word:

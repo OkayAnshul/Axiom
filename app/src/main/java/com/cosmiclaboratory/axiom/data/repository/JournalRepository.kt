@@ -130,6 +130,18 @@ class JournalRepository @Inject constructor(
         entryDao.setInferredMood(id, emotion.valence, emotion.name)
     }
 
+    /** Records the on-device classifier's number, leaving `emotion` unset. */
+    suspend fun setPredictedMood(id: Long, mood: Int) {
+        entryDao.setPredictedMood(id, mood)
+    }
+
+    /** (text, mood) pairs the user labelled themselves, for on-device training. */
+    suspend fun moodTrainingSamples(): List<Pair<String, Int>> =
+        entryDao.userLabelledForTraining().mapNotNull { row ->
+            val mood = row.mood ?: return@mapNotNull null
+            row.content.ifBlank { row.markdown }.takeIf { it.isNotBlank() }?.let { it to mood }
+        }
+
     suspend fun setFavorite(id: Long, favorite: Boolean) =
         entryDao.setFavorite(id, favorite, LocalDateTime.now())
 

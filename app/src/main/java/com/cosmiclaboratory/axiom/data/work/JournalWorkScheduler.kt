@@ -80,6 +80,18 @@ class JournalWorkScheduler @Inject constructor(
     }
 
     /**
+     * On-device mood reading. No network constraint and no key required — the
+     * whole point is that it works for someone who never connects one.
+     */
+    fun enqueueLocalMood(entryId: Long) {
+        val request = OneTimeWorkRequestBuilder<LocalMoodWorker>()
+            .setInputData(workDataOf(LocalMoodWorker.KEY_ENTRY_ID to entryId))
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
+            .build()
+        workManager.enqueueUniqueWork("local-mood-$entryId", ExistingWorkPolicy.KEEP, request)
+    }
+
+    /**
      * The companion's hourly tick. Deliberately has NO network constraint: the
      * keyless check-in is composed locally and must still arrive, and a message
      * that waits for wifi is a message that arrives at the wrong moment.
