@@ -230,10 +230,17 @@ fun PatternsScreen(
                     Text("Coming here", style = AxiomTheme.type.uiOverline, color = c.aiTint)
                     Spacer(Modifier.height(AxiomTheme.space.xs))
                     Text(
-                        "Mood forecasting and search that understands meaning rather than " +
-                            "matching words — both computed on this device, no key required.",
+                        "Search that understands meaning rather than matching words, and " +
+                            "mood forecasting — both computed on this device, no key required.",
                         style = AxiomTheme.type.uiBodySmall,
                         color = c.inkMuted
+                    )
+                    Spacer(Modifier.height(AxiomTheme.space.sm))
+                    Text(
+                        "Reading mood from your writing already works here without a key: " +
+                            "it learns from the days you tapped a mood yourself.",
+                        style = AxiomTheme.type.uiBodySmall,
+                        color = c.inkFaint
                     )
                 }
             }
