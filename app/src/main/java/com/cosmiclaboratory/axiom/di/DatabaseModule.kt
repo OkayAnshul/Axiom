@@ -3,9 +3,9 @@ package com.cosmiclaboratory.axiom.di
 import android.content.Context
 import androidx.room.Room
 import com.cosmiclaboratory.axiom.data.database.AxiomDatabase
+import com.cosmiclaboratory.axiom.data.database.AxiomMigrations
 import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.AiPromptCacheDao
-import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionThreadStateDao
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
@@ -26,6 +26,19 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
     
+    /**
+     * From version [AxiomMigrations.BASELINE_VERSION] onward, an upgrade
+     * preserves the user's journal.
+     *
+     * The blanket fallbackToDestructiveMigration() that stood here until now
+     * wiped every table on any schema change — correct while nothing had
+     * shipped, catastrophic the day something does. It is replaced by the
+     * narrow form: databases older than the baseline are still dropped (those
+     * versions only ever existed on development devices), while anything at or
+     * above it must be carried forward by a real migration. If a migration is
+     * missing, Room throws at open time rather than quietly deleting a journal
+     * — a crash in testing is the outcome we want here.
+     */
     @Provides
     @Singleton
     fun provideAxiomDatabase(
@@ -36,8 +49,12 @@ object DatabaseModule {
             AxiomDatabase::class.java,
             AxiomDatabase.DATABASE_NAME
         )
-        .fallbackToDestructiveMigration()
-        .build()
+            .addMigrations(*AxiomMigrations.ALL)
+            .fallbackToDestructiveMigrationFrom(
+                dropAllTables = true,
+                *(1 until AxiomMigrations.BASELINE_VERSION).toList().toIntArray()
+            )
+            .build()
     }
     
     @Provides
@@ -71,9 +88,6 @@ object DatabaseModule {
 
     @Provides
     fun provideAiPromptCacheDao(database: AxiomDatabase): AiPromptCacheDao = database.aiPromptCacheDao()
-
-    @Provides
-    fun provideAttachmentDao(database: AxiomDatabase): AttachmentDao = database.attachmentDao()
 
     @Provides
     fun provideCompanionDao(database: AxiomDatabase): CompanionDao = database.companionDao()

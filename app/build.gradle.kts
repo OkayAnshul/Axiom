@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,23 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+/*
+ * Release signing, read from a keystore.properties that is never committed
+ * (see .gitignore) or from the environment for CI. Absent credentials leave
+ * the release build unsigned rather than failing, so anyone can still run
+ * assembleRelease to check size and R8 output without holding the key.
+ */
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { stream -> load(stream) }
+}
+
+fun signingValue(key: String, env: String): String? =
+    keystoreProperties.getProperty(key) ?: System.getenv(env)
+
+val releaseStoreFile = signingValue("storeFile", "AXIOM_KEYSTORE_FILE")
+val hasReleaseSigning = releaseStoreFile != null && rootProject.file(releaseStoreFile).exists()
 
 android {
     namespace = "com.cosmiclaboratory.axiom"
@@ -25,6 +44,17 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = signingValue("storePassword", "AXIOM_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "AXIOM_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "AXIOM_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -33,6 +63,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -46,6 +79,16 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+/*
+ * Where schemas would be written once exportSchema can be switched on. It is
+ * off today because Room's schema bundles cannot be deserialized by the
+ * kotlinx-serialization compiler plugin in Kotlin 2.0.21 — see AxiomDatabase.
+ * The location is declared now so turning export on later is a one-line change.
+ */
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
