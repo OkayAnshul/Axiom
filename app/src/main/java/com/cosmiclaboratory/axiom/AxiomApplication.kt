@@ -39,5 +39,7 @@ class AxiomApplication : Application(), Configuration.Provider {
         // no-ops when both proactive settings are off, so this is safe to call
         // on every launch.
         workScheduler.scheduleProactiveCheckIns()
+        // Weekly on-device tidy-up of long-term memory.
+        workScheduler.scheduleMemoryConsolidation()
     }
 }

@@ -110,6 +110,18 @@ class JournalWorkScheduler @Inject constructor(
         workManager.cancelUniqueWork(ProactiveCheckInWorker.UNIQUE_NAME)
     }
 
+    /** Weekly memory tidy-up. On-device, so no network constraint. */
+    fun scheduleMemoryConsolidation() {
+        val request = PeriodicWorkRequestBuilder<MemoryConsolidationWorker>(7, TimeUnit.DAYS)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
+            .build()
+        workManager.enqueueUniquePeriodicWork(
+            MemoryConsolidationWorker.UNIQUE_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
     private fun networkConstraints() = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()

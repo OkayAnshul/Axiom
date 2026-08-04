@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
+import com.cosmiclaboratory.axiom.data.repository.SemanticIndexProvider
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.navigation.Search
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,6 +21,8 @@ import javax.inject.Inject
 data class SearchUiState(
     val query: String = "",
     val results: List<Entry> = emptyList(),
+    /** Meaning-based matches, shown only when the words themselves found nothing. */
+    val related: List<Entry> = emptyList(),
     val isSearching: Boolean = false,
     val hasSearched: Boolean = false,
     val corpusSize: Int = 0,
@@ -29,7 +32,8 @@ data class SearchUiState(
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    private val entries: JournalRepository
+    private val entries: JournalRepository,
+    private val semanticIndex: SemanticIndexProvider
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchUiState())
@@ -58,8 +62,21 @@ class SearchViewModel @Inject constructor(
             // Raw text goes in — the repository sanitises. Passing a pre-built
             // FTS expression here would be double-processed.
             val results = runCatching { entries.search(value) }.getOrDefault(emptyList())
+            // Keyword search answers "which entries contain these words". When
+            // that finds nothing, the entry the user is looking for usually
+            // exists but is worded differently — so fall back to meaning.
+            val related = if (results.isEmpty()) {
+                runCatching { semanticIndex.search(value, RELATED_LIMIT) }.getOrDefault(emptyList())
+            } else {
+                emptyList()
+            }
             _state.update {
-                it.copy(results = results, isSearching = false, hasSearched = true)
+                it.copy(
+                    results = results,
+                    related = related,
+                    isSearching = false,
+                    hasSearched = true
+                )
             }
         }
     }
@@ -76,6 +93,7 @@ class SearchViewModel @Inject constructor(
     }
 
     private companion object {
+        const val RELATED_LIMIT = 6
         const val DEBOUNCE_MS = 250L
         const val MIN_QUERY_LENGTH = 2
     }

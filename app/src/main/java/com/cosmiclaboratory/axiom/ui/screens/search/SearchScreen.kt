@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -109,6 +110,38 @@ fun SearchScreen(
                 title = "Search your journal",
                 body = "Find an entry by a word you remember writing."
             )
+
+            // No literal match, but the meaning index found entries about the
+            // same thing in different words — far more useful than "no results".
+            state.hasSearched && state.results.isEmpty() && state.related.isNotEmpty() ->
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().testTag("list:search-related"),
+                    contentPadding = PaddingValues(AxiomTheme.space.screenH),
+                    verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.listGap)
+                ) {
+                    item("related-header") {
+                        Column {
+                            Text(
+                                "Nothing contains \"${state.query}\", but these feel related",
+                                style = AxiomTheme.type.uiBodySmall,
+                                color = AxiomTheme.colors.inkMuted
+                            )
+                            Spacer(Modifier.height(AxiomTheme.space.sm))
+                        }
+                    }
+                    items(state.related, key = { it.id }) { entry ->
+                        SearchResultCard(entry, "") { onOpenEntry(entry.id) }
+                    }
+                    item("ask") {
+                        TextButton(onClick = { onAskInstead(state.query) }) {
+                            Text(
+                                "Ask instead",
+                                style = AxiomTheme.type.uiLabel,
+                                color = AxiomTheme.colors.accent
+                            )
+                        }
+                    }
+                }
 
             state.hasSearched && state.results.isEmpty() -> AxiomEmptyState(
                 title = "No matches",
