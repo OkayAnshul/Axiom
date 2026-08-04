@@ -12,6 +12,7 @@ import com.cosmiclaboratory.axiom.domain.patterns.Finding
 import com.cosmiclaboratory.axiom.domain.patterns.PatternFinder
 import com.cosmiclaboratory.axiom.domain.patterns.dominantEmotions
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -173,7 +174,7 @@ class PatternsViewModel @Inject constructor(
      * so "The user's manager" does not become a person called "The".
      */
     private fun nameFrom(memoryText: String): String? = memoryText
-        .split(NON_NAME)
+        .split(TextTokens.SEPARATOR)
         .firstOrNull { token ->
             token.length >= MIN_NAME_LENGTH &&
                 token.first().isUpperCase() &&
@@ -183,7 +184,6 @@ class PatternsViewModel @Inject constructor(
     private companion object {
         const val MAX_PEOPLE = 5
         const val MIN_NAME_LENGTH = 3
-        val NON_NAME = Regex("[^\\p{L}]+")
         val NON_NAMES = setOf("the", "their", "they", "user", "his", "her", "and", "has", "was")
     }
 }

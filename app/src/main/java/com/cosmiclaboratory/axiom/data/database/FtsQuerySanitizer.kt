@@ -1,5 +1,7 @@
 package com.cosmiclaboratory.axiom.data.database
 
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
+
 /**
  * Turns arbitrary user text into something SQLite FTS4 `MATCH` will accept.
  *
@@ -48,9 +50,12 @@ object FtsQuerySanitizer {
 
     private fun tokenize(raw: String, dropStopwords: Boolean): List<String> =
         raw.lowercase()
-            // Keep letters/digits from ANY script — \p{L} covers Devanagari, so
-            // Hindi queries survive to reach the unicode61-tokenized index.
-            .replace(Regex("[^\\p{L}\\p{N}\\s]"), " ")
+            // Keep letters, combining marks and digits from ANY script. The
+            // marks matter: \p{L} alone excludes Devanagari vowel signs, so
+            // this used to strip the ा out of थका and hand FTS a fragment that
+            // matched nothing. Hindi search was quietly broken by one missing
+            // character class.
+            .replace(TextTokens.NON_WORD_OR_SPACE, " ")
             .split(Regex("\\s+"))
             .filter { token ->
                 val minLength = if (dropStopwords) 3 else 2

@@ -140,6 +140,21 @@ interface EntryDao {
     @Query("UPDATE entries SET mood = :mood, emotion = :emotion WHERE id = :entryId AND mood IS NULL")
     suspend fun setInferredMood(entryId: Long, mood: Int, emotion: String): Int
 
+    /**
+     * The on-device classifier's output. It predicts a number on the 1..5 scale
+     * and has no opinion about which named feeling produced it, so [emotion]
+     * stays untouched rather than being filled with a guess.
+     */
+    @Query("UPDATE entries SET mood = :mood WHERE id = :entryId AND mood IS NULL")
+    suspend fun setPredictedMood(entryId: Long, mood: Int): Int
+
+    /** Entries whose mood the user chose — the only trustworthy training labels. */
+    @Query(
+        "SELECT * FROM entries WHERE mood IS NOT NULL AND moodCapturedAt IS NOT NULL " +
+            "AND isComplete = 1 AND content != '' ORDER BY createdAt DESC LIMIT :limit"
+    )
+    suspend fun userLabelledForTraining(limit: Int = 500): List<EntryEntity>
+
     @Query("UPDATE entries SET isFavorite = :favorite, updatedAt = :now WHERE id = :entryId")
     suspend fun setFavorite(entryId: Long, favorite: Boolean, now: LocalDateTime)
 

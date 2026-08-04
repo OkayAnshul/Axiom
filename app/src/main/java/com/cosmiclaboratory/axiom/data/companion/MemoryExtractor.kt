@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cosmiclaboratory.axiom.domain.text.TextTokens
 
 /**
  * Turns raw text (a conversation session or a completed entry) into long-term
@@ -136,7 +137,6 @@ internal fun tokenJaccard(a: String, b: String): Double {
     return intersection / union
 }
 
-private val JACCARD_SPLIT = Regex("[^\\p{L}\\p{Nd}]+")
 
 private fun jaccardTokens(text: String): Set<String> =
-    text.lowercase().split(JACCARD_SPLIT).filter { it.length >= 2 }.toSet()
+    TextTokens.words(text, minLength = 2).toSet()
