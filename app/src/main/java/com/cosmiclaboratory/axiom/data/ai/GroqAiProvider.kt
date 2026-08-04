@@ -7,7 +7,8 @@ import com.cosmiclaboratory.axiom.data.ai.dto.EntrySummaryPayload
 import com.cosmiclaboratory.axiom.data.ai.dto.InitiatorPromptsPayload
 import com.cosmiclaboratory.axiom.data.ai.dto.ResponseFormat
 import com.cosmiclaboratory.axiom.data.ai.dto.WhisperTranscriptionResponse
-import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
+import com.cosmiclaboratory.axiom.data.security.SecureKeyStore
+import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import com.cosmiclaboratory.axiom.data.ai.dto.ChatCompletionChunk
 import io.ktor.client.HttpClient
@@ -40,7 +41,7 @@ import javax.inject.Singleton
 @Singleton
 class GroqAiProvider @Inject constructor(
     private val client: HttpClient,
-    private val prefs: UserPreferences,
+    private val keys: SecureKeyStore,
     private val builder: PersonaPromptBuilder,
     private val json: Json
 ) : AiProvider {
@@ -51,7 +52,7 @@ class GroqAiProvider @Inject constructor(
         memoryLines: List<String>,
         count: Int
     ): AiResult<List<String>> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val userPrompt = PromptTemplates.initiatorPrompts(recentSummaries, memoryLines, count)
         return jsonChat(key, persona, userPrompt) { content ->
             json.decodeFromString(InitiatorPromptsPayload.serializer(), content)
@@ -63,7 +64,7 @@ class GroqAiProvider @Inject constructor(
         plainText: String,
         persona: Persona
     ): AiResult<EntrySummary> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val userPrompt = PromptTemplates.summarizeEntry(plainText)
         return jsonChat(key, persona, userPrompt) { content ->
             val p = json.decodeFromString(EntrySummaryPayload.serializer(), content)
@@ -72,7 +73,7 @@ class GroqAiProvider @Inject constructor(
     }
 
     override suspend fun testConnection(): AiResult<Unit> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val request = ChatCompletionRequest(
             model = GroqModels.BACKGROUND,
             messages = listOf(ChatMessage(role = "user", content = "ping")),
@@ -97,7 +98,7 @@ class GroqAiProvider @Inject constructor(
         maxTokens: Int,
         model: String
     ): AiResult<String> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val payload = buildList {
             add(ChatMessage(role = "system", content = systemPrompt))
             messages.forEach { (role, content) -> add(ChatMessage(role = role, content = content)) }
@@ -126,7 +127,7 @@ class GroqAiProvider @Inject constructor(
         maxTokens: Int,
         model: String
     ): Flow<ChatStreamEvent> = flow {
-        val key = prefs.groqApiKey()
+        val key = keys.apiKey(AiVendor.GROQ)
         if (key == null) {
             emit(ChatStreamEvent.Failed(AiResult.NoKey, ""))
             return@flow
@@ -183,7 +184,7 @@ class GroqAiProvider @Inject constructor(
         maxTokens: Int,
         model: String
     ): AiResult<String> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val request = ChatCompletionRequest(
             model = model,
             messages = listOf(
@@ -206,7 +207,7 @@ class GroqAiProvider @Inject constructor(
     }
 
     override suspend fun transcribeAudio(audioFile: File, language: String?): AiResult<String> {
-        val key = prefs.groqApiKey() ?: return AiResult.NoKey
+        val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         if (!audioFile.exists() || audioFile.length() == 0L) {
             return AiResult.Parse(IllegalArgumentException("Empty audio file"))
         }

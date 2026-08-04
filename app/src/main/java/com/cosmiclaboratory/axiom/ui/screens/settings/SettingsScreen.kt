@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -284,9 +285,38 @@ fun SettingsAiScreen(
                 )
             }
 
-            SectionHeader(if (state.keyConnected) "Connected" else "Connect a key")
+            SectionHeader("Provider")
+            AiVendor.entries.forEach { vendor ->
+                AxiomCard(
+                    tone = if (vendor == state.aiVendor) CardTone.Accent else CardTone.Neutral,
+                    onClick = { viewModel.setAiVendor(vendor) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = AxiomTheme.space.xs)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            vendor.displayName,
+                            style = AxiomTheme.type.uiTitleSmall,
+                            color = c.ink,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Shows at a glance which one you already have set up.
+                        if (state.aiVendor != vendor && state.keyConnected) {
+                            Text("", style = AxiomTheme.type.uiMeta, color = c.inkFaint)
+                        }
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Text(vendor.summary, style = AxiomTheme.type.uiBodySmall, color = c.inkMuted)
+                }
+            }
 
-            if (state.keyConnected) {
+            SectionHeader(
+                if (state.vendorKeyConnected) "${state.aiVendor.displayName} connected"
+                else "Connect a ${state.aiVendor.displayName} key"
+            )
+
+            if (state.vendorKeyConnected) {
                 AxiomCard {
                     Text("A key is saved and encrypted on this device.",
                         style = AxiomTheme.type.uiBody, color = c.ink)
@@ -299,7 +329,7 @@ fun SettingsAiScreen(
                 AxiomCard {
                     Box {
                         if (state.keyDraft.isEmpty()) {
-                            Text("gsk_…", style = AxiomTheme.type.uiBody, color = c.inkFaint)
+                            Text(state.aiVendor.keyHint, style = AxiomTheme.type.uiBody, color = c.inkFaint)
                         }
                         BasicTextField(
                             value = state.keyDraft,
@@ -338,7 +368,7 @@ fun SettingsAiScreen(
                             tint = c.inkMuted
                         )
                         Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { uriHandler.openUri("https://console.groq.com/keys") }) {
+                        TextButton(onClick = { uriHandler.openUri(state.aiVendor.keyUrl) }) {
                             Text("Get a free key", style = AxiomTheme.type.uiLabel, color = c.accent)
                         }
                     }

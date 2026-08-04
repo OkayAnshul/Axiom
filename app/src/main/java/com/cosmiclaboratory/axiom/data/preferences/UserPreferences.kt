@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cosmiclaboratory.axiom.data.security.SecureKeyStore
+import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -65,7 +66,21 @@ class UserPreferences @Inject constructor(
         return null
     }
 
-    fun observeGroqKeyPresent(): Flow<Boolean> = secureKeyStore.observeKeyPresent()
+    /** Which vendor the user picked for AI features. */
+    val aiVendor: Flow<AiVendor> = store.data.map { AiVendor.fromStorage(it[KEY_AI_VENDOR]) }
+
+    suspend fun setAiVendor(vendor: AiVendor) {
+        store.edit { it[KEY_AI_VENDOR] = vendor.name }
+    }
+
+    suspend fun apiKey(vendor: AiVendor): String? = secureKeyStore.apiKey(vendor)
+
+    suspend fun setApiKey(vendor: AiVendor, value: String?) = secureKeyStore.setApiKey(vendor, value)
+
+    fun observeKeyPresent(vendor: AiVendor): Flow<Boolean> = secureKeyStore.observeKeyPresent(vendor)
+
+    /** "Is AI switched on at all", regardless of which vendor holds the key. */
+    fun observeGroqKeyPresent(): Flow<Boolean> = secureKeyStore.observeAnyKeyPresent()
 
     suspend fun setGroqApiKey(value: String?) = secureKeyStore.setGroqApiKey(value)
 
@@ -131,5 +146,6 @@ class UserPreferences @Inject constructor(
         val KEY_DAILY_NUDGE_MINUTE = intPreferencesKey("daily_nudge_minute")
         val KEY_LAST_PROACTIVE_DATE = stringPreferencesKey("last_proactive_date")
         val KEY_THEME_OVERRIDE = intPreferencesKey("theme_override")
+        val KEY_AI_VENDOR = stringPreferencesKey("ai_vendor")
     }
 }
