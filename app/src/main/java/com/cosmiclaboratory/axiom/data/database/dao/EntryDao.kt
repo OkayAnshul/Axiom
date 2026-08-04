@@ -29,6 +29,13 @@ interface EntryDao {
     @Query("SELECT * FROM entries WHERE isArchived = 0 ORDER BY updatedAt DESC")
     fun observeAllWithTags(): Flow<List<EntryWithTags>>
 
+    /** Every entry, archived included — a backup that silently drops rows is not a backup. */
+    @Query("SELECT * FROM entries ORDER BY createdAt ASC")
+    suspend fun allForBackup(): List<EntryEntity>
+
+    @Query("SELECT * FROM entry_tag_cross_ref")
+    suspend fun allTagCrossRefs(): List<EntryTagCrossRef>
+
     @Transaction
     @Query("SELECT * FROM entries WHERE isArchived = 0 AND isComplete = 1 ORDER BY createdAt DESC")
     fun observeCompletedWithTags(): Flow<List<EntryWithTags>>

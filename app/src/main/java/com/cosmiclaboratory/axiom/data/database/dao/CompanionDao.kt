@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CompanionDao {
+    @Query("SELECT * FROM companion_messages ORDER BY id ASC")
+    suspend fun allForBackup(): List<CompanionMessageEntity>
+
     @Query("SELECT * FROM companion_messages WHERE threadId = :threadId ORDER BY createdAt ASC")
     fun observeThread(threadId: String): Flow<List<CompanionMessageEntity>>
 

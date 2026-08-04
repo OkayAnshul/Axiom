@@ -48,6 +48,9 @@ data class Composer(
 @Serializable data object SettingsAppearance
 @Serializable data object SettingsVoice
 
+/** Whole-journal export and restore. */
+@Serializable data object Backup
+
 /** Deep-link URIs. Declared once so widgets, the tile and notifications agree. */
 object AxiomDeepLinks {
     const val SCHEME = "axiom"

@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AIInsightDao {
 
+    @Query("SELECT * FROM ai_insights")
+    suspend fun allForBackup(): List<AIInsightEntity>
+
     @Query("SELECT * FROM ai_insights WHERE entryId = :entryId LIMIT 1")
     suspend fun getByEntryId(entryId: Long): AIInsightEntity?
 
