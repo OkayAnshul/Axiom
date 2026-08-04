@@ -48,10 +48,11 @@ class GroqAiProvider @Inject constructor(
     override suspend fun generateInitiatorPrompts(
         persona: Persona,
         recentSummaries: List<String>,
+        memoryLines: List<String>,
         count: Int
     ): AiResult<List<String>> {
         val key = prefs.groqApiKey() ?: return AiResult.NoKey
-        val userPrompt = PromptTemplates.initiatorPrompts(recentSummaries, count)
+        val userPrompt = PromptTemplates.initiatorPrompts(recentSummaries, memoryLines, count)
         return jsonChat(key, persona, userPrompt) { content ->
             json.decodeFromString(InitiatorPromptsPayload.serializer(), content)
                 .prompts.filter { it.isNotBlank() }

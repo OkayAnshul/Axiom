@@ -30,9 +30,15 @@ sealed interface ChatStreamEvent {
 }
 
 interface AiProvider {
+    /**
+     * The daily batch of conversation openers. [memoryLines] are plain sentences
+     * about the user — kept as strings so this layer stays ignorant of how
+     * memory is stored.
+     */
     suspend fun generateInitiatorPrompts(
         persona: Persona,
         recentSummaries: List<String>,
+        memoryLines: List<String> = emptyList(),
         count: Int = 5
     ): AiResult<List<String>>
 

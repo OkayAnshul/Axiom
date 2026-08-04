@@ -2,20 +2,52 @@ package com.cosmiclaboratory.axiom.data.ai
 
 internal object PromptTemplates {
 
-    fun initiatorPrompts(recentSummaries: List<String>, count: Int): String {
-        val context = if (recentSummaries.isEmpty()) {
-            "The user has no past entries yet."
+    /**
+     * The questions the companion greets the user with.
+     *
+     * [memoryLines] is what makes these worth reading: without it the model can
+     * only produce self-help filler ("what are you grateful for?"), which is
+     * exactly what the curated pack already covers. With it, the opener can ask
+     * about this person's actual life. The instructions push hard against
+     * reciting the memory back — a question that quotes your own file at you
+     * reads like surveillance, not like a friend.
+     */
+    fun initiatorPrompts(
+        recentSummaries: List<String>,
+        memoryLines: List<String>,
+        count: Int
+    ): String = buildString {
+        appendLine("Write $count short questions to open a conversation with someone you know well.")
+        appendLine("Each is a single sentence under 18 words. No numbering, no preamble.")
+        appendLine()
+
+        if (memoryLines.isNotEmpty()) {
+            appendLine("What you know about them:")
+            memoryLines.take(MAX_MEMORY_LINES).forEach { appendLine("- ${it.trim()}") }
+            appendLine()
+            appendLine("Ground most of the questions in the specifics above — their people, their")
+            appendLine("goals, what keeps coming up for them. Rules:")
+            appendLine("- Never quote a remembered detail back at them; ask from it, not about it.")
+            appendLine("- One person or one thread per question. Never stack two.")
+            appendLine("- Do not assume how something turned out, or that it is still true.")
+            appendLine("- Leave at least one question open and general, for a day none of this fits.")
         } else {
-            "Recent entry themes:\n" + recentSummaries.joinToString("\n") { "- $it" }
+            appendLine("You do not know them yet, so keep these open and gentle.")
         }
-        return """
-            Generate $count short, gentle journaling questions to help the user start writing.
-            Each question must be a single sentence under 18 words. No numbering. No preamble.
-            $context
-            Respond with JSON only, exactly this shape:
-            {"prompts": ["question 1", "question 2", "..."]}
-        """.trimIndent()
+
+        if (recentSummaries.isNotEmpty()) {
+            appendLine()
+            appendLine("What they wrote about recently:")
+            recentSummaries.forEach { appendLine("- ${it.trim()}") }
+        }
+
+        appendLine()
+        appendLine("Respond with JSON only, exactly this shape:")
+        append("""{"prompts": ["question 1", "question 2", "..."]}""")
     }
+
+    /** Enough to be specific, not so much that the model writes a biography quiz. */
+    const val MAX_MEMORY_LINES = 12
 
     fun summarizeEntry(plainText: String): String {
         val truncated = if (plainText.length > 1800) plainText.take(1800) + "…" else plainText
