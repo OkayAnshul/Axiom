@@ -411,8 +411,19 @@ private fun WhatGetsSentSheet(onDismiss: () -> Unit) {
         }
         Spacer(Modifier.height(AxiomTheme.space.base))
         Text(
-            "All of it goes to Groq with your own key, only when you send a message, " +
-                "and is never stored anywhere but on this device.",
+            "All of it goes to Groq with your own key and is never stored anywhere but " +
+                "on this device.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = c.inkMuted
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        Text("Once a day, in the background", style = AxiomTheme.type.uiOverline, color = c.inkFaint)
+        Spacer(Modifier.height(AxiomTheme.space.xs))
+        Text(
+            "To write the questions it greets you with, and to turn a finished " +
+                "conversation into a journal entry, Axiom sends what it remembers and what " +
+                "you wrote — without you pressing send. Disconnect the key in Settings to " +
+                "stop this entirely; everything else keeps working.",
             style = AxiomTheme.type.uiBodySmall,
             color = c.inkMuted
         )
