@@ -6,7 +6,6 @@ import androidx.room.TypeConverters
 import com.cosmiclaboratory.axiom.data.database.converter.DateTimeConverter
 import com.cosmiclaboratory.axiom.data.database.dao.AIInsightDao
 import com.cosmiclaboratory.axiom.data.database.dao.AiPromptCacheDao
-import com.cosmiclaboratory.axiom.data.database.dao.AttachmentDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionDao
 import com.cosmiclaboratory.axiom.data.database.dao.CompanionThreadStateDao
 import com.cosmiclaboratory.axiom.data.database.dao.EntryDao
@@ -19,7 +18,12 @@ import com.cosmiclaboratory.axiom.data.database.dao.UserProfileDao
 import com.cosmiclaboratory.axiom.data.database.entity.*
 
 /**
- * Version 7 adds entries.emotion — the named feeling inferred from the writing,
+ * Version 8 drops `attachments`, which was never read or written. It is the
+ * first version reached by a real migration rather than by wiping the device:
+ * see [AxiomMigrations], where version 7 is the baseline from which user data
+ * is preserved.
+ *
+ * Version 7 added entries.emotion — the named feeling inferred from the writing,
  * carrying what the 1..5 mood number cannot.
  *
  * Version 6 added memory_items.dueAt — open loops the companion should circle
@@ -33,16 +37,19 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
  * Version 4 collapsed `answer_entries` into `entries`; the answer-entry tables and
  * their FTS index are gone.
  *
- * exportSchema is OFF and fallbackToDestructiveMigration is still in place because
- * the app is pre-production. BOTH must change before the first Play release, or an
- * update wipes user journals.
+ * exportSchema stays OFF, and the earlier note here blamed the wrong thing. It
+ * is not a Room version problem: Room 2.8.4 exports a schema happily on a clean
+ * tree, then dies the moment a previous schema exists and has to be READ back
+ * for comparison — AbstractMethodError on FieldBundle${'$'}${'$'}serializer. Room's
+ * schema bundles are compiled against kotlinx-serialization 1.8+, whose
+ * GeneratedSerializer no longer declares typeParametersSerializers(), while the
+ * serialization compiler plugin bundled with Kotlin 2.0.21 still expects it.
+ * Bumping the serialization runtime does not help; the mismatch is in the
+ * plugin. The fix is Kotlin 2.1+, which also moves the Compose compiler, so it
+ * is its own piece of work.
  *
- * Enabling exportSchema currently fails: Room 2.8.2's schema exporter carries
- * serializers compiled against an older kotlinx-serialization than the one on the
- * KSP classpath, so KSP dies with AbstractMethodError on FieldBundle${'$'}${'$'}serializer.
- * Forcing the version on the ksp configuration does not help — room-compiler
- * resolves its own copy inside the KSP worker. Needs a Room bump to fix, which is
- * a pre-release task, not a blocker now.
+ * Hand-written migrations do not need exported schemas — see [AxiomMigrations],
+ * which is what actually keeps user data safe across an upgrade.
  */
 @Database(
     entities = [
@@ -57,11 +64,10 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
         AIInsightEntity::class,
         MemoryItemEntity::class,
         AiPromptCacheEntity::class,
-        AttachmentEntity::class,
         CompanionMessageEntity::class,
         CompanionThreadStateEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverter::class)
@@ -76,11 +82,13 @@ abstract class AxiomDatabase : RoomDatabase() {
     abstract fun aiInsightDao(): AIInsightDao
     abstract fun memoryItemDao(): MemoryItemDao
     abstract fun aiPromptCacheDao(): AiPromptCacheDao
-    abstract fun attachmentDao(): AttachmentDao
     abstract fun companionDao(): CompanionDao
     abstract fun companionThreadStateDao(): CompanionThreadStateDao
 
     companion object {
         const val DATABASE_NAME = "axiom_database"
+
+        /** Keep in step with the @Database version; migration tests assert against it. */
+        const val LATEST_VERSION = 8
     }
 }

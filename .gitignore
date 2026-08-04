@@ -17,3 +17,8 @@ local.properties
 # Local archives / scratch
 *.zip
 .kotlin/
+
+# Release signing — credentials never belong in the repository
+/keystore.properties
+*.jks
+*.keystore

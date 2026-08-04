@@ -20,7 +20,7 @@ ksp = "2.0.21-1.0.25"
 kotlinxSerialization = "1.7.3"
 
 # Database
-room = "2.8.2"
+room = "2.8.4"
 
 # Network
 ktor = "3.0.0"
@@ -80,6 +80,7 @@ androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", vers
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 # Navigation
 navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
