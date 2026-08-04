@@ -41,6 +41,21 @@ internal object PromptTemplates {
             recentSummaries.forEach { appendLine("- ${it.trim()}") }
         }
 
+        // Few-shot beats almost any instruction for this kind of task: the
+        // difference between a good opener and a bad one is tone, and tone is
+        // far easier to show than to describe.
+        appendLine()
+        appendLine("Good questions look like these:")
+        appendLine("- Did you end up calling your mum back?")
+        appendLine("- Is the flat still as loud as it was?")
+        appendLine("- What's left on your plate before Friday?")
+        appendLine()
+        appendLine("Bad ones look like these, and you must not write anything like them:")
+        appendLine("- What are you grateful for today?")
+        appendLine("- How are you feeling on a scale of one to ten?")
+        appendLine("- Reflect on your personal growth this week.")
+        appendLine("- I remember you said your sister Riya lives in Pune — how is she?")
+
         appendLine()
         appendLine("Respond with JSON only, exactly this shape:")
         append("""{"prompts": ["question 1", "question 2", "..."]}""")
