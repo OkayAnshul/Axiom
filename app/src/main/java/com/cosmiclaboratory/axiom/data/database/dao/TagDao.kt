@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
 interface TagDao {
     
     @Query("SELECT * FROM tags ORDER BY name ASC")
+    suspend fun allForBackup(): List<TagEntity>
+
+    @Query("SELECT * FROM tags ORDER BY name ASC")
     fun getAllTags(): Flow<List<TagEntity>>
     
     @Query("SELECT * FROM tags WHERE id = :tagId")

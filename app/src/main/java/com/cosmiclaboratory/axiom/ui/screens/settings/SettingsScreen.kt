@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Psychology
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Switch
@@ -58,6 +59,7 @@ fun SettingsScreen(
     onOpenAppearance: () -> Unit,
     onOpenMemories: () -> Unit,
     onOpenVoice: () -> Unit,
+    onOpenBackup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -181,6 +183,12 @@ fun SettingsScreen(
                 title = "Your name",
                 summary = state.displayName.ifBlank { "Not set — used in greetings" },
                 onClick = { }
+            )
+            SettingRow(
+                icon = Icons.Outlined.Save,
+                title = "Backup",
+                summary = "Save your whole journal to a file, or restore one",
+                onClick = onOpenBackup
             )
             SettingRow(
                 icon = Icons.Outlined.Info,
