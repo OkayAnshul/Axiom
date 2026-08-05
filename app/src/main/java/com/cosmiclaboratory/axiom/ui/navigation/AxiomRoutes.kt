@@ -58,6 +58,9 @@ data class Composer(
 @Serializable data object SettingsAppearance
 @Serializable data object SettingsVoice
 
+/** "How I talk" — the companion's manner, humour, bluntness. Not the microphone. */
+@Serializable data object SettingsHowITalk
+
 /** Whole-journal export and restore. */
 @Serializable data object Backup
 

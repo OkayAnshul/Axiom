@@ -50,6 +50,7 @@ import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
 import androidx.compose.material.icons.outlined.KeyboardVoice
 import androidx.compose.material.icons.outlined.Face
 import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 
 /**
  * Settings hub. Every row shows its CURRENT VALUE — nothing is hidden behind a
@@ -62,6 +63,7 @@ fun SettingsScreen(
     onOpenAppearance: () -> Unit,
     onOpenMemories: () -> Unit,
     onOpenVoice: () -> Unit,
+    onOpenHowITalk: () -> Unit,
     onOpenBackup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel()
@@ -121,9 +123,17 @@ fun SettingsScreen(
                 summary = "See, edit or forget anything I've kept",
                 onClick = onOpenMemories
             )
+            // The manner comes before the microphone: this is the one people
+            // are looking for when they tap something called "voice".
+            SettingRow(
+                icon = Icons.Outlined.RecordVoiceOver,
+                title = "How I talk",
+                summary = state.voice.preset.displayName + " · " + state.voice.preset.blurb,
+                onClick = onOpenHowITalk
+            )
             SettingRow(
                 icon = Icons.Outlined.KeyboardVoice,
-                title = "Voice",
+                title = "Speech & sound",
                 summary = state.voiceLanguage.displayLabel +
                     if (state.autoSpeakEnabled) " · speaks replies" else "",
                 onClick = onOpenVoice
@@ -437,11 +447,6 @@ fun SettingsAiScreen(
                 )
             }
 
-            VoiceEditor(
-                voice = state.voice,
-                onPreset = viewModel::applyVoicePreset,
-                onVoice = viewModel::setVoice
-            )
             Spacer(Modifier.height(AxiomTheme.space.huge))
         }
     }
