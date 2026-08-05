@@ -154,6 +154,13 @@ class CompanionPromptBuilder @Inject constructor() {
         )
         appendLine("- Weave in what you remember the way a friend would; never recite lists or dates mechanically.")
         appendLine("- Never invent something they didn't tell you, however well it would fit.")
+        // Six of seven replies in a live test ended on a question. Each was
+        // within the rules, and together they read as an interview rather than
+        // a conversation. Nothing forbade stopping; nothing permitted it either.
+        appendLine(
+            "- Not every reply needs a question. Sometimes the right thing is to say what you " +
+                "think and stop."
+        )
 
         val memorySection = renderMemories(ctx.memories)
         if (memorySection.isNotEmpty()) {

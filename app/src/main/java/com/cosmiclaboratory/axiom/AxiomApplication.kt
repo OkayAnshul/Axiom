@@ -13,6 +13,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.app.Activity
+import android.os.Bundle
+import com.cosmiclaboratory.axiom.data.companion.ConversationDigester
 
 @HiltAndroidApp
 class AxiomApplication : Application(), Configuration.Provider {
@@ -46,5 +49,55 @@ class AxiomApplication : Application(), Configuration.Provider {
         workScheduler.scheduleProactiveCheckIns()
         // Weekly on-device tidy-up of long-term memory.
         workScheduler.scheduleMemoryConsolidation()
+        digestWhenBackgrounded()
+    }
+
+    /**
+     * Digest the conversation shortly after the user leaves the app.
+     *
+     * Memories only ever form in workers, and the digest was scheduled for three
+     * hours after the last message. Someone who talks daily and closes the app
+     * accumulates nothing until they happen to stay quiet that long — the
+     * feature works, invisibly, far too late to feel like the companion is
+     * learning anything.
+     *
+     * Counted rather than triggered on the first stop, because a rotation stops
+     * one activity before starting the next and would otherwise read as leaving.
+     * Two minutes rather than none, so switching apps to check something does
+     * not write up a half-finished thought; the schedule is REPLACE, so coming
+     * back and carrying on simply pushes it out again.
+     *
+     * No lifecycle-process dependency for this: one counter is the whole
+     * mechanism, and it stays correct if a second activity ever appears.
+     */
+    private fun digestWhenBackgrounded() {
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var started = 0
+
+            override fun onActivityStarted(activity: Activity) {
+                started++
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                started--
+                if (started <= 0) {
+                    workScheduler.scheduleConversationDigest(
+                        threadId = ConversationDigester.THREAD_ID_DEFAULT,
+                        delayMinutes = BACKGROUND_DIGEST_MINUTES
+                    )
+                }
+            }
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+            override fun onActivityResumed(activity: Activity) = Unit
+            override fun onActivityPaused(activity: Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+            override fun onActivityDestroyed(activity: Activity) = Unit
+        })
+    }
+
+    private companion object {
+        /** Long enough that app-switching is not "the conversation ended". */
+        const val BACKGROUND_DIGEST_MINUTES = 2L
     }
 }
