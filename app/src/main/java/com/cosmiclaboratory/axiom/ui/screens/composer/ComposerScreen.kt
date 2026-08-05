@@ -140,7 +140,7 @@ fun ComposerScreen(
             }
         }
 
-        AnimatedVisibility(visible = !focusMode, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(visible = !focusMode, enter = axiomExpand(), exit = axiomCollapse()) {
             ComposerBottomBar(
                 wordCount = state.wordCount,
                 mood = state.mood,
@@ -186,7 +186,7 @@ private fun ComposerTopBar(
 
 @Composable
 private fun PromptHeader(prompt: String, collapsed: Boolean) {
-    AnimatedVisibility(visible = !collapsed) {
+    AnimatedVisibility(visible = !collapsed, enter = axiomExpand(), exit = axiomCollapse()) {
         Column {
             Spacer(Modifier.height(AxiomTheme.space.base))
             Row {
@@ -264,7 +264,7 @@ private fun ComposerBottomBar(
     var showMood by remember { mutableStateOf(false) }
 
     Column {
-        AnimatedVisibility(visible = showMood) {
+        AnimatedVisibility(visible = showMood, enter = axiomExpand(), exit = axiomCollapse()) {
             Column(Modifier.padding(horizontal = AxiomTheme.space.screenH)) {
                 MoodPicker(
                     value = mood,

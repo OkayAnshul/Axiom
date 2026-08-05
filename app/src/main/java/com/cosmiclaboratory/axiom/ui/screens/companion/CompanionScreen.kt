@@ -3,6 +3,7 @@ package com.cosmiclaboratory.axiom.ui.screens.companion
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -13,6 +14,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
@@ -97,6 +99,7 @@ fun CompanionScreen(
     val listState = rememberLazyListState()
     var showDisclosure by remember { mutableStateOf(false) }
     var showShelf by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
 
     // Mic permission gates both the composer mic and the hands-free toggle.
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -177,7 +180,10 @@ fun CompanionScreen(
                 expanded = greetingExpanded,
                 entryCount = state.entryCount,
                 onOpenShelf = { showShelf = true },
-                onOpenJournal = onOpenJournal
+                onOpenJournal = onOpenJournal,
+                onClearConversation = if (state.messages.isNotEmpty()) {
+                    { confirmClear = true }
+                } else null
             )
 
             CompanionRitualHeader(
@@ -229,7 +235,15 @@ fun CompanionScreen(
                             // Only the newest turn arrives. Animating everything
                             // would re-run on every scroll as rows recycle, which
                             // turns reading back through history into a flicker.
-                            Arriving(enabled = message.id == newestId) {
+                            //
+                            // Placement is animated regardless, and separately:
+                            // it moves rows that are already on screen when the
+                            // thinking row is replaced by the real reply, which
+                            // is a different event from a row appearing.
+                            Arriving(
+                                enabled = message.id == newestId,
+                                modifier = axiomItemMotion(fade = false)
+                            ) {
                                 if (message.isUser) {
                                     CompanionUserBubble(
                                         text = message.text,
@@ -337,6 +351,29 @@ fun CompanionScreen(
                 onKeep = viewModel::keepDraft,
                 onMic = { withMicPermission(viewModel::toggleListening) }
             )
+
+            /*
+             * The bar yields to the keyboard.
+             *
+             * A permanent bar under the composer would sit between the send
+             * button and the bottom of the screen while typing — the one moment
+             * the user is certainly not navigating. It leaves when the IME
+             * arrives and comes back when it goes, so switching places stays one
+             * tap away without ever competing with writing.
+             */
+            val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+            AnimatedVisibility(
+                visible = imeBottom == 0,
+                enter = axiomExpand(),
+                exit = axiomCollapse()
+            ) {
+                AxiomPlaceBar(
+                    current = AxiomPlace.Conversation,
+                    onSelect = { place ->
+                        if (place == AxiomPlace.Story) onOpenJournal()
+                    }
+                )
+            }
         }
     }
 
@@ -349,12 +386,31 @@ fun CompanionScreen(
             onOpenMemories = onOpenMemories,
             onOpenSettings = onOpenSettings,
             onDisclosure = { showDisclosure = true },
-            onClearConversation = if (state.messages.isNotEmpty()) viewModel::clearThread else null
+            onClearConversation = if (state.messages.isNotEmpty()) {
+                { confirmClear = true }
+            } else null
         )
     }
 
     if (showDisclosure) {
         WhatGetsSentSheet(onDismiss = { showDisclosure = false })
+    }
+
+    // Clearing was wired straight to the viewmodel with no confirmation at all,
+    // which for the one irreversible action in the app is the wrong default.
+    if (confirmClear) {
+        AxiomConfirmDialog(
+            title = "Clear this conversation?",
+            body = "The messages go. Anything already kept in your story stays, " +
+                "and so does what I remember.",
+            confirmLabel = "Clear it",
+            destructive = true,
+            onConfirm = {
+                confirmClear = false
+                viewModel.clearThread()
+            },
+            onDismiss = { confirmClear = false }
+        )
     }
 }
 
@@ -384,9 +440,16 @@ private fun rememberInvitation(): String = remember { INVITATIONS.random() }
  * appear in it, which is the difference between a notification and a reply.
  */
 @Composable
-private fun Arriving(enabled: Boolean, content: @Composable () -> Unit) {
+private fun Arriving(
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    // The Box stays even when disabled: [modifier] may carry the list's
+    // placement animation, and dropping the wrapper would silently drop that
+    // for every message except the newest one.
     if (!enabled) {
-        content()
+        Box(modifier) { content() }
         return
     }
     val motion = AxiomTheme.motion
@@ -399,7 +462,7 @@ private fun Arriving(enabled: Boolean, content: @Composable () -> Unit) {
     )
     LaunchedEffect(Unit) { landed = true }
     Box(
-        Modifier.graphicsLayer {
+        modifier.graphicsLayer {
             alpha = progress
             translationY = (1f - progress) * with(density) { 14.dp.toPx() }
         }
@@ -678,7 +741,7 @@ private fun CompanionComposerBar(
 
 /** Enumerates exactly what leaves the device. Vague reassurance is worth nothing. */
 @Composable
-private fun WhatGetsSentSheet(onDismiss: () -> Unit) {
+fun WhatGetsSentSheet(onDismiss: () -> Unit) {
     AxiomBottomSheet(title = "What gets sent?", onDismiss = onDismiss) {
         val c = AxiomTheme.colors
         Text(

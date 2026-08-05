@@ -35,6 +35,9 @@ import com.cosmiclaboratory.axiom.ui.design.rememberLocalized
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import com.cosmiclaboratory.axiom.ui.design.components.axiomItemMotion
+import com.cosmiclaboratory.axiom.ui.design.components.axiomCollapse
+import com.cosmiclaboratory.axiom.ui.design.components.axiomExpand
 
 /**
  * Every conversation, findable.
@@ -94,6 +97,7 @@ fun TalksScreen(
 
             items(state.days, key = { it.date.toString() }) { day ->
                 TalkDayCard(
+                    modifier = axiomItemMotion(),
                     day = day,
                     expanded = expanded[day.date] == true,
                     landmarks = state.landmarkMessageIds,
@@ -158,7 +162,8 @@ private fun TalkDayCard(
     day: TalkDay,
     expanded: Boolean,
     landmarks: Set<Long>,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val c = AxiomTheme.colors
     val formatter = rememberLocalized { locale -> DateTimeFormatter.ofPattern("EEEE d MMMM", locale) }
@@ -168,7 +173,7 @@ private fun TalkDayCard(
         else -> day.date.format(formatter)
     }
 
-    AxiomCard(onClick = onToggle) {
+    AxiomCard(onClick = onToggle, modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = AxiomTheme.type.uiTitle, color = c.ink, modifier = Modifier.weight(1f))
             Text(
@@ -199,7 +204,7 @@ private fun TalkDayCard(
             )
         }
 
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(visible = expanded, enter = axiomExpand(), exit = axiomCollapse()) {
             Column(Modifier.padding(top = AxiomTheme.space.md)) {
                 day.messages.forEach { message ->
                     TranscriptLine(message, isLandmark = message.id in landmarks)
