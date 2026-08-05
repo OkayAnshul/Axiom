@@ -15,6 +15,7 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.exp
+import com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene
 
 /**
  * The companion's long-term memory. Decay is lazy: nothing rewrites stored
@@ -168,6 +169,12 @@ class MemoryRepository @Inject constructor(
         val topicTerms = FtsQuerySanitizer.retrievalTerms(topic, maxTerms = 12).toSet()
         val ranked = dao.getAll()
             .map { it.toDomainModel() }
+            // Applied on the way out, not just on the way in. Rows written
+            // before the theme filters existed were still being sent — a live
+            // prompt contained "Keeps coming back to message" alongside real
+            // facts about the user. This is the only route memories take into a
+            // prompt, so filtering here closes it for good.
+            .filterNot { MemoryHygiene.isDegenerate(it.text) }
             .sortedByDescending { item -> promptScore(item, topicTerms, now) }
         val result = linkedMapOf<MemoryKind, MutableList<MemoryItem>>()
         var total = 0

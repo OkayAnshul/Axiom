@@ -16,6 +16,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene
 
 /**
  * Turns a finished conversation into journal and memory **without an API key**.
@@ -282,7 +283,7 @@ class LocalConversationDigester @Inject constructor(
         // substantial enough to be a topic, and not a conversational filler.
         val threshold = maxOf(MIN_TURNS_FOR_THEME, (userTurns.size + 1) / 2)
         return turnsContaining
-            .filterKeys { it.length >= MIN_THEME_LENGTH && it !in NON_THEMES }
+            .filterKeys { it.length >= MemoryHygiene.MIN_THEME_LENGTH && it !in MemoryHygiene.NON_THEMES }
             .filterValues { it >= threshold }
             .entries.sortedByDescending { it.value }
             .map { it.key }
@@ -317,7 +318,7 @@ class LocalConversationDigester @Inject constructor(
         const val COMMITMENT_WEIGHT = 0.5f
 
         /** Short words are rarely topics. "interview" is a theme; "long" is not. */
-        const val MIN_THEME_LENGTH = 5
+
 
         /** A memory is a sentence. This is the hard ceiling on one. */
         const val MAX_MEMORY_CHARS = 200
@@ -327,12 +328,6 @@ class LocalConversationDigester @Inject constructor(
          * Not a general stoplist — [FtsQuerySanitizer] already drops those —
          * just the filler that survives it and reads absurd as a "theme".
          */
-        val NON_THEMES = setOf(
-            "thing", "things", "really", "actually", "maybe", "think", "thought",
-            "feel", "feeling", "going", "still", "quite", "pretty", "little",
-            "message", "number", "today", "yesterday", "tomorrow", "again",
-            "something", "anything", "nothing", "everything", "someone", "people"
-        )
 
         /** Low: these are guesses from repetition, and should fade unless repeated. */
         const val SOFT_WEIGHT = 0.35f
