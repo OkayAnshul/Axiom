@@ -13,6 +13,7 @@ import java.time.LocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 import javax.inject.Inject
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 /**
  * Assembles the companion's system prompt and the verbatim history window.
@@ -44,7 +45,17 @@ class CompanionPromptBuilder @Inject constructor() {
         /** At most one pattern, phrased as the finder already phrased it. */
         val noticed: String? = null,
         /** Set when this turn plainly disclosed distress. */
-        val care: CareLevel? = null
+        val care: CareLevel? = null,
+        /**
+         * What the user calls the companion. It has to reach the prompt: the
+         * bottom bar shows this name, and a companion that answers to a
+         * different one contradicts the label the user is looking at.
+         *
+         * Appended last on purpose — callers build this fourteen-field class
+         * positionally, so a field inserted in the middle silently reassigns
+         * every argument after it.
+         */
+        val companionName: String = CompanionIdentity.DEFAULT_NAME
     )
 
     /**
@@ -75,10 +86,11 @@ class CompanionPromptBuilder @Inject constructor() {
 
     fun buildSystemPrompt(ctx: Context): String = buildString {
         val name = ctx.displayName.trim()
+        val self = CompanionIdentity.resolve(ctx.companionName)
         if (name.isNotEmpty()) {
-            append("You are $name's companion inside Axiom, their private journal. ")
+            append("You are $self, $name's companion inside their private journal. ")
         } else {
-            append("You are the user's companion inside Axiom, their private journal. ")
+            append("You are $self, the user's companion inside their private journal. ")
         }
         appendLine("You are a trusted friend, not an assistant and not a therapist.")
         appendLine()

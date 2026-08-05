@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 private val Context.dataStore by preferencesDataStore(name = "axiom_user_prefs")
 
@@ -33,6 +34,16 @@ class UserPreferences @Inject constructor(
     val weeklyRecapEnabled: Flow<Boolean> = store.data.map { it[KEY_WEEKLY_RECAP] ?: true }
     val lastPromptBatchAt: Flow<Long> = store.data.map { it[KEY_LAST_PROMPT_BATCH] ?: 0L }
     val displayName: Flow<String> = store.data.map { it[KEY_DISPLAY_NAME].orEmpty() }
+
+    /**
+     * What the companion is called. Blank means the user has not chosen, and
+     * [CompanionIdentity.DEFAULT_NAME] stands in — stored blank rather than
+     * pre-filled so "never set" and "deliberately set to Axiom" stay distinct.
+     */
+    val companionName: Flow<String> = store.data.map {
+        it[KEY_COMPANION_NAME]?.takeIf { name -> name.isNotBlank() }
+            ?: CompanionIdentity.DEFAULT_NAME
+    }
 
     // v2: voice
     val preferredVoiceLanguage: Flow<String> = store.data.map { it[KEY_VOICE_LANG] ?: "ENGLISH_IN" }
@@ -186,6 +197,11 @@ class UserPreferences @Inject constructor(
         store.edit { it[KEY_DISPLAY_NAME] = value.trim() }
     }
 
+    /** Blank clears the choice and restores the default rather than storing "". */
+    suspend fun setCompanionName(value: String) {
+        store.edit { it[KEY_COMPANION_NAME] = value.trim().take(CompanionIdentity.MAX_LENGTH) }
+    }
+
     suspend fun setPreferredVoiceLanguage(value: String) {
         store.edit { it[KEY_VOICE_LANG] = value }
     }
@@ -235,6 +251,7 @@ class UserPreferences @Inject constructor(
         val KEY_WEEKLY_RECAP = booleanPreferencesKey("weekly_recap_enabled")
         val KEY_LAST_PROMPT_BATCH = longPreferencesKey("last_prompt_batch_at")
         val KEY_DISPLAY_NAME = stringPreferencesKey("display_name")
+        val KEY_COMPANION_NAME = stringPreferencesKey("companion_name")
         val KEY_VOICE_LANG = stringPreferencesKey("preferred_voice_language")
         val KEY_WHISPER_FALLBACK = booleanPreferencesKey("whisper_fallback_enabled")
         val KEY_AUTO_SPEAK = booleanPreferencesKey("auto_speak_enabled")

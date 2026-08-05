@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 /** Result of a live key check. Every AiResult branch has a visible outcome. */
 sealed interface KeyTestState {
@@ -36,6 +37,8 @@ sealed interface KeyTestState {
 
 data class SettingsUiState(
     val displayName: String = "",
+    /** What the user calls the companion; defaults to the app's own name. */
+    val companionName: String = CompanionIdentity.DEFAULT_NAME,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** Whether the palette drifts with the hour. See `AxiomLight`. */
     val adaptiveLight: Boolean = true,
@@ -78,6 +81,7 @@ class SettingsViewModel @Inject constructor(
             _state.update {
                 it.copy(
                     displayName = prefs.displayName.first(),
+                    companionName = prefs.companionName.first(),
                     themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
                     adaptiveLight = prefs.adaptiveLight.first(),
                     voice = prefs.voice.first(),
@@ -118,6 +122,13 @@ class SettingsViewModel @Inject constructor(
     fun setDisplayName(value: String) {
         _state.update { it.copy(displayName = value) }
         viewModelScope.launch { prefs.setDisplayName(value) }
+    }
+
+    /** Applies live: StartupViewModel follows companionName, so nothing restarts. */
+    fun setCompanionName(value: String) {
+        val resolved = CompanionIdentity.resolve(value)
+        _state.update { it.copy(companionName = resolved) }
+        viewModelScope.launch { prefs.setCompanionName(value) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

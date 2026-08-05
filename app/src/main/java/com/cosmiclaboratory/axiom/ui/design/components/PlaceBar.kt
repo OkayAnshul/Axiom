@@ -38,6 +38,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
+import com.cosmiclaboratory.axiom.ui.design.LocalCompanionName
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 
 /** The two places you actually live in. Everything else is a room off them. */
@@ -56,12 +58,19 @@ enum class AxiomPlace { Conversation, Story }
  *
  * The selected pill slides between the two rather than cutting, which is what
  * makes it read as one bar with a position instead of two buttons that light up.
+ *
+ * The left tab is a name, not an activity: a tab is a place you go, and you go
+ * to *someone*. It defaults to the app's own name and the user can change it in
+ * settings, which is the point — naming a thing is how people start treating it
+ * as a presence rather than a feature.
  */
 @Composable
 fun AxiomPlaceBar(
     current: AxiomPlace,
     onSelect: (AxiomPlace) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** What the user calls their companion; app-wide, so it defaults from context. */
+    companionName: String = LocalCompanionName.current
 ) {
     val c = AxiomTheme.colors
     val selected = if (current == AxiomPlace.Conversation) 0f else 1f
@@ -76,7 +85,14 @@ fun AxiomPlaceBar(
             .fillMaxWidth()
             .background(c.canvas)
             .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = AxiomTheme.space.screenH, vertical = AxiomTheme.space.sm)
+            // Tight to whatever sits above it — the bar is a foot to the
+            // screen, not a separate slab floating below the content.
+            .padding(
+                start = AxiomTheme.space.screenH,
+                end = AxiomTheme.space.screenH,
+                top = AxiomTheme.space.xxs,
+                bottom = AxiomTheme.space.xs
+            )
             .testTag("bar:places")
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().height(BAR_HEIGHT)) {
@@ -95,7 +111,7 @@ fun AxiomPlaceBar(
 
             Row(Modifier.fillMaxWidth()) {
                 PlaceTab(
-                    label = "Conversation",
+                    label = CompanionIdentity.resolve(companionName),
                     icon = Icons.AutoMirrored.Outlined.Chat,
                     selected = current == AxiomPlace.Conversation,
                     onClick = { onSelect(AxiomPlace.Conversation) },

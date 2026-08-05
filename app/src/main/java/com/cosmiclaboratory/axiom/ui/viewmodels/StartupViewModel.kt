@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 /**
  * Everything MainActivity needs before it can draw a correct first frame.
@@ -30,7 +31,9 @@ class StartupViewModel @Inject constructor(
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
         /** Whether the palette drifts with the hour. See `AxiomLight`. */
         val adaptiveLight: Boolean = true,
-        val onboardingComplete: Boolean = false
+        val onboardingComplete: Boolean = false,
+        /** What the user calls their companion; app-wide, so it lives here. */
+        val companionName: String = CompanionIdentity.DEFAULT_NAME
     )
 
     private val _state = MutableStateFlow(StartupState())
@@ -44,12 +47,21 @@ class StartupViewModel @Inject constructor(
                 isReady = true,
                 themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
                 adaptiveLight = prefs.adaptiveLight.first(),
-                onboardingComplete = prefs.onboardingComplete.first()
+                onboardingComplete = prefs.onboardingComplete.first(),
+                companionName = prefs.companionName.first()
             )
-            combine(prefs.themeOverride, prefs.adaptiveLight) { override, adaptive ->
-                ThemeMode.fromStorage(override) to adaptive
-            }.collect { (mode, adaptive) ->
-                _state.value = _state.value.copy(themeMode = mode, adaptiveLight = adaptive)
+            combine(
+                prefs.themeOverride,
+                prefs.adaptiveLight,
+                prefs.companionName
+            ) { override, adaptive, name ->
+                Triple(ThemeMode.fromStorage(override), adaptive, name)
+            }.collect { (mode, adaptive, name) ->
+                _state.value = _state.value.copy(
+                    themeMode = mode,
+                    adaptiveLight = adaptive,
+                    companionName = name
+                )
             }
         }
     }

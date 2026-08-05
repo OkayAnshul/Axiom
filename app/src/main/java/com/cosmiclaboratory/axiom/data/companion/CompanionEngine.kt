@@ -305,6 +305,7 @@ class CompanionEngine @Inject constructor(
         }.getOrNull()
         return CompanionPromptBuilder.Context(
             displayName = prefs.displayName.first(),
+            companionName = prefs.companionName.first(),
             voice = prefs.voice.first(),
             memories = memoryBlock,
             rollingSummary = companionRepo.threadState(threadId).rollingSummary,
