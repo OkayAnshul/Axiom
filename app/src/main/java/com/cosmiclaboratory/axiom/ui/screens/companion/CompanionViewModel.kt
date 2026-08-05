@@ -38,6 +38,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
+import com.cosmiclaboratory.axiom.data.companion.ConversationDigester
 
 data class CompanionUiMessage(
     val id: Long,
@@ -63,6 +64,10 @@ data class CompanionUiState(
     val keyConnected: Boolean = false,
     /** Entries cited by the most recent answer, rendered as tappable chips. */
     val citedEntries: List<Entry> = emptyList(),
+    /** Saving the conversation into the journal before clearing it. */
+    val clearing: Boolean = false,
+    /** The save failed, so nothing was deleted. See [CompanionViewModel.clearThread]. */
+    val clearFailed: Boolean = false,
     // ---- the greeting -------------------------------------------------------
     /** "Good evening, Anshul". Recomputed on every resume, so it never goes stale. */
     val greeting: String = "Hello",
@@ -130,7 +135,8 @@ class CompanionViewModel @Inject constructor(
     private val memories: MemoryRepository,
     private val prefs: UserPreferences,
     private val voice: MultilingualVoiceManager,
-    private val speaker: CompanionSpeaker
+    private val speaker: CompanionSpeaker,
+    private val digester: ConversationDigester
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CompanionUiState())
@@ -632,12 +638,53 @@ class CompanionViewModel @Inject constructor(
 
     fun dismissError() = _state.update { it.copy(error = null, lastFailedText = null) }
 
+    /**
+     * Writes the conversation into the journal, and only then deletes it.
+     *
+     * Deleting first is what the old version did, and it silently destroyed
+     * whole conversations: the digest worker runs ~3h after the last message,
+     * so anything said today had been read by nothing. Sixteen turns could be
+     * spoken, cleared, and leave zero entries and zero memories behind.
+     *
+     * Scheduling the worker and deleting anyway would not fix it either —
+     * WorkManager may defer, so the delete would race the digest and lose
+     * intermittently, which is harder to notice than losing every time.
+     *
+     * [ConversationDigester.Outcome.Retry] means the write did not happen, so
+     * the messages stay put and the user is told. Nothing is deleted on a
+     * failed save; [clearThreadWithoutSaving] is how they insist.
+     */
     fun clearThread() {
         viewModelScope.launch {
-            companionRepo.deleteThread(THREAD_ID)
-            _state.update { it.copy(citedEntries = emptyList(), error = null) }
-            maybePostDailyOpener()
+            _state.update { it.copy(clearing = true, error = null) }
+            val outcome = runCatching { digester.digest(THREAD_ID) }
+                .getOrDefault(ConversationDigester.Outcome.Retry)
+            if (outcome == ConversationDigester.Outcome.Retry) {
+                _state.update {
+                    it.copy(clearing = false, clearFailed = true)
+                }
+                return@launch
+            }
+            wipe()
         }
+    }
+
+    /** After a failed save, when the user would rather lose it than keep it. */
+    fun clearThreadWithoutSaving() {
+        viewModelScope.launch {
+            _state.update { it.copy(clearFailed = false, clearing = true) }
+            wipe()
+        }
+    }
+
+    fun dismissClearFailure() = _state.update { it.copy(clearFailed = false) }
+
+    private suspend fun wipe() {
+        companionRepo.deleteThread(THREAD_ID)
+        _state.update {
+            it.copy(citedEntries = emptyList(), error = null, clearing = false, clearFailed = false)
+        }
+        maybePostDailyOpener()
     }
 
     override fun onCleared() {

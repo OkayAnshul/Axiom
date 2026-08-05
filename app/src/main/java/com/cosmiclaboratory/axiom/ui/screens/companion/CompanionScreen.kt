@@ -401,15 +401,32 @@ fun CompanionScreen(
     if (confirmClear) {
         AxiomConfirmDialog(
             title = "Clear this conversation?",
-            body = "The messages go. Anything already kept in your story stays, " +
-                "and so does what I remember.",
-            confirmLabel = "Clear it",
+            // This used to say "anything already kept in your story stays",
+            // which was true only of conversations already digested — never of
+            // the one being cleared, which was the one being destroyed.
+            body = "I'll write this up into your story first, so you keep what it was about. " +
+                "Then the messages go.",
+            confirmLabel = "Save and clear",
             destructive = true,
             onConfirm = {
                 confirmClear = false
                 viewModel.clearThread()
             },
             onDismiss = { confirmClear = false }
+        )
+    }
+
+    // The save failed, so nothing was deleted. Losing the conversation is the
+    // bug being fixed here, so it takes a second, explicit choice to accept it.
+    if (state.clearFailed) {
+        AxiomConfirmDialog(
+            title = "I couldn't save it",
+            body = "Writing this conversation into your story didn't work — you may be offline. " +
+                "Nothing has been deleted. Try again in a moment, or clear it anyway and lose it.",
+            confirmLabel = "Clear it anyway",
+            destructive = true,
+            onConfirm = viewModel::clearThreadWithoutSaving,
+            onDismiss = viewModel::dismissClearFailure
         )
     }
 }
