@@ -126,6 +126,10 @@ fun AxiomNavigation(
                             onOpenEntry = { id -> navController.navigate(Reader(id)) },
                             onNewEntry = { navController.navigate(Composer()) },
                             onSearch = { navController.navigate(Search()) },
+                            onOpenPatterns = { navController.navigate(Patterns) },
+                            onOpenTalks = { navController.navigate(Talks) },
+                            onOpenMemories = { navController.navigate(Memories) },
+                            onOpenSettings = { navController.navigate(Settings) },
                             onCalendar = { navController.navigate(Calendar) },
                             onBackToCompanion = { navController.popBackStack() }
                         )

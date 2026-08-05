@@ -1,6 +1,7 @@
 package com.cosmiclaboratory.axiom.ui.screens.companion
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,13 +15,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Segment
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import com.cosmiclaboratory.axiom.ui.design.AxiomMotion
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomIconButton
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -46,7 +51,14 @@ fun CompanionGreeting(
     entryCount: Int,
     onOpenShelf: () -> Unit,
     onOpenJournal: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * Null when there is nothing to clear. Clearing lives here, next to the
+     * conversation it clears, rather than only behind the shelf — a thread you
+     * want gone is usually one you are looking at, and hunting through a menu
+     * for that is the wrong amount of friction.
+     */
+    onClearConversation: (() -> Unit)? = null
 ) {
     val c = AxiomTheme.colors
     val motion = AxiomTheme.motion
@@ -64,13 +76,42 @@ fun CompanionGreeting(
             )
             .testTag("header:greeting")
     ) {
+        /*
+         * The greeting shrinks rather than swapping style.
+         *
+         * It used to flip between `type.greeting` (Fraunces) and `type.uiTitle`
+         * (Figtree) on the same frame the collapse began, so the word changed
+         * typeface mid-gesture. Interpolating the two is not an option either:
+         * TextStyle.lerp snaps fontFamily at the halfway point, so a serif would
+         * pop to a sans in the middle of the animation. Keeping one family and
+         * animating only the size gives the greeting somewhere to go without
+         * ever changing what it is.
+         */
+        val openness by animateFloatAsState(
+            targetValue = if (expanded) 1f else 0f,
+            animationSpec = motion.spatialSlow,
+            label = "greetingOpenness"
+        )
+        val base = AxiomTheme.type.greeting
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = greeting,
-                style = if (expanded) AxiomTheme.type.greeting else AxiomTheme.type.uiTitle,
+                style = base.copy(
+                    fontSize = lerp(COLLAPSED_GREETING_SIZE, base.fontSize, openness),
+                    lineHeight = lerp(COLLAPSED_GREETING_LINE, base.lineHeight, openness)
+                ),
                 color = c.ink,
                 modifier = Modifier.weight(1f)
             )
+            onClearConversation?.let { clear ->
+                AxiomIconButton(
+                    icon = Icons.Outlined.DeleteSweep,
+                    label = "Clear this conversation",
+                    onClick = clear,
+                    tint = c.inkFaint
+                )
+            }
             AxiomIconButton(
                 icon = Icons.AutoMirrored.Outlined.Segment,
                 label = "Everything else",
@@ -111,6 +152,13 @@ fun CompanionGreeting(
         Spacer(Modifier.height(AxiomTheme.space.md))
     }
 }
+
+/**
+ * Where the greeting lands once you scroll back into history: present, legible,
+ * and no longer the loudest thing on the screen.
+ */
+private val COLLAPSED_GREETING_SIZE = 19.sp
+private val COLLAPSED_GREETING_LINE = 26.sp
 
 /**
  * Counting, said as a person would.

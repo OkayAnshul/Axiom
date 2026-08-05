@@ -112,7 +112,11 @@ fun CalendarScreen(
                 }
             } else {
                 items(state.selectedEntries, key = { it.id }) { entry ->
-                    EntryCard(entry = entry, onClick = { onOpenEntry(entry.id) })
+                    EntryCard(
+                        entry = entry,
+                        onClick = { onOpenEntry(entry.id) },
+                        modifier = axiomItemMotion()
+                    )
                 }
             }
         }

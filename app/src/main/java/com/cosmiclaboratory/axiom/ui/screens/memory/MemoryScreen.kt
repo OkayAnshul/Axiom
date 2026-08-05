@@ -53,6 +53,7 @@ import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.cosmiclaboratory.axiom.ui.design.components.axiomItemMotion
 
 /**
  * "What I remember" — the memory transparency screen. The companion's privacy
@@ -115,6 +116,7 @@ fun MemoryScreen(
                     }
                     items(items, key = { it.id }) { memory ->
                         MemoryRow(
+                            modifier = axiomItemMotion(),
                             memory = memory,
                             onEdit = { viewModel.startEditing(memory) },
                             onDelete = {
@@ -216,10 +218,11 @@ private fun MemoryRow(
     memory: MemoryItem,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onOpenSource: (Long) -> Unit
+    onOpenSource: (Long) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val c = AxiomTheme.colors
-    AxiomCard(tone = CardTone.Neutral, modifier = Modifier.fillMaxWidth()) {
+    AxiomCard(tone = CardTone.Neutral, modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 // Stored third-person for the model; addressed to the reader here.

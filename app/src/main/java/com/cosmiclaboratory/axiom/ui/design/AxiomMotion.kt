@@ -109,6 +109,21 @@ data class AxiomMotion(
             Kind.Slow -> spring(dampingRatio = 1.0f, stiffness = 220f)
         }
 
+    /**
+     * The effects counterpart to [spatial], for colour and anything else that is
+     * not a Float. The pre-built `effectsQuick`/`effectsStandard` above are
+     * `SpringSpec<Float>` and so cannot be handed to `animateColorAsState` — the
+     * type is the reason this exists, not a difference in the physics.
+     *
+     * Only [Kind.Quick] and [Kind.Standard] are meaningful: an effect that took
+     * as long as a page transition would read as a fault, not as motion.
+     */
+    fun <T> effects(kind: Kind = Kind.Standard): AnimationSpec<T> =
+        if (isReduced) snap() else when (kind) {
+            Kind.Quick -> spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 1600f)
+            else -> spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 800f)
+        }
+
     fun <T> finiteSpatial(kind: Kind = Kind.Standard): FiniteAnimationSpec<T> =
         if (isReduced) snap() else when (kind) {
             Kind.Quick -> spring(dampingRatio = 0.90f, stiffness = 1400f)

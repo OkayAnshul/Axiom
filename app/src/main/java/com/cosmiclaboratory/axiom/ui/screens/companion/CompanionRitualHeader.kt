@@ -27,6 +27,8 @@ import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.design.components.AxiomIconButton
 import com.cosmiclaboratory.axiom.ui.design.components.MoodPicker
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
+import com.cosmiclaboratory.axiom.ui.design.components.axiomCollapse
+import com.cosmiclaboratory.axiom.ui.design.components.axiomExpand
 
 /**
  * One quiet line between the greeting and the conversation.
@@ -110,7 +112,7 @@ fun CompanionRitualHeader(
             }
         }
 
-        AnimatedVisibility(visible = showMoodPicker) {
+        AnimatedVisibility(visible = showMoodPicker, enter = axiomExpand(), exit = axiomCollapse()) {
             Row(
                 Modifier
                     .fillMaxWidth()

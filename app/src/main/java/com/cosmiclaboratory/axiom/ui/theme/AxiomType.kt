@@ -84,8 +84,14 @@ val FigtreeFamily = FontFamily(
     figtree(400), figtree(500), figtree(600), figtree(700)
 )
 
-/** The greeting. Softened, and wonky enough to feel handwritten at 34sp. */
-val FrauncesGreetingFamily = frauncesFamily(weight = 500, opticalSize = 48f, soft = 60f, wonk = 1f)
+/**
+ * The greeting. Softened, and wonky enough to feel handwritten at 28sp.
+ *
+ * `opsz` tracks that 28sp rather than sitting at display height. Cut for 48pt,
+ * the letterforms carry display contrast — hairline thins against thick stems —
+ * which at greeting size reads as spindly rather than warm.
+ */
+val FrauncesGreetingFamily = frauncesFamily(weight = 500, opticalSize = 32f, soft = 60f, wonk = 1f)
 
 /** The line beneath it. Same warmth, no wonk — it is read, not glanced at. */
 val FrauncesLeadFamily = frauncesFamily(weight = 400, opticalSize = 24f, soft = 50f, wonk = 0f)
@@ -147,8 +153,13 @@ private fun greetingStyle(
 @Immutable
 data class AxiomTypography(
     // ---- the greeting (Fraunces) ----
-    /** "Good evening, Anshul". The one place the app raises its voice. */
-    val greeting: TextStyle = greetingStyle(FrauncesGreetingFamily, 34, 42, 500, -0.5f),
+    /**
+     * "Good evening, Anshul". The one place the app raises its voice — but it
+     * raises it, it does not shout. At 34sp this was the largest thing on screen
+     * by a wide margin and took the spotlight from the conversation, which is
+     * what the app is actually for.
+     */
+    val greeting: TextStyle = greetingStyle(FrauncesGreetingFamily, 28, 36, 500, -0.4f),
     /** "I've been wondering how today treated you." */
     val greetingLead: TextStyle = greetingStyle(FrauncesLeadFamily, 20, 30, 400, -0.1f),
 

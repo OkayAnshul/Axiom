@@ -130,7 +130,7 @@ fun SearchScreen(
                         }
                     }
                     items(state.related, key = { it.id }) { entry ->
-                        SearchResultCard(entry, "") { onOpenEntry(entry.id) }
+                        SearchResultCard(entry, "", axiomItemMotion()) { onOpenEntry(entry.id) }
                     }
                     item("ask") {
                         TextButton(onClick = { onAskInstead(state.query) }) {
@@ -160,7 +160,7 @@ fun SearchScreen(
                 verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.listGap)
             ) {
                 items(state.results, key = { it.id }) { entry ->
-                    SearchResultCard(entry, state.query) { onOpenEntry(entry.id) }
+                    SearchResultCard(entry, state.query, axiomItemMotion()) { onOpenEntry(entry.id) }
                 }
             }
         }
@@ -193,13 +193,18 @@ private fun RecentSearches(recent: List<String>, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun SearchResultCard(entry: Entry, query: String, onClick: () -> Unit) {
+private fun SearchResultCard(
+    entry: Entry,
+    query: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
     val c = AxiomTheme.colors
     // FTS4 offers no snippet() here, so the match window and highlighting are
     // computed client-side against the raw text.
     val snippet = remember(entry.content, query) { snippetAround(entry.content, query) }
 
-    AxiomCard(onClick = onClick) {
+    AxiomCard(onClick = onClick, modifier = modifier) {
         Text(
             entry.displayTitle.ifBlank { "Untitled" },
             style = AxiomTheme.type.uiTitle,

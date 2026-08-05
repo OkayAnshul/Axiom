@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Segment
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -15,7 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -24,6 +27,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.design.components.*
+import com.cosmiclaboratory.axiom.ui.navigation.ShelfSheet
+import com.cosmiclaboratory.axiom.ui.screens.companion.WhatGetsSentSheet
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -43,6 +48,10 @@ fun JournalScreen(
     onOpenEntry: (Long) -> Unit,
     onNewEntry: () -> Unit,
     onSearch: () -> Unit,
+    onOpenPatterns: () -> Unit,
+    onOpenTalks: () -> Unit,
+    onOpenMemories: () -> Unit,
+    onOpenSettings: () -> Unit,
     onCalendar: () -> Unit,
     /** Back to the conversation — by arrow or by swiping left. */
     onBackToCompanion: () -> Unit,
@@ -56,6 +65,9 @@ fun JournalScreen(
     val c = AxiomTheme.colors
 
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
+
+    var showShelf by remember { mutableStateOf(false) }
+    var showDisclosure by remember { mutableStateOf(false) }
 
     AxiomScaffold(
         title = "Your story",
@@ -73,9 +85,24 @@ fun JournalScreen(
         actions = {
             AxiomTopBarAction(Icons.Filled.Search, "Search", onSearch)
             AxiomTopBarAction(Icons.Outlined.CalendarMonth, "Calendar", onCalendar)
+            // The switcher has to be reachable from both of the places it
+            // switches between, or it is a one-way door wearing a sheet.
+            AxiomTopBarAction(
+                Icons.AutoMirrored.Outlined.Segment,
+                "Everything else",
+                onClick = { showShelf = true }
+            )
         },
         floatingActionButton = {
             AxiomFab(Icons.Filled.Add, "New entry", onNewEntry, expanded = fabExpanded)
+        },
+        bottomBar = {
+            AxiomPlaceBar(
+                current = AxiomPlace.Story,
+                onSelect = { place ->
+                    if (place == AxiomPlace.Conversation) onBackToCompanion()
+                }
+            )
         }
     ) { padding ->
         Column(Modifier.padding(padding)) {
@@ -118,6 +145,7 @@ fun JournalScreen(
                         }
                         items(day.entries, key = { it.id }) { entry ->
                             EntryCard(
+                                modifier = axiomItemMotion(),
                                 entry = entry,
                                 onClick = { onOpenEntry(entry.id) },
                                 onLongClick = {
@@ -137,6 +165,24 @@ fun JournalScreen(
                 }
             }
         }
+    }
+
+    if (showShelf) {
+        ShelfSheet(
+            onDismiss = { showShelf = false },
+            onOpenJournal = {},
+            onOpenPatterns = onOpenPatterns,
+            onOpenTalks = onOpenTalks,
+            onOpenMemories = onOpenMemories,
+            onOpenSettings = onOpenSettings,
+            onDisclosure = { showDisclosure = true }
+            // No "start over" here: clearing the conversation belongs to the
+            // conversation, not to the place you read it back from.
+        )
+    }
+
+    if (showDisclosure) {
+        WhatGetsSentSheet(onDismiss = { showDisclosure = false })
     }
 }
 
