@@ -1,6 +1,9 @@
 package com.cosmiclaboratory.axiom.ui.screens.patterns
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
@@ -20,30 +23,51 @@ import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 
 /**
- * What the journal knows about you.
+ * What I've noticed.
  *
- * Every module is a self-contained card so one failing computation cannot blank
- * the screen, and so the ML modules (mood forecast, findings, discovered themes,
- * semantic search) drop in later without touching this file.
+ * This was a dashboard: a contribution grid, tiles reading "Entries / Per week /
+ * Words", and a streak counter. All of that still exists and still computes — it
+ * has simply stopped being the first thing you see. A companion that opens with
+ * your numbers is grading you, and a journal is not a workout.
+ *
+ * What leads instead is [com.cosmiclaboratory.axiom.domain.patterns.PatternFinder]'s
+ * findings, which are already written as finished sentences rather than as data.
+ * Their confidence score, previously used only to sort, now decides whether the
+ * observation is stated plainly or hedged — never rendered as a number, because
+ * "0.62 confident" is not something a person says.
  *
  * Nothing here calls an API. These are deterministic statistics over the user's
  * own rows — the surface stays useful with no key and no network.
  */
 @Composable
 fun PatternsScreen(
+    /** Back to the conversation — by arrow or by swiping left. */
+    onBackToCompanion: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PatternsViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val c = AxiomTheme.colors
     var infoText by remember { mutableStateOf<String?>(null) }
+    var showNumbers by remember { mutableStateOf(false) }
 
-    AxiomScaffold(title = "Patterns", screenTag = "screen:patterns", modifier = modifier) { padding ->
+    AxiomScaffold(
+        title = "What I've noticed",
+        screenTag = "screen:patterns",
+        modifier = modifier.swipeBetween(onSwipeLeft = onBackToCompanion),
+        navigationIcon = {
+            AxiomIconButton(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                "Back to the conversation",
+                onBackToCompanion
+            )
+        }
+    ) { padding ->
         if (!state.hasEnoughData && !state.isLoading) {
             AxiomEmptyState(
-                title = "Not enough to go on yet",
-                body = "Patterns need a few entries. You have ${state.entryCount} of " +
-                    "${PatternsUiState.MIN_ENTRIES} — write a couple more and come back.",
+                title = "Nothing worth saying yet",
+                body = "I'd rather stay quiet than guess. Write a couple more times and " +
+                    "I'll start to see the shape of things.",
                 modifier = Modifier.padding(padding)
             )
             return@AxiomScaffold
@@ -61,6 +85,61 @@ fun PatternsScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.base)
         ) {
+            // The whole screen, really. Absent rather than apologetic when there
+            // is nothing solid to say.
+            if (state.findings.isNotEmpty()) {
+                item("noticed") {
+                    Column(verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.xl)) {
+                        state.findings.take(4).forEach { finding ->
+                            Column {
+                                Text(
+                                    finding.text,
+                                    style = AxiomTheme.type.readingBody,
+                                    color = c.ink
+                                )
+                                if (finding.confidence < HEDGE_BELOW) {
+                                    Spacer(Modifier.height(AxiomTheme.space.xs))
+                                    Text(
+                                        // The hedge is its own line rather than a
+                                        // prefix: several findings open on a proper
+                                        // noun, and lower-casing "Riya" to graft on
+                                        // "I'm not certain, but…" would read worse
+                                        // than the uncertainty it was hiding.
+                                        "I'm not certain about this one.",
+                                        style = AxiomTheme.type.uiBodySmall,
+                                        color = c.inkFaint
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item("noticed-provenance") {
+                    Text(
+                        "Worked out on this device, from what you've written. " +
+                            "None of it was sent anywhere.",
+                        style = AxiomTheme.type.uiBodySmall,
+                        color = c.inkFaint
+                    )
+                }
+            } else {
+                item("noticed-empty") {
+                    Text(
+                        "Nothing I'd want to claim yet. I'd rather wait until I'm surer.",
+                        style = AxiomTheme.type.readingBody,
+                        color = c.inkMuted
+                    )
+                }
+            }
+
+            item("numbers-toggle") {
+                NumbersDisclosure(
+                    expanded = showNumbers,
+                    onToggle = { showNumbers = !showNumbers }
+                )
+            }
+
+            if (showNumbers) {
             item("range") {
                 AxiomSegmented(
                     options = PatternRange.entries.map { it.label },
@@ -69,42 +148,16 @@ fun PatternsScreen(
                 )
             }
 
-            // The headline: what the companion has actually noticed, in the
-            // same words it would use in conversation. Absent rather than
-            // apologetic when there is nothing solid to say.
-            if (state.findings.isNotEmpty()) {
-                item("noticed") {
-                    AxiomCard(tone = CardTone.Ai) {
-                        Text("What I've noticed", style = AxiomTheme.type.uiOverline, color = c.aiTint)
-                        Spacer(Modifier.height(AxiomTheme.space.sm))
-                        Column(verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.sm)) {
-                            state.findings.take(4).forEach { finding ->
-                                Text(
-                                    finding.text,
-                                    style = AxiomTheme.type.uiBody,
-                                    color = c.ink
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(AxiomTheme.space.sm))
-                        Text(
-                            "Worked out on this device from what you've written. " +
-                                "Nothing here was sent anywhere.",
-                            style = AxiomTheme.type.uiBodySmall,
-                            color = c.inkFaint
-                        )
-                    }
-                }
-            }
-
             item("streak") {
                 PatternCard(
-                    title = "Consistency",
+                    title = "Showing up",
                     subtitle = "${state.writtenDates.size} days written",
                     onInfo = {
-                        infoText = "A streak counts consecutive days with at least one " +
+                        infoText = "A run counts consecutive days with at least one " +
                             "entry. Today doesn't break it until midnight, so an unwritten " +
-                            "today never resets you to zero."
+                            "today never resets you to zero. It's here rather than on the " +
+                            "home screen on purpose — a number you can lose is a bad reason " +
+                            "to write."
                     }
                 ) {
                     StreakStrip(state.streak)
@@ -215,35 +268,14 @@ fun PatternsScreen(
             }
 
             item("milestones") {
-                PatternCard(title = "Milestones") {
+                PatternCard(title = "Altogether") {
                     Row(horizontalArrangement = Arrangement.spacedBy(AxiomTheme.space.sm)) {
-                        StatTile("Longest streak", "${state.streak.longest}", Modifier.weight(1f))
+                        StatTile("Longest run", "${state.streak.longest}", Modifier.weight(1f))
                         StatTile("Days written", "${state.writtenDates.size}", Modifier.weight(1f))
                     }
                 }
             }
-
-            // Trend detection and discovered themes landed; what remains is
-            // named honestly rather than left as a vague promise.
-            item("coming") {
-                AxiomCard(tone = CardTone.Ai) {
-                    Text("Coming here", style = AxiomTheme.type.uiOverline, color = c.aiTint)
-                    Spacer(Modifier.height(AxiomTheme.space.xs))
-                    Text(
-                        "Search that understands meaning rather than matching words, and " +
-                            "mood forecasting — both computed on this device, no key required.",
-                        style = AxiomTheme.type.uiBodySmall,
-                        color = c.inkMuted
-                    )
-                    Spacer(Modifier.height(AxiomTheme.space.sm))
-                    Text(
-                        "Reading mood from your writing already works here without a key: " +
-                            "it learns from the days you tapped a mood yourself.",
-                        style = AxiomTheme.type.uiBodySmall,
-                        color = c.inkFaint
-                    )
-                }
-            }
+            } // end showNumbers
         }
     }
 
@@ -251,6 +283,43 @@ fun PatternsScreen(
         AxiomBottomSheet(title = "How this is calculated", onDismiss = { infoText = null }) {
             Text(text, style = AxiomTheme.type.uiBody, color = AxiomTheme.colors.inkMuted)
         }
+    }
+}
+
+/**
+ * Below this, an observation is offered with an audible shrug.
+ *
+ * PatternFinder computes confidence as
+ * `0.4 * min(samples/10, 1) + 0.6 * min(magnitude/2, 1)`, so this threshold sits
+ * roughly where either the sample is thin or the effect is small. Better to say
+ * "I'm not certain" too often than to sound sure about someone's Mondays.
+ */
+private const val HEDGE_BELOW = 0.6f
+
+/**
+ * The one way into the numbers.
+ *
+ * Deliberately a sentence rather than a tab or a chart icon: the counting still
+ * exists for anyone who wants it, but reaching it should be a small decision you
+ * make, not the default view of your own life.
+ */
+@Composable
+private fun NumbersDisclosure(expanded: Boolean, onToggle: () -> Unit) {
+    val c = AxiomTheme.colors
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(AxiomTheme.shapes.sm)
+            .clickable(onClick = onToggle)
+            .padding(vertical = AxiomTheme.space.md)
+    ) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+        Spacer(Modifier.height(AxiomTheme.space.md))
+        Text(
+            if (expanded) "hide the numbers" else "the numbers, if you'd like them",
+            style = AxiomTheme.type.uiBodySmall,
+            color = c.inkFaint
+        )
     }
 }
 

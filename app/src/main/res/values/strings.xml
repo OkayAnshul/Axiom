@@ -66,18 +66,18 @@
     <string name="save_failed">Save failed</string>
 
     <!-- ===== Errors ===== -->
-    <string name="error_no_key_title">AI features need a key</string>
-    <string name="error_no_key_body">Axiom never uploads your entries without one. Everything else works offline.</string>
-    <string name="error_rate_limited_title">Too many requests</string>
-    <string name="error_rate_limited_body">The AI provider is rate-limiting. This usually clears in under a minute.</string>
+    <string name="error_no_key_title">I\'ll need a key for that part</string>
+    <string name="error_no_key_body">Nothing you write leaves this device without one, so everything else here keeps working exactly as it does now.</string>
+    <string name="error_rate_limited_title">Let\'s give that a moment</string>
+    <string name="error_rate_limited_body">Your provider is asking us to slow down. It usually passes in under a minute.</string>
     <string name="error_rate_limited_countdown">Try again in %1$ds</string>
-    <string name="error_network_title">Couldn\'t reach the AI provider</string>
-    <string name="error_network_body">You\'re offline, or the request timed out. Your entry is saved either way.</string>
-    <string name="error_malformed_title">The reply came back malformed</string>
-    <string name="error_malformed_body">The model returned something Axiom couldn\'t read. Trying again usually works.</string>
-    <string name="error_storage_title">Couldn\'t save to storage</string>
-    <string name="error_storage_body">Axiom couldn\'t write to the database. Check available space.</string>
-    <string name="error_permission_title">Permission needed</string>
+    <string name="error_network_title">I couldn\'t get through</string>
+    <string name="error_network_body">You\'re offline, or it took too long. What you wrote is safe here either way.</string>
+    <string name="error_malformed_title">That came back garbled</string>
+    <string name="error_malformed_body">I couldn\'t make sense of the reply. Asking again usually sorts it.</string>
+    <string name="error_storage_title">I couldn\'t put that away</string>
+    <string name="error_storage_body">Writing to this device failed. It\'s usually a full disk.</string>
+    <string name="error_permission_title">I need your permission first</string>
     <string name="error_permission_body">Axiom needs this permission to continue. You can grant it in system settings.</string>
     <string name="error_unknown_title">Something went wrong</string>
 

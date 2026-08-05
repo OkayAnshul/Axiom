@@ -16,6 +16,15 @@ import javax.inject.Inject
 
 data class MemoryUiState(
     val groups: Map<MemoryKind, List<MemoryItem>> = emptyMap(),
+    /**
+     * Follow-ups the companion has quietly committed to, soonest first.
+     *
+     * These are excluded from [groups]: an item is either something coming up or
+     * something known, and showing the same sentence in both places reads as a
+     * duplicate rather than as two facets. Letting one go moves it back into its
+     * kind — "I'll stop asking, but I still remember."
+     */
+    val openLoops: List<MemoryItem> = emptyList(),
     val loaded: Boolean = false,
     /** The memory currently open in the edit sheet, if any. */
     val editing: MemoryItem? = null,
@@ -39,13 +48,30 @@ class MemoryViewModel @Inject constructor(
             memories.observeAll().collect { items ->
                 _state.update { s ->
                     s.copy(
-                        groups = items.groupBy { it.kind }
+                        groups = items
+                            .filter { it.dueAt == null }
+                            .groupBy { it.kind }
                             .toSortedMap(compareBy { KIND_ORDER.indexOf(it) }),
                         loaded = true
                     )
                 }
             }
         }
+        viewModelScope.launch {
+            memories.observeOpenLoops().collect { loops ->
+                _state.update { it.copy(openLoops = loops) }
+            }
+        }
+    }
+
+    /**
+     * Stop planning to ask about this. The memory survives — only the follow-up
+     * is cancelled, exactly as when the companion asks and closes the loop
+     * itself. A commitment the app made on your behalf must be one you can take
+     * back before it fires.
+     */
+    fun dismissLoop(item: MemoryItem) {
+        viewModelScope.launch { memories.closeLoop(item.id) }
     }
 
     fun startEditing(item: MemoryItem) = _state.update { it.copy(editing = item) }

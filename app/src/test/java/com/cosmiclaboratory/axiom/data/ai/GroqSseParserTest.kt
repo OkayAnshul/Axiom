@@ -53,8 +53,33 @@ class GroqSseParserTest {
     }
 
     @Test
-    fun `finish chunk with empty delta is ignored`() {
+    fun `finish chunk carries its reason instead of being dropped`() {
         val line = """data: {"choices":[{"delta":{},"finish_reason":"stop"}]}"""
+        val result = parse(line) as SseLine.Meta
+        assertEquals("stop", result.finishReason)
+    }
+
+    /**
+     * The reason this parser changed: a reply cut off at max_tokens used to look
+     * exactly like one that finished, so it was stored and shown as complete.
+     */
+    @Test
+    fun `truncation is distinguishable from a normal finish`() {
+        val truncated = """data: {"choices":[{"delta":{},"finish_reason":"length"}]}"""
+        assertEquals("length", (parse(truncated) as SseLine.Meta).finishReason)
+    }
+
+    @Test
+    fun `usage chunk yields token count`() {
+        val line = """data: {"choices":[],"usage":{"total_tokens":1234}}"""
+        val result = parse(line) as SseLine.Meta
+        assertEquals(1234, result.totalTokens)
+    }
+
+    @Test
+    fun `role-only chunk still yields nothing at all`() {
+        // No content, no finish reason, no usage — genuinely nothing to report.
+        val line = """data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}"""
         assertNull(parse(line))
     }
 

@@ -85,7 +85,7 @@ class ComposerViewModel @Inject constructor(
                 mood = existing?.mood,
                 tags = existing?.tags.orEmpty(),
                 questionId = args.questionId ?: existing?.questionId,
-                promptText = question?.text ?: existing?.promptSnapshot
+                promptText = question?.text ?: args.promptText ?: existing?.promptSnapshot
             )
         }
         // Text arriving from a share intent is unsaved work — persist immediately
@@ -159,15 +159,22 @@ class ComposerViewModel @Inject constructor(
                     content = s.body,
                     markdown = PlainTextToMarkdownConverter.convert(s.body, s.title),
                     kind = when {
-                        s.questionId != null -> EntryKind.PROMPTED
+                        // A prompt is a prompt whether it came from the curated
+                        // bank (questionId) or from the companion's own opener
+                        // (promptText). Keying only on questionId filed every
+                        // answered opener under "Written".
+                        s.questionId != null || s.promptText != null -> EntryKind.PROMPTED
                         existing?.kind == EntryKind.VOICE -> EntryKind.VOICE
                         else -> EntryKind.FREE_FORM
                     },
                     createdAt = existing?.createdAt ?: now,
                     updatedAt = now,
-                    // Back leaves a draft; only Done completes. That is what makes
-                    // Today's "continue writing" card meaningful.
-                    isComplete = complete || (existing?.isComplete == true && s.questionId == null),
+                    // Autosave must never change completeness. The old condition
+                    // added `&& s.questionId == null`, which meant every autosave
+                    // while editing an already-finished *prompted* entry quietly
+                    // un-completed it — dropping it out of the timeline until the
+                    // user pressed Done again.
+                    isComplete = complete || existing?.isComplete == true,
                     mood = s.mood,
                     moodCapturedAt = if (s.mood != null) (existing?.moodCapturedAt ?: now) else null,
                     questionId = s.questionId,
@@ -196,22 +203,23 @@ class ComposerViewModel @Inject constructor(
 
     /** Done: complete the entry and kick summarisation if a key exists. */
     fun complete(onDone: (Long?) -> Unit) {
-        viewModelScope.launch {
-            persist(complete = true)
-            val id = _state.value.entryId
-            if (id != null) {
-                entries.markComplete(id)
-                runCatching { workScheduler.enqueueSummarize(id) }
-                // No-ops when a key exists; the summarizer does both jobs better.
-                runCatching { workScheduler.enqueueLocalInsight(id) }
-            }
-            onDone(id)
-        }
+        viewModelScope.launch { onDone(finish()) }
     }
 
     /**
-     * Back: save whatever exists, but leave it a draft. An entry with no title
-     * and no body is deleted rather than left as a zombie row.
+     * Back: keep it, the same as Done.
+     *
+     * This used to leave a draft, and drafts are excluded from the timeline —
+     * so writing something and pressing back made it vanish from your own
+     * journal. Nobody expects leaving a page to discard what they wrote; a
+     * journal is not a form you have to submit. Both exits now keep the entry,
+     * and an entry with no title and no body is deleted rather than left as a
+     * zombie row.
+     *
+     * Drafts still exist for genuinely interrupted sessions — autosave writes
+     * one while you type, so a crash mid-sentence is still recoverable through
+     * "finish what you started". They are just no longer something a deliberate
+     * exit can create.
      */
     fun saveAndExit(onDone: () -> Unit) {
         viewModelScope.launch {
@@ -219,10 +227,37 @@ class ComposerViewModel @Inject constructor(
             if (s.isBlank) {
                 s.entryId?.let { entries.deleteById(it) }
             } else {
-                persist()
+                finish()
             }
             onDone()
         }
+    }
+
+    /**
+     * The app went to the background with the composer open.
+     *
+     * Back and Keep both finish an entry, but neither runs when you press home
+     * or swipe the app away — the ViewModel is not cleared, so what you wrote
+     * would sit as a draft, out of the timeline, until the abandoned-draft
+     * rescue caught it an hour later. Leaving your phone is not a decision to
+     * discard a thought.
+     */
+    fun finishIfWritten() {
+        if (_state.value.isBlank) return
+        viewModelScope.launch { finish() }
+    }
+
+    /** Persist, mark complete, and schedule the follow-up work. Returns the id. */
+    private suspend fun finish(): Long? {
+        persist(complete = true)
+        val id = _state.value.entryId
+        if (id != null) {
+            entries.markComplete(id)
+            runCatching { workScheduler.enqueueSummarize(id) }
+            // No-ops when a key exists; the summarizer does both jobs better.
+            runCatching { workScheduler.enqueueLocalInsight(id) }
+        }
+        return id
     }
 
     override fun onCleared() {

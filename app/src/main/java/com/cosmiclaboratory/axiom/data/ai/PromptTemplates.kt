@@ -106,6 +106,156 @@ Pay particular attention to PREFERENCE: anything the user says about how they wa
         """.trimIndent()
     }
 
+    const val COMPACTION_SYSTEM = """You maintain a running summary of an ongoing conversation. You reply with the updated summary as plain prose and nothing else — no preamble, no headings, no commentary."""
+
+    /**
+     * Folds the part of a live conversation that no longer fits the verbatim
+     * window into the running summary.
+     *
+     * This runs *during* a conversation, not after it. Without it, a long
+     * explanation lost its own beginning: messages past the window were dropped
+     * outright, and the only summary was written three hours after the user
+     * stopped talking.
+     */
+    fun compactConversation(existingSummary: String, fallingOut: String): String = buildString {
+        if (existingSummary.isNotBlank()) {
+            appendLine("Summary so far:")
+            appendLine(existingSummary.take(SUMMARY_INPUT_CAP))
+            appendLine()
+        }
+        appendLine("Newer part of the same conversation, which is about to scroll out of view:")
+        appendLine(fallingOut.takeLast(COMPACTION_INPUT_CAP))
+        appendLine()
+        append(
+            "Rewrite the summary so it also covers this newer part. Keep it under 200 words, " +
+                "third person, concrete. Keep specifics that would matter later — names, dates, " +
+                "decisions, what they were working through — and drop pleasantries. This is " +
+                "working memory for a conversation still in progress, so favour what is " +
+                "unresolved over what is settled."
+        )
+    }
+
+    private const val COMPACTION_INPUT_CAP = 5_000
+
+    const val SESSION_SYSTEM = """You process one conversation between a user and their private journalling companion. You return a single JSON object and nothing else — no prose, no code fences, no commentary."""
+
+    const val ENTRY_SYSTEM = """You read one journal entry and return a single JSON object and nothing else — no prose, no code fences, no commentary. You are reading someone's private writing: be accurate, never flattering, and never invent detail they did not write."""
+
+    /**
+     * One call replacing two.
+     *
+     * The entry used to be sent twice — once to summarize, once to extract
+     * memories — over identical text. Merging them also lets the same read
+     * produce a title and themes, which is why auto-titling costs nothing here.
+     *
+     * The old summarize prompt truncated at 1 800 characters, so a long entry
+     * (exactly the kind worth summarizing) was summarized from its opening
+     * third. Raised to [ENTRY_TEXT_CAP].
+     */
+    fun entryInsight(
+        plainText: String,
+        hasTitle: Boolean,
+        existingItems: List<Triple<Long, String, String>>
+    ): String = buildString {
+        appendLine("Journal entry:")
+        appendLine(plainText.take(ENTRY_TEXT_CAP))
+        appendLine()
+        if (existingItems.isNotEmpty()) {
+            appendLine("Already remembered about this user (id | kind | text):")
+            existingItems.take(MAX_MEMORY_LINES).forEach { (id, kind, text) ->
+                appendLine("$id | $kind | $text")
+            }
+            appendLine()
+        }
+        appendLine(
+            """
+            Return exactly this JSON shape:
+            {
+              "summary": "one or two sentences, in the third person, about what they wrote",
+              "follow_up": "one question a close friend would ask next — specific to this entry, never generic",
+              "themes": ["one to three short lowercase topic words"],
+              "mood": "one lowercase word for the feeling in the writing, or empty string",
+              "title": ${if (hasTitle) "\"\"" else "\"a plain 2-5 word title in their own words, or empty string if nothing fits\""},
+              "memory": {
+                "new": [{"kind": "PERSON|FACT|GOAL|THEME|PREFERENCE|EVENT", "text": "one self-contained sentence under 20 words, third person", "follow_up_in_days": 0}],
+                "reinforce": [id],
+                "revise": [{"id": id, "text": "corrected sentence"}]
+              }
+            }
+
+            Only durable things belong in memory. Never duplicate an existing
+            memory — reinforce its id. If something CONTRADICTS an existing
+            memory, revise that id rather than adding a second belief. Use
+            follow_up_in_days only for a real dated thing worth asking about
+            later; otherwise 0. Empty arrays are fine.
+            """.trimIndent()
+        )
+    }
+
+    /** Long entries are the ones worth summarizing; 1 800 chars cut them short. */
+    private const val ENTRY_TEXT_CAP = 6_000
+
+    /**
+     * One call replacing three.
+     *
+     * The digest worker used to send the same transcript three separate times —
+     * once to write the entry, once to extract memories, once to update the
+     * rolling summary — which cost triple the input tokens and let the three
+     * results disagree with each other about what the conversation was.
+     *
+     * Doing it in one pass on the strong model costs roughly what the old
+     * three-way fan-out cost on the weak one, and the entry, the memories and
+     * the summary are now guaranteed to be describing the same thing.
+     */
+    fun sessionDigest(
+        transcript: String,
+        existingSummary: String,
+        existingItems: List<Triple<Long, String, String>>
+    ): String = buildString {
+        appendLine("Here is a conversation. The user's turns are marked User.")
+        appendLine()
+        appendLine(transcript.takeLast(SESSION_TRANSCRIPT_CAP))
+        appendLine()
+        if (existingSummary.isNotBlank()) {
+            appendLine("The running summary of earlier conversations so far:")
+            appendLine(existingSummary.take(SUMMARY_INPUT_CAP))
+            appendLine()
+        }
+        if (existingItems.isNotEmpty()) {
+            appendLine("Already remembered about this user (id | kind | text):")
+            existingItems.take(MAX_MEMORY_LINES).forEach { (id, kind, text) ->
+                appendLine("$id | $kind | $text")
+            }
+            appendLine()
+        }
+        appendLine(
+            """
+            Return exactly this JSON shape:
+            {
+              "entry": "a short first-person journal entry in the USER's own voice, past tense, 2-5 sentences, only what they actually said — never invent detail",
+              "mood": "one lowercase word for how they sounded, or empty string if unclear",
+              "summary": "the running summary updated with this conversation, under 200 words, third person",
+              "memory": {
+                "new": [{"kind": "PERSON|FACT|GOAL|THEME|PREFERENCE|EVENT", "text": "one self-contained sentence under 20 words, third person", "follow_up_in_days": 0}],
+                "reinforce": [id],
+                "revise": [{"id": id, "text": "corrected sentence"}]
+              }
+            }
+
+            Rules for memory: only durable things worth recalling months from now.
+            Never duplicate an existing memory — reinforce its id instead. If a
+            new fact CONTRADICTS an existing one (they moved, changed job, ended
+            something), emit a revise for that id rather than a new item, so the
+            old belief is corrected instead of both being held at once. Use
+            follow_up_in_days only for something with a real date the companion
+            should ask about afterwards; otherwise 0. Empty arrays are fine.
+            """.trimIndent()
+        )
+    }
+
+    private const val SESSION_TRANSCRIPT_CAP = 6_000
+    private const val SUMMARY_INPUT_CAP = 1_200
+
     fun conversationDigest(transcript: String): String {
         val truncated = if (transcript.length > 5000) transcript.takeLast(5000) else transcript
         return """

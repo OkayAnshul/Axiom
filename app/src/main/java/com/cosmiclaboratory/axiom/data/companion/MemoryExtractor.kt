@@ -9,6 +9,7 @@ import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -72,6 +73,28 @@ class MemoryExtractor @Inject constructor(
 
         apply(payload, snapshot.map { it.id to (it.kind.name to it.text) }, source, sourceId)
         return AiResult.Ok(Unit)
+    }
+
+    /**
+     * Applies a memory block that arrived inside someone else's response.
+     *
+     * The session digest and the entry insight now return their memory deltas
+     * in the same call that produces the entry, instead of paying for a second
+     * round trip over identical text. They hand the raw block here so that
+     * validation, the near-duplicate guard and the user-edited protections stay
+     * in exactly one place.
+     */
+    suspend fun applyRawBlock(
+        rawMemory: JsonElement?,
+        source: MemorySource,
+        sourceId: Long?
+    ) {
+        if (rawMemory == null) return
+        val payload = runCatching {
+            json.decodeFromJsonElement(ExtractionPayload.serializer(), rawMemory)
+        }.getOrNull() ?: return
+        val snapshot = memories.snapshotForExtraction()
+        apply(payload, snapshot.map { it.id to (it.kind.name to it.text) }, source, sourceId)
     }
 
     private suspend fun apply(

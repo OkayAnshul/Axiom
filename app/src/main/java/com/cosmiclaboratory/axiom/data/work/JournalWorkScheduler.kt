@@ -35,6 +35,19 @@ class JournalWorkScheduler @Inject constructor(
         )
     }
 
+    /**
+     * Catch-up pass after a key is connected. Unique and KEEP, so connecting,
+     * disconnecting and reconnecting does not stack several backfills.
+     */
+    fun enqueueBackfill(delayMinutes: Long = 0) {
+        val request = OneTimeWorkRequestBuilder<BackfillWorker>()
+            .setConstraints(networkConstraints())
+            .setInitialDelay(delayMinutes, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+            .build()
+        workManager.enqueueUniqueWork(UNIQUE_BACKFILL, ExistingWorkPolicy.REPLACE, request)
+    }
+
     fun requestImmediateInitiatorBatch() {
         val request = OneTimeWorkRequestBuilder<InitiatorPromptBatchWorker>()
             .setConstraints(networkConstraints())
@@ -129,6 +142,7 @@ class JournalWorkScheduler @Inject constructor(
     private companion object {
         const val UNIQUE_PERIODIC_INITIATOR = "journal-initiator-periodic"
         const val UNIQUE_ONESHOT_INITIATOR = "journal-initiator-oneshot"
+        const val UNIQUE_BACKFILL = "journal-backfill"
         const val UNIQUE_CONVERSATION_DIGEST = "conversation-digest"
         const val DIGEST_DELAY_MINUTES = 180L
     }

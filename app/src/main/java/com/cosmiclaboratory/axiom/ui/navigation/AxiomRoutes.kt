@@ -33,8 +33,18 @@ data class Composer(
     val entryId: Long? = null,
     val questionId: Long? = null,
     val initialText: String? = null,
-    val voice: Boolean = false
+    val voice: Boolean = false,
+    /**
+     * A question the user chose to answer that has no row in `questions` — the
+     * companion's own daily opener. Carries the same weight as [questionId]:
+     * it heads the entry and marks it PROMPTED, so answering a prompt in
+     * conversation files the same way as answering one in the journal.
+     */
+    val promptText: String? = null
 )
+
+/** Conversations, browsable by day. */
+@Serializable object Talks
 
 @Serializable data class Reader(val entryId: Long)
 @Serializable data class Search(val initialQuery: String = "")

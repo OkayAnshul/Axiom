@@ -6,7 +6,10 @@ import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import com.cosmiclaboratory.axiom.domain.style.LanguageMix
 import com.cosmiclaboratory.axiom.domain.style.ReplyLength
+import com.cosmiclaboratory.axiom.domain.safety.CareLevel
 import com.cosmiclaboratory.axiom.domain.style.StyleProfile
+import com.cosmiclaboratory.axiom.domain.voice.VoicePreset
+import com.cosmiclaboratory.axiom.domain.voice.VoiceProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -27,7 +30,7 @@ class CompanionPromptBuilderTest {
 
     private fun context(
         displayName: String = "Anshul",
-        personaFragment: String = "",
+        voice: VoiceProfile = VoiceProfile(),
         memories: Map<MemoryKind, List<MemoryItem>> = emptyMap(),
         rollingSummary: String = "",
         recentInsights: List<String> = emptyList(),
@@ -36,10 +39,11 @@ class CompanionPromptBuilderTest {
         streakDays: Int = 0,
         emotionToday: Emotion? = null,
         noticed: String? = null,
-        style: StyleProfile = StyleProfile()
+        style: StyleProfile = StyleProfile(),
+        care: CareLevel? = null
     ) = CompanionPromptBuilder.Context(
-        displayName, personaFragment, memories, rollingSummary,
-        recentInsights, excerpts, now, moodToday, streakDays, style, emotionToday, noticed
+        displayName, voice, memories, rollingSummary,
+        recentInsights, excerpts, now, moodToday, streakDays, style, emotionToday, noticed, care
     )
 
     // ---- system prompt sections --------------------------------------------
@@ -145,12 +149,62 @@ class CompanionPromptBuilderTest {
         assertTrue(prompt.contains("Monday evening"))
     }
 
+    /**
+     * The core of the voice rewrite: "Warm" used to be hardcoded as the first
+     * register adjective in a block no persona could reach, so a blunt companion
+     * was contradicted 600 characters before it spoke.
+     */
     @Test
-    fun `persona fragment is included verbatim`() {
+    fun `the chosen voice owns the register block`() {
         val prompt = builder.buildSystemPrompt(
-            context(personaFragment = "Your natural register is playful.")
+            context(voice = VoicePreset.Unfiltered.profile())
         )
-        assertTrue(prompt.contains("Your natural register is playful."))
+        assertTrue(prompt, prompt.contains("Say it straight"))
+        assertTrue(prompt, prompt.contains("Swearing is entirely fine"))
+        assertTrue(prompt, prompt.contains("Push back properly"))
+    }
+
+    @Test
+    fun `warmth is no longer unconditional`() {
+        val blunt = builder.buildSystemPrompt(context(voice = VoicePreset.Blunt.profile()))
+        assertFalse(
+            "a Blunt voice must not be told to be warm: $blunt",
+            blunt.contains("Warm, specific")
+        )
+    }
+
+    @Test
+    fun `the persona is no longer demoted to a suggestion`() {
+        val prompt = builder.buildSystemPrompt(context(voice = VoicePreset.Blunt.profile()))
+        assertFalse(prompt, prompt.contains("a leaning, not a rule"))
+        assertFalse(prompt, prompt.contains("These outrank the leaning"))
+    }
+
+    @Test
+    fun `the user's own words land last and are said to outrank the dials`() {
+        val prompt = builder.buildSystemPrompt(
+            context(voice = VoicePreset.Warm.profile().copy(customInstruction = "Call me out."))
+        )
+        assertTrue(prompt, prompt.contains("Call me out."))
+        assertTrue(prompt, prompt.contains("It outranks everything above"))
+    }
+
+    /** The one automatic exception, and only when the user left it on. */
+    @Test
+    fun `distress suspends the voice when softening is enabled`() {
+        val on = builder.buildSystemPrompt(
+            context(voice = VoicePreset.Unfiltered.profile(), care = CareLevel.Acute)
+        )
+        assertFalse("swearing must not be permitted mid-crisis: $on", on.contains("Swearing is entirely fine"))
+        assertTrue(on, on.contains("Speak softly"))
+
+        val off = builder.buildSystemPrompt(
+            context(
+                voice = VoicePreset.Unfiltered.profile().copy(softenWhenStruggling = false),
+                care = CareLevel.Acute
+            )
+        )
+        assertTrue("voice must stand when softening is off: $off", off.contains("Swearing is entirely fine"))
     }
 
     // ---- style block --------------------------------------------------------
@@ -158,7 +212,7 @@ class CompanionPromptBuilderTest {
     @Test
     fun `an unmeasured profile admits it does not know them yet`() {
         val prompt = builder.buildSystemPrompt(context())
-        assertTrue(prompt.contains("How this person likes to be talked to:"))
+        assertTrue(prompt.contains("How you talk:"))
         assertTrue(prompt.contains("You do not know them well yet."))
     }
 
@@ -179,19 +233,18 @@ class CompanionPromptBuilderTest {
     }
 
     @Test
-    fun `stated preferences render and are said to outrank the persona`() {
+    fun `stated preferences still render alongside the voice`() {
         val prompt = builder.buildSystemPrompt(
             context(
-                personaFragment = "Your natural register is playful.",
+                voice = VoicePreset.Dry.profile(),
                 style = StyleProfile(
                     statedPreferences = listOf("Do not give advice unless asked."),
                     measured = true
                 )
             )
         )
-        assertTrue(prompt.contains("Where you started from — a leaning, not a rule:"))
-        assertTrue(prompt.contains("Do not give advice unless asked."))
-        assertTrue(prompt.contains("These outrank the leaning above"))
+        assertTrue(prompt, prompt.contains("Do not give advice unless asked."))
+        assertTrue(prompt, prompt.contains("Deadpan wit is welcome"))
     }
 
     @Test
@@ -250,11 +303,15 @@ class CompanionPromptBuilderTest {
 
     @Test
     fun `window keeps newest messages within count limit`() {
-        val messages = (1..20).map { "user" to "message $it" }
+        // Derived from the constant rather than hardcoded, so retuning the
+        // window is a one-line change instead of a test rewrite.
+        val max = CompanionPromptBuilder.MAX_HISTORY_MESSAGES
+        val total = max + 8
+        val messages = (1..total).map { "user" to "message $it" }
         val window = builder.windowHistory(messages)
-        assertEquals(CompanionPromptBuilder.MAX_HISTORY_MESSAGES, window.size)
-        assertEquals("message 20", window.last().second)
-        assertEquals("message 9", window.first().second)
+        assertEquals(max, window.size)
+        assertEquals("message $total", window.last().second)
+        assertEquals("message ${total - max + 1}", window.first().second)
     }
 
     @Test
@@ -270,7 +327,7 @@ class CompanionPromptBuilderTest {
 
     @Test
     fun `newest message is never evicted even when alone it busts the budget`() {
-        val huge = "h".repeat(10_000)
+        val huge = "h".repeat(CompanionPromptBuilder.HISTORY_CHAR_BUDGET + 2_000)
         val window = builder.windowHistory(listOf("user" to "old", "user" to huge))
         assertEquals(1, window.size)
         assertEquals(CompanionPromptBuilder.HISTORY_CHAR_BUDGET, window[0].second.length)

@@ -97,11 +97,27 @@ fun EntryCard(
             .joinToString(" ").take(160)
     }
 
+    // An entry the companion wrote from a conversation is marked as its own, the
+    // same way a reply in the chat is. The digest worker creates these silently,
+    // hours later, mood already filled in — finding one in your own timeline with
+    // no attribution is unsettling in a way a single line fixes.
+    val fromConversation = entry.kind == EntryKind.CONVERSATION
+
     AxiomCard(
         modifier = modifier.semantics(mergeDescendants = true) { },
+        tone = if (fromConversation) CardTone.Ai else CardTone.Neutral,
         onClick = onClick,
         onLongClick = onLongClick
     ) {
+        if (fromConversation) {
+            Text(
+                text = "I wrote this down for us.",
+                style = t.uiBodySmall,
+                color = c.aiTint
+            )
+            Spacer(Modifier.height(AxiomTheme.space.sm))
+        }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = entry.displayTitle.ifBlank { "Untitled" },
@@ -142,7 +158,9 @@ fun EntryCard(
                 Text("·", style = t.uiMeta, color = c.inkFaint)
                 MoodDot(mood = entry.mood, size = 10.dp)
             }
-            if (showKind && entry.kind != EntryKind.FREE_FORM) {
+            // The conversation case is already said in words at the top of the
+            // card, so a badge repeating it would just be clutter.
+            if (showKind && entry.kind != EntryKind.FREE_FORM && !fromConversation) {
                 Spacer(Modifier.weight(1f))
                 KindBadge(entry.kind)
             }

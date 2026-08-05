@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.cosmiclaboratory.axiom.ui.design.AxiomMotion
 import com.cosmiclaboratory.axiom.ui.design.AxiomSpacing
+import java.time.LocalTime
 
 /**
  * User-selectable theme. Storage values match `UserPreferences.themeOverride`.
@@ -27,7 +28,7 @@ enum class ThemeMode(val storageValue: Int) {
     }
 }
 
-val LocalAxiomColors = staticCompositionLocalOf { OledDarkColors }
+val LocalAxiomColors = staticCompositionLocalOf { NightInkColors }
 val LocalAxiomTypography = staticCompositionLocalOf { AxiomTypography() }
 val LocalAxiomSpacing = staticCompositionLocalOf { AxiomSpacing() }
 val LocalAxiomShapes = staticCompositionLocalOf { AxiomShapes() }
@@ -61,15 +62,22 @@ fun AxiomTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     /** In-app reading-size preference, 0.9f–1.4f. Multiplies with OS font scale. */
     readingScale: Float = 1f,
+    /** Let the palette drift with the time of day. See [AxiomLight]. */
+    adaptiveLight: Boolean = true,
+    /**
+     * Injected so previews and tests can pin an hour. Production never passes
+     * this; the alternative is mocking the system clock to look at a colour.
+     */
+    clock: () -> LocalTime = { LocalTime.now() },
     content: @Composable () -> Unit
 ) {
     val systemDark = isSystemInDarkTheme()
-    val colors = when (themeMode) {
-        ThemeMode.SYSTEM -> if (systemDark) SoftDarkColors else PaperLightColors
-        ThemeMode.LIGHT -> PaperLightColors
-        ThemeMode.DARK -> SoftDarkColors
-        ThemeMode.AMOLED -> OledDarkColors
-    }
+    val colors = rememberAdaptivePalette(
+        mode = themeMode,
+        systemDark = systemDark,
+        adaptive = adaptiveLight,
+        clock = clock
+    )
 
     // Resolve reduced-motion once, here, so no screen has to check it.
     val context = LocalContext.current

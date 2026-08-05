@@ -151,6 +151,8 @@ class GeminiAiProvider @Inject constructor(
             generationConfig = GeminiGenerationConfig(maxOutputTokens = maxTokens)
         )
         val accumulated = StringBuilder()
+        var finishReason: String? = null
+        var totalTokens = 0
         try {
             client.preparePost(endpoint(mapModel(model), "streamGenerateContent", key, sse = true)) {
                 contentType(ContentType.Application.Json)
@@ -160,14 +162,24 @@ class GeminiAiProvider @Inject constructor(
                 val channel = response.bodyAsChannel()
                 while (true) {
                     val line = channel.readUTF8Line() ?: break
-                    val delta = parseGeminiSseLine(line, json) ?: continue
+                    val chunk = decodeGeminiSseChunk(line, json) ?: continue
+                    chunk.candidates.firstOrNull()?.finishReason?.let { finishReason = it }
+                    chunk.usageMetadata?.totalTokenCount?.let { if (it > 0) totalTokens = it }
+                    val delta = chunk.text()
                     if (delta.isNotEmpty()) {
                         accumulated.append(delta)
                         emit(ChatStreamEvent.Delta(delta))
                     }
                 }
             }
-            emit(ChatStreamEvent.Done(accumulated.toString(), 0, mapModel(model)))
+            emit(
+                ChatStreamEvent.Done(
+                    fullText = accumulated.toString(),
+                    tokensUsed = totalTokens,
+                    modelName = mapModel(model),
+                    truncated = finishReason == FINISH_MAX_TOKENS
+                )
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -179,7 +191,8 @@ class GeminiAiProvider @Inject constructor(
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int,
-        model: String
+        model: String,
+        temperature: Float
     ): AiResult<String> = jsonCall(systemPrompt, userPrompt, maxTokens) { it }
 
     /**
@@ -232,11 +245,21 @@ class GeminiAiProvider @Inject constructor(
         return "$BASE_URL/$model:$method$query"
     }
 
+    /**
+     * 400 is deliberately NOT mapped to [AiResult.NoKey].
+     *
+     * Gemini returns 400 for a malformed request, an oversized prompt, or an
+     * unsupported parameter — none of which mean the key is bad. Because
+     * `SettingsViewModel.saveAndTestKey` rolls the key back on any non-Ok
+     * result, mapping 400 here meant one bad request silently *deleted a
+     * perfectly valid key* and told the user it didn't work. It is a request
+     * problem, so it maps to Parse.
+     */
     private fun mapError(e: Throwable): AiResult<Nothing> = when (e) {
         is ResponseException -> when (e.response.status) {
             HttpStatusCode.TooManyRequests -> AiResult.RateLimited
-            HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden, HttpStatusCode.BadRequest ->
-                AiResult.NoKey
+            HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> AiResult.NoKey
+            HttpStatusCode.BadRequest -> AiResult.Parse(e)
             else -> AiResult.Network(e)
         }
         else -> AiResult.Network(e)
@@ -245,6 +268,8 @@ class GeminiAiProvider @Inject constructor(
     private companion object {
         const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
         const val STREAM_TIMEOUT_MS = 120_000L
+        /** Gemini's equivalent of OpenAI's `finish_reason: "length"`. */
+        const val FINISH_MAX_TOKENS = "MAX_TOKENS"
     }
 }
 
@@ -261,12 +286,18 @@ internal fun geminiRole(role: String): String =
  * tested without Ktor. Returns null for anything that is not a data line or
  * that carries no text.
  */
-internal fun parseGeminiSseLine(line: String, json: Json): String? {
+/**
+ * Decodes one SSE line into the whole chunk, so a caller can read the text, the
+ * finish reason and the usage from a single parse rather than three.
+ */
+internal fun decodeGeminiSseChunk(line: String, json: Json): GeminiResponse? {
     val trimmed = line.trim()
     if (!trimmed.startsWith("data:")) return null
     val payload = trimmed.removePrefix("data:").trim()
     if (payload.isEmpty() || payload == "[DONE]") return null
-    val chunk = runCatching { json.decodeFromString(GeminiResponse.serializer(), payload) }
-        .getOrNull() ?: return null
-    return chunk.text().takeIf { it.isNotEmpty() }
+    return runCatching { json.decodeFromString(GeminiResponse.serializer(), payload) }.getOrNull()
 }
+
+/** Just the text of an SSE line, or null when it carries none. */
+internal fun parseGeminiSseLine(line: String, json: Json): String? =
+    decodeGeminiSseChunk(line, json)?.text()?.takeIf { it.isNotEmpty() }

@@ -14,7 +14,7 @@ import com.cosmiclaboratory.axiom.MainActivity
 import com.cosmiclaboratory.axiom.R
 import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
-import com.cosmiclaboratory.axiom.data.ai.GroqModels
+import com.cosmiclaboratory.axiom.data.ai.AiTasks
 import com.cosmiclaboratory.axiom.data.ai.PromptTemplates
 import com.cosmiclaboratory.axiom.data.notification.AxiomNotifications
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
@@ -66,6 +66,10 @@ class ProactiveMessenger @Inject constructor(
         // A check-in is for the days they don't come by. If they have already
         // written or talked today, silence is the friendlier choice.
         if (activeToday(now)) return false
+        // And if they recently told us they were in a bad way, an unprompted
+        // "how was your day?" is the worst thing this app could say. Let them
+        // come back on their own terms.
+        if (recentlyDistressed(now)) return false
 
         val loops = runCatching { memories.dueOpenLoops(now) }.getOrDefault(emptyList())
         val dates = runCatching { entries.entryDates() }.getOrDefault(emptyList())
@@ -108,7 +112,7 @@ class ProactiveMessenger @Inject constructor(
             }.take(5)
         )
         val fallback = "That's another week down. Anything from it you want to keep hold of?"
-        val message = compose(prompt, fallback)
+        val message = compose(prompt, fallback, quality = true)
 
         deliver(message.text, message.fromModel, now)
         return true
@@ -118,13 +122,23 @@ class ProactiveMessenger @Inject constructor(
 
     private data class Composed(val text: String, val fromModel: Boolean)
 
-    private suspend fun compose(prompt: String, fallback: String): Composed {
+    /**
+     * [quality] routes the weekly recap to the strong model. A daily check-in is
+     * one throwaway line and the cheap model writes it fine; the Sunday recap is
+     * the app looking back over someone's week, and that is worth the better
+     * model and room to say something.
+     */
+    private suspend fun compose(
+        prompt: String,
+        fallback: String,
+        quality: Boolean = false
+    ): Composed {
         val result = runCatching {
             ai.chat(
                 systemPrompt = PromptTemplates.PROACTIVE_SYSTEM,
                 messages = listOf("user" to prompt),
-                maxTokens = 120,
-                model = GroqModels.BACKGROUND
+                maxTokens = if (quality) RECAP_MAX_TOKENS else CHECK_IN_MAX_TOKENS,
+                model = if (quality) AiTasks.QUALITY else AiTasks.CHEAP
             )
         }.getOrElse { return Composed(fallback, fromModel = false) }
 
@@ -201,6 +215,18 @@ class ProactiveMessenger @Inject constructor(
     private suspend fun sentProactiveToday(now: LocalDateTime): Boolean =
         prefs.lastProactiveDate.first() == now.toLocalDate().toString()
 
+    /**
+     * True for [DISTRESS_QUIET_DAYS] after someone plainly said they were
+     * struggling. Deliberately quiet rather than deliberately attentive: an
+     * automated cheerful nudge in that window reads as not having listened.
+     */
+    private suspend fun recentlyDistressed(now: LocalDateTime): Boolean {
+        val raw = runCatching { prefs.lastDistressDate.first() }.getOrDefault("")
+        if (raw.isBlank()) return false
+        val last = runCatching { LocalDate.parse(raw) }.getOrNull() ?: return false
+        return ChronoUnit.DAYS.between(last, now.toLocalDate()) < DISTRESS_QUIET_DAYS
+    }
+
     /** They have already been here today — through the conversation or the journal. */
     private suspend fun activeToday(now: LocalDateTime): Boolean {
         val today = now.toLocalDate()
@@ -232,5 +258,13 @@ class ProactiveMessenger @Inject constructor(
     private companion object {
         const val THREAD_ID = "companion"
         const val NOTIFICATION_ID = 4201
+
+        /** How long to stay quiet after someone said they were struggling. */
+        const val DISTRESS_QUIET_DAYS = 2L
+
+        const val CHECK_IN_MAX_TOKENS = 120
+
+        /** The Sunday look-back deserves more than a notification blurb. */
+        const val RECAP_MAX_TOKENS = 400
     }
 }

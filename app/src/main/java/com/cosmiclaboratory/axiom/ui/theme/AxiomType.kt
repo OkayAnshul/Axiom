@@ -14,16 +14,21 @@ import androidx.compose.ui.unit.sp
 import com.cosmiclaboratory.axiom.R
 
 /*
- * Two families, split by job:
+ * Three families, split by job:
  *
+ *   Fraunces — the greeting, and nothing else. A serif whose SOFT and WONK axes
+ *              exist specifically to make letterforms warmer and less mechanical;
+ *              it is what makes "Good evening" read as a person speaking rather
+ *              than a heading.
  *   Literata — anything the user reads or writes. A serif designed for long-form
  *              screen reading; it gives entries the weight of a page rather than
  *              of a settings screen.
- *   Inter    — chrome. Labels, buttons, metadata, navigation.
+ *   Figtree  — chrome. Labels, buttons, metadata. Geometric with soft terminals,
+ *              which keeps controls quiet next to two serifs.
  *
- * Both are bundled variable fonts (OFL). Variable axes need API 26, which is
+ * All three are bundled variable fonts (OFL). Variable axes need API 26, which is
  * exactly our minSdk — so this must be smoke-tested on an API 26 emulator. If it
- * misbehaves there, the fallback is four static instances per family.
+ * misbehaves there, the fallback is static instances per family.
  */
 
 @OptIn(ExperimentalTextApi::class)
@@ -35,10 +40,39 @@ private fun literata(weight: Int, italic: Boolean = false) = Font(
 )
 
 @OptIn(ExperimentalTextApi::class)
-private fun inter(weight: Int) = Font(
-    resId = R.font.inter_variable,
+private fun figtree(weight: Int) = Font(
+    resId = R.font.figtree_variable,
     weight = FontWeight(weight),
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight))
+    // Figtree's wght axis starts at 300; asking for less silently clamps.
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight.coerceAtLeast(300)))
+)
+
+/**
+ * Fraunces ships with hostile defaults — `wght` 900, `opsz` 9, `WONK` 1 — so
+ * every axis is set explicitly here. Omitting any one of them renders ultra-bold
+ * text cut for six-point captions, which is exactly the failure that looks like
+ * "the font didn't load".
+ *
+ * `opsz` should track the size the style is actually used at: high for display,
+ * low for anything approaching text.
+ */
+@OptIn(ExperimentalTextApi::class)
+private fun frauncesFamily(
+    weight: Int,
+    opticalSize: Float,
+    soft: Float,
+    wonk: Float
+) = FontFamily(
+    Font(
+        resId = R.font.fraunces_variable,
+        weight = FontWeight(weight),
+        variationSettings = FontVariation.Settings(
+            FontVariation.Setting("opsz", opticalSize),
+            FontVariation.weight(weight),
+            FontVariation.Setting("SOFT", soft),
+            FontVariation.Setting("WONK", wonk)
+        )
+    )
 )
 
 val LiterataFamily = FontFamily(
@@ -46,9 +80,15 @@ val LiterataFamily = FontFamily(
     literata(400, italic = true), literata(500, italic = true)
 )
 
-val InterFamily = FontFamily(
-    inter(400), inter(500), inter(600), inter(700)
+val FigtreeFamily = FontFamily(
+    figtree(400), figtree(500), figtree(600), figtree(700)
 )
+
+/** The greeting. Softened, and wonky enough to feel handwritten at 34sp. */
+val FrauncesGreetingFamily = frauncesFamily(weight = 500, opticalSize = 48f, soft = 60f, wonk = 1f)
+
+/** The line beneath it. Same warmth, no wonk — it is read, not glanced at. */
+val FrauncesLeadFamily = frauncesFamily(weight = 400, opticalSize = 24f, soft = 50f, wonk = 0f)
 
 /**
  * Line height should shrink the gap above the first line and below the last,
@@ -81,7 +121,22 @@ private fun ui(
     weight: Int = 400,
     tracking: Float = 0f
 ) = TextStyle(
-    fontFamily = InterFamily,
+    fontFamily = FigtreeFamily,
+    fontWeight = FontWeight(weight),
+    fontSize = size.sp,
+    lineHeight = lineHeight.sp,
+    letterSpacing = tracking.sp,
+    lineHeightStyle = TrimmedLineHeight
+)
+
+private fun greetingStyle(
+    family: FontFamily,
+    size: Int,
+    lineHeight: Int,
+    weight: Int,
+    tracking: Float
+) = TextStyle(
+    fontFamily = family,
     fontWeight = FontWeight(weight),
     fontSize = size.sp,
     lineHeight = lineHeight.sp,
@@ -91,14 +146,20 @@ private fun ui(
 
 @Immutable
 data class AxiomTypography(
+    // ---- the greeting (Fraunces) ----
+    /** "Good evening, Anshul". The one place the app raises its voice. */
+    val greeting: TextStyle = greetingStyle(FrauncesGreetingFamily, 34, 42, 500, -0.5f),
+    /** "I've been wondering how today treated you." */
+    val greetingLead: TextStyle = greetingStyle(FrauncesLeadFamily, 20, 30, 400, -0.1f),
+
     // ---- reading (Literata) ----
     val promptDisplay: TextStyle = reading(24, 32, 500, -0.1f),
     val readingTitle: TextStyle = reading(28, 34, 600, -0.2f),
     val readingSubtitle: TextStyle = reading(20, 28, 500),
     val readingLead: TextStyle = reading(19, 30, 400),
     /** The core body style. Everything else exists to frame this. */
-    val readingBody: TextStyle = reading(17, 28, 400, 0.1f),
-    val readingBodyLoose: TextStyle = reading(17, 30, 400, 0.1f),
+    val readingBody: TextStyle = reading(17, 30, 400, 0.1f),
+    val readingBodyLoose: TextStyle = reading(17, 33, 400, 0.1f),
     val readingQuote: TextStyle = reading(17, 28, 400, italic = true),
 
     // ---- markdown headers inside reading content ----
@@ -114,7 +175,7 @@ data class AxiomTypography(
     val uiTitleLarge: TextStyle = ui(22, 28, 600, -0.2f),
     val uiTitle: TextStyle = ui(17, 24, 600, -0.1f),
     val uiTitleSmall: TextStyle = ui(15, 20, 600),
-    val uiBody: TextStyle = ui(15, 22, 400),
+    val uiBody: TextStyle = ui(15, 24, 400),
     val uiBodySmall: TextStyle = ui(13, 18, 400),
     val uiLabel: TextStyle = ui(14, 18, 500, 0.1f),
     val uiLabelSmall: TextStyle = ui(12, 16, 500, 0.3f),
@@ -162,6 +223,8 @@ data class AxiomTypography(
             lineHeight = lineHeight * factor
         )
         return copy(
+            greeting = greeting.s(),
+            greetingLead = greetingLead.s(),
             promptDisplay = promptDisplay.s(),
             readingTitle = readingTitle.s(),
             readingSubtitle = readingSubtitle.s(),

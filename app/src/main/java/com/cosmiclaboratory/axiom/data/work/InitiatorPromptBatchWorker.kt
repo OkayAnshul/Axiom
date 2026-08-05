@@ -32,6 +32,19 @@ class InitiatorPromptBatchWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val personaKey = prefs.activePersonaKey.first()
         val persona = personaRepo.getByKey(personaKey) ?: return Result.success()
+
+        /*
+         * Only generate when the shelf is nearly empty.
+         *
+         * This ran daily and produced five openers, of which one was consumed
+         * and four were pruned unread a week later — four fifths of every batch
+         * paid for and thrown away. The counter that prevents this already
+         * existed and had never been called.
+         */
+        val unconsumed = runCatching { questionRepo.unconsumedInitiatorCount(personaKey) }
+            .getOrDefault(0)
+        if (unconsumed >= REFILL_THRESHOLD) return Result.success()
+
         val recentSummaries = journalRepo.recentSummariesForContext(limit = 3)
 
         // Preferences are instructions about how to speak, not material to ask
@@ -45,7 +58,9 @@ class InitiatorPromptBatchWorker @AssistedInject constructor(
         }.getOrDefault(emptyList())
 
         return when (
-            val result = aiProvider.generateInitiatorPrompts(persona, recentSummaries, memoryLines)
+            val result = aiProvider.generateInitiatorPrompts(
+                persona, recentSummaries, memoryLines, count = BATCH_SIZE
+            )
         ) {
             is AiResult.Ok -> {
                 questionRepo.saveInitiatorBatch(personaKey, result.value)
@@ -59,4 +74,13 @@ class InitiatorPromptBatchWorker @AssistedInject constructor(
             is AiResult.Parse -> Result.success()
         }
     }
+
+    private companion object {
+        /** Refill only when fewer than this remain unread. */
+        const val REFILL_THRESHOLD = 2
+
+        /** Three, not five: a week of openers nobody read is a week of waste. */
+        const val BATCH_SIZE = 3
+    }
+
 }

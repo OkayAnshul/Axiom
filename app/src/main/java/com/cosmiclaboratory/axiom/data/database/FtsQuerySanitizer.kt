@@ -44,9 +44,19 @@ object FtsQuerySanitizer {
      * stopwords are pure noise and would match nearly every entry.
      */
     fun forRetrieval(raw: String, maxTerms: Int = 8): String =
-        tokenize(raw, dropStopwords = true)
-            .take(maxTerms)
-            .joinToString(" OR ")
+        retrievalTerms(raw, maxTerms).joinToString(" OR ")
+
+    /**
+     * The same content terms [forRetrieval] would search for, unjoined.
+     *
+     * Ranking needs the individual terms: FTS can tell you a row matched, but
+     * not how well, so the caller scores overlap itself. Exposed here so there
+     * is exactly one tokenizer in the app — the last time this logic was
+     * duplicated, one copy dropped Devanagari vowel signs and Hindi search was
+     * silently broken for months.
+     */
+    fun retrievalTerms(raw: String, maxTerms: Int = 8): List<String> =
+        tokenize(raw, dropStopwords = true).take(maxTerms)
 
     private fun tokenize(raw: String, dropStopwords: Boolean): List<String> =
         raw.lowercase()

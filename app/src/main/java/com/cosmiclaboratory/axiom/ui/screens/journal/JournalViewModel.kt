@@ -24,6 +24,8 @@ enum class JournalFilter(val id: String, val label: String) {
     Written("written", "Written"),
     Prompted("prompted", "Prompted"),
     Voice("voice", "Voice"),
+    /** Entries the companion wrote from a conversation. The kind existed with no filter. */
+    Talks("talks", "Talks"),
     Favourites("fav", "Favourites"),
     Archive("archive", "Archive");
 
@@ -61,6 +63,7 @@ class JournalViewModel @Inject constructor(
                 JournalFilter.Written -> entries.observeByKind(EntryKind.FREE_FORM)
                 JournalFilter.Prompted -> entries.observeByKind(EntryKind.PROMPTED)
                 JournalFilter.Voice -> entries.observeByKind(EntryKind.VOICE)
+                JournalFilter.Talks -> entries.observeByKind(EntryKind.CONVERSATION)
                 JournalFilter.Favourites -> entries.observeFavorites()
                 JournalFilter.Archive -> entries.observeArchived()
             }.map { list -> f to list }
