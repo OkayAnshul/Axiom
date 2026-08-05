@@ -78,6 +78,9 @@ android {
 
     buildFeatures {
         compose = true
+        // Needed for BuildConfig.DEBUG, which gates request-body logging in
+        // AiModule. Under AGP 8 the class is not generated unless asked for.
+        buildConfig = true
     }
 }
 
