@@ -74,8 +74,60 @@ object AxiomMigrations {
         }
     }
 
+    /**
+     * Deletes theme memories whose subject is a filler word.
+     *
+     * The digester's frequency counter decided that someone "keeps coming back
+     * to message" and "keeps coming back to long". A length floor and a stop
+     * list were added later, but only at write time, so the rows already stored
+     * kept going out in every prompt — the model was told these were recurring
+     * themes in a person's life, alongside real facts about them.
+     *
+     * The word list below is **deliberately a frozen copy** of
+     * [com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene.NON_THEMES] rather
+     * than a reference to it. A migration has to produce the same result on
+     * every device forever; one that read a live constant would quietly change
+     * what a 9→10 upgrade does the day someone edits that list. The duplication
+     * is the point, not an oversight.
+     *
+     * Two shapes of junk, in opposite directions: a theme too thin to mean
+     * anything, and any row long enough to be a transcript rather than a
+     * memory. Short facts and events are left alone — "They cooked dinner." is
+     * short because life is short, and widening that would delete real memories
+     * to fix a cosmetic problem.
+     */
+    val MIGRATION_9_10 = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val nonThemes = listOf(
+                "thing", "things", "really", "actually", "maybe", "think", "thought",
+                "feel", "feeling", "going", "still", "quite", "pretty", "little",
+                "message", "number", "today", "yesterday", "tomorrow", "again",
+                "something", "anything", "nothing", "everything", "someone", "people"
+            )
+            val prefix = "Keeps coming back to "
+            // Subject shorter than the five-character floor.
+            db.execSQL(
+                "DELETE FROM `memory_items` WHERE `kind` = 'THEME' " +
+                    "AND `text` LIKE '$prefix%' " +
+                    "AND length(trim(rtrim(substr(`text`, ${prefix.length + 1}), '.'))) < 5"
+            )
+            // A memory that is a wall of text was never a memory. The digester
+            // used to join every turn before hunting for commitments, storing a
+            // whole conversation as one "sentence"; a truncated version of that
+            // was still being sent. 160 sits between the longest real memory
+            // seen (~55 chars) and the 200-char write cap.
+            db.execSQL("DELETE FROM `memory_items` WHERE length(trim(`text`)) > 160")
+            nonThemes.forEach { word ->
+                db.execSQL(
+                    "DELETE FROM `memory_items` WHERE `kind` = 'THEME' " +
+                        "AND lower(trim(rtrim(substr(`text`, ${prefix.length + 1}), '.'))) = '$word'"
+                )
+            }
+        }
+    }
+
     /** Every migration, in order. Passed wholesale to the database builder. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
 
     /**
      * True when [ALL] forms an unbroken chain from [BASELINE_VERSION] to
