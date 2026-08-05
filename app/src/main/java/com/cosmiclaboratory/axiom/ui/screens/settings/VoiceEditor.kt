@@ -31,6 +31,7 @@ import com.cosmiclaboratory.axiom.ui.design.components.AxiomSegmented
 import com.cosmiclaboratory.axiom.ui.design.components.CardTone
 import com.cosmiclaboratory.axiom.ui.design.components.SectionHeader
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
+import com.cosmiclaboratory.axiom.domain.voice.Emoji
 
 /**
  * Where the companion's voice is actually chosen.
@@ -92,6 +93,12 @@ fun VoiceEditor(
             options = Profanity.entries.map { it.name },
             selected = Profanity.entries.indexOf(voice.profanity),
             onSelect = { onVoice(voice.copy(profanity = Profanity.entries[it])) }
+        )
+        Dial(
+            label = "Emoji",
+            options = Emoji.entries.map { it.name },
+            selected = Emoji.entries.indexOf(voice.emoji),
+            onSelect = { onVoice(voice.copy(emoji = Emoji.entries[it])) }
         )
         Dial(
             label = "Pushback",

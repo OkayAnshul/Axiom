@@ -4,20 +4,30 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.Assert.assertNull
 
 class VoiceProfileTest {
 
     @Test
     fun `every dial contributes a line`() {
-        val lines = VoiceProfile(
+        val everythingOn = VoiceProfile(
             register = Register.Blunt,
             humour = Humour.Dark,
             profanity = Profanity.Unrestrained,
+            emoji = Emoji.Free,
             pushback = Pushback.Challenge,
             advice = Advice.Freely
-        ).instructionLines()
-        // register + humour + profanity + pushback + advice
-        assertEquals(lines.toString(), 5, lines.size)
+        )
+        val lines = everythingOn.instructionLines()
+        // Derived rather than hardcoded: adding a dial should extend this test,
+        // not break it. Register, pushback and advice always speak; humour,
+        // profanity and emoji speak only when not Off.
+        val optional = listOfNotNull(
+            everythingOn.humour.instruction,
+            everythingOn.profanity.instruction,
+            everythingOn.emoji.instruction
+        )
+        assertEquals(lines.toString(), ALWAYS_ON_DIALS + optional.size, lines.size)
     }
 
     /**
@@ -27,10 +37,15 @@ class VoiceProfileTest {
      */
     @Test
     fun `off dials omit their line rather than negating it`() {
-        val lines = VoiceProfile(humour = Humour.None, profanity = Profanity.Off).instructionLines()
-        assertEquals(lines.toString(), 3, lines.size)
+        val lines = VoiceProfile(
+            humour = Humour.None,
+            profanity = Profanity.Off,
+            emoji = Emoji.Off
+        ).instructionLines()
+        assertEquals(lines.toString(), ALWAYS_ON_DIALS, lines.size)
         assertFalse(lines.toString(), lines.any { it.contains("swear", ignoreCase = true) })
         assertFalse(lines.toString(), lines.any { it.contains("humour", ignoreCase = true) })
+        assertFalse(lines.toString(), lines.any { it.contains("emoji", ignoreCase = true) })
     }
 
     @Test
@@ -89,5 +104,50 @@ class VoiceProfileTest {
         assertEquals(VoicePreset.Warm, VoicePreset.fromStorage(null))
         assertEquals(VoicePreset.Warm, VoicePreset.fromStorage("SomethingRemoved"))
         assertEquals(VoicePreset.Blunt, VoicePreset.fromStorage("Blunt"))
+    }
+
+    // ---- emoji ------------------------------------------------------------
+
+    @Test
+    fun `emoji off emits nothing rather than a prohibition`() {
+        // Same reasoning as Profanity.Off: "do not use emoji" spends prompt
+        // weight teaching the model about the thing it should ignore.
+        assertNull(Emoji.Off.instruction)
+        val lines = VoiceProfile(emoji = Emoji.Off).instructionLines()
+        assertFalse(lines.toString(), lines.any { it.contains("emoji", ignoreCase = true) })
+    }
+
+    @Test
+    fun `emoji is permission with a limit, never an instruction to decorate`() {
+        val line = Emoji.Sparing.instruction!!
+        assertTrue(line, line.contains("never more than one"))
+        assertTrue(line, line.contains("never in a heavy moment"))
+    }
+
+    @Test
+    fun `sparing emoji reaches the prompt lines`() {
+        val lines = VoiceProfile(emoji = Emoji.Sparing).instructionLines()
+        assertTrue(lines.toString(), lines.any { it.contains("emoji", ignoreCase = true) })
+    }
+
+    // ---- answering a direct question --------------------------------------
+
+    @Test
+    fun `even the gentlest pushback answers a direct question`() {
+        // Tested against a live model before this existed: asked "what do you
+        // think is actually going on with me", the shipped default replied
+        // "I'm not here to figure that out". It was obeying the prompt.
+        val line = Pushback.Never.instruction
+        assertTrue(line, line.contains("ask you outright"))
+    }
+
+    @Test
+    fun `the default voice is willing to disagree`() {
+        assertEquals(Pushback.Sometimes, VoicePreset.Warm.profile().pushback)
+    }
+
+    private companion object {
+        /** Register, pushback and advice have no "off" — they always emit a line. */
+        const val ALWAYS_ON_DIALS = 3
     }
 }

@@ -25,6 +25,7 @@ import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAiScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsAppearanceScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsScreen
 import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsVoiceScreen
+import com.cosmiclaboratory.axiom.ui.screens.settings.SettingsHowITalkScreen
 import com.cosmiclaboratory.axiom.ui.screens.backup.BackupScreen
 import com.cosmiclaboratory.axiom.ui.screens.calendar.CalendarScreen
 import com.cosmiclaboratory.axiom.ui.screens.composer.ComposerScreen
@@ -199,6 +200,7 @@ fun AxiomNavigation(
                         onOpenAppearance = { navController.navigate(SettingsAppearance) },
                         onOpenMemories = { navController.navigate(Memories) },
                         onOpenVoice = { navController.navigate(SettingsVoice) },
+                        onOpenHowITalk = { navController.navigate(SettingsHowITalk) },
                         onOpenBackup = { navController.navigate(Backup) }
                     )
                 }
@@ -207,6 +209,9 @@ fun AxiomNavigation(
                 }
                 composable<SettingsVoice> {
                     SettingsVoiceScreen(onBack = { navController.popBackStack() })
+                }
+                composable<SettingsHowITalk> {
+                    SettingsHowITalkScreen(onBack = { navController.popBackStack() })
                 }
                 composable<Backup> {
                     BackupScreen(onBack = { navController.popBackStack() })

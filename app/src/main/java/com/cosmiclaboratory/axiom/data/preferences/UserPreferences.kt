@@ -94,6 +94,7 @@ class UserPreferences @Inject constructor(
             register = enumOr(prefs[KEY_VOICE_REGISTER], base.register),
             humour = enumOr(prefs[KEY_VOICE_HUMOUR], base.humour),
             profanity = enumOr(prefs[KEY_VOICE_PROFANITY], base.profanity),
+            emoji = enumOr(prefs[KEY_VOICE_EMOJI], base.emoji),
             pushback = enumOr(prefs[KEY_VOICE_PUSHBACK], base.pushback),
             advice = enumOr(prefs[KEY_VOICE_ADVICE], base.advice),
             customInstruction = prefs[KEY_VOICE_CUSTOM].orEmpty(),
@@ -112,6 +113,7 @@ class UserPreferences @Inject constructor(
             prefs.remove(KEY_VOICE_REGISTER)
             prefs.remove(KEY_VOICE_HUMOUR)
             prefs.remove(KEY_VOICE_PROFANITY)
+            prefs.remove(KEY_VOICE_EMOJI)
             prefs.remove(KEY_VOICE_PUSHBACK)
             prefs.remove(KEY_VOICE_ADVICE)
         }
@@ -123,6 +125,7 @@ class UserPreferences @Inject constructor(
             prefs[KEY_VOICE_REGISTER] = profile.register.name
             prefs[KEY_VOICE_HUMOUR] = profile.humour.name
             prefs[KEY_VOICE_PROFANITY] = profile.profanity.name
+            prefs[KEY_VOICE_EMOJI] = profile.emoji.name
             prefs[KEY_VOICE_PUSHBACK] = profile.pushback.name
             prefs[KEY_VOICE_ADVICE] = profile.advice.name
             prefs[KEY_VOICE_SOFTEN] = profile.softenWhenStruggling
@@ -266,6 +269,7 @@ class UserPreferences @Inject constructor(
         val KEY_VOICE_REGISTER = stringPreferencesKey("voice_register")
         val KEY_VOICE_HUMOUR = stringPreferencesKey("voice_humour")
         val KEY_VOICE_PROFANITY = stringPreferencesKey("voice_profanity")
+        val KEY_VOICE_EMOJI = stringPreferencesKey("voice_emoji")
         val KEY_VOICE_PUSHBACK = stringPreferencesKey("voice_pushback")
         val KEY_VOICE_ADVICE = stringPreferencesKey("voice_advice")
         val KEY_VOICE_CUSTOM = stringPreferencesKey("voice_custom")

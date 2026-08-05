@@ -57,15 +57,43 @@ enum class Profanity(val instruction: String?) {
 }
 
 /**
+ * Whether the companion may use emoji.
+ *
+ * Nothing in the prompt mentioned them, so the model used none — zero across
+ * every reply in a live test. Like [Profanity] this is permission rather than
+ * instruction, and [Off] emits nothing at all: telling a model "do not use
+ * emoji" spends prompt weight teaching it about the thing you want ignored.
+ */
+enum class Emoji(val instruction: String?) {
+    Off(null),
+    Sparing(
+        "An emoji occasionally, where it genuinely adds warmth — never more than one in a " +
+            "reply, never decorative, and never in a heavy moment."
+    ),
+    Free("Emoji are welcome wherever they fit the feeling. Still never in a heavy moment.")
+}
+
+/**
  * Whether the companion may disagree.
  *
  * The old prompt's "At most one question per reply" and "No advice unless they
  * ask" removed the *mechanics* of pushback — disagreement almost always arrives
  * as either unsolicited advice or a second question — so no persona could argue
  * even in principle.
+ *
+ * [Never] carries an explicit carve-out because without it the two lines
+ * contradict each other the moment a question is direct. Tested against a live
+ * model: asked "what do you think is actually going on with me", the shipped
+ * default replied "I'm not here to figure that out". It was obeying the prompt.
+ * A companion that won't answer when asked is not being gentle, it is being
+ * absent.
  */
 enum class Pushback(val instruction: String) {
-    Never("Don't challenge them. Reflect and stay alongside. At most one question per reply."),
+    Never(
+        "Don't challenge them. Reflect and stay alongside. At most one question per reply. " +
+            "But if they ask you outright what you think, tell them — refusing a direct " +
+            "question is its own kind of distance."
+    ),
     Sometimes("You can disagree when you actually do, and say so plainly rather than hinting."),
     Challenge(
         "Push back properly when they're kidding themselves. Name the thing they're avoiding, " +
@@ -86,22 +114,43 @@ enum class VoicePreset(
     val profile: () -> VoiceProfile
 ) {
     Gentle("Gentle", "Soft, unhurried, lots of room", {
-        VoiceProfile(Register.Gentle, Humour.None, Profanity.Off, Pushback.Never, Advice.OnlyIfAsked)
+        VoiceProfile(
+            register = Register.Gentle, humour = Humour.None, profanity = Profanity.Off,
+            emoji = Emoji.Sparing, pushback = Pushback.Never, advice = Advice.OnlyIfAsked
+        )
     }),
     Warm("Warm", "A close friend who's glad you're here", {
-        VoiceProfile(Register.Warm, Humour.Light, Profanity.Off, Pushback.Never, Advice.OnlyIfAsked)
+        VoiceProfile(
+            register = Register.Warm, humour = Humour.Light, profanity = Profanity.Off,
+            // A close friend does sometimes disagree. Never meant the default
+            // companion could only ever reflect, which is a mirror, not a friend.
+            emoji = Emoji.Sparing, pushback = Pushback.Sometimes, advice = Advice.OnlyIfAsked
+        )
     }),
     Level("Level", "Even and plain, no performance", {
-        VoiceProfile(Register.Level, Humour.None, Profanity.Off, Pushback.Sometimes, Advice.OnlyIfAsked)
+        VoiceProfile(
+            register = Register.Level, humour = Humour.None, profanity = Profanity.Off,
+            emoji = Emoji.Off, pushback = Pushback.Sometimes, advice = Advice.OnlyIfAsked
+        )
     }),
     Dry("Dry", "Deadpan, understated, quietly funny", {
-        VoiceProfile(Register.Dry, Humour.Dry, Profanity.Mild, Pushback.Sometimes, Advice.OnlyIfAsked)
+        VoiceProfile(
+            register = Register.Dry, humour = Humour.Dry, profanity = Profanity.Mild,
+            // Deadpan undercuts itself with a smiley attached.
+            emoji = Emoji.Off, pushback = Pushback.Sometimes, advice = Advice.OnlyIfAsked
+        )
     }),
     Blunt("Blunt", "Tells you what it actually thinks", {
-        VoiceProfile(Register.Blunt, Humour.Dry, Profanity.Mild, Pushback.Challenge, Advice.Freely)
+        VoiceProfile(
+            register = Register.Blunt, humour = Humour.Dry, profanity = Profanity.Mild,
+            emoji = Emoji.Off, pushback = Pushback.Challenge, advice = Advice.Freely
+        )
     }),
     Unfiltered("Unfiltered", "Swears, argues, goes dark with you", {
-        VoiceProfile(Register.Blunt, Humour.Dark, Profanity.Unrestrained, Pushback.Challenge, Advice.Freely)
+        VoiceProfile(
+            register = Register.Blunt, humour = Humour.Dark, profanity = Profanity.Unrestrained,
+            emoji = Emoji.Sparing, pushback = Pushback.Challenge, advice = Advice.Freely
+        )
     });
 
     companion object {
@@ -114,6 +163,7 @@ data class VoiceProfile(
     val register: Register = Register.Warm,
     val humour: Humour = Humour.Light,
     val profanity: Profanity = Profanity.Off,
+    val emoji: Emoji = Emoji.Sparing,
     val pushback: Pushback = Pushback.Never,
     val advice: Advice = Advice.OnlyIfAsked,
     /**
@@ -140,6 +190,7 @@ data class VoiceProfile(
         add(register.instruction)
         humour.instruction?.let { add(it) }
         profanity.instruction?.let { add(it) }
+        emoji.instruction?.let { add(it) }
         add(pushback.instruction)
         add(advice.instruction)
     }
