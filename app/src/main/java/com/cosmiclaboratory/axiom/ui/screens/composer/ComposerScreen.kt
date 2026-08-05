@@ -17,6 +17,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.design.AxiomDimens
 import com.cosmiclaboratory.axiom.ui.design.ReadingColumn
@@ -55,6 +59,17 @@ fun ComposerScreen(
     val focusMode = state.mode == ComposerMode.Focus
 
     BackHandler { viewModel.saveAndExit(onBack) }
+
+    // Home button, app switcher, or the system killing us: keep the entry rather
+    // than leaving it a draft nobody can find.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) viewModel.finishIfWritten()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = modifier
@@ -162,7 +177,9 @@ private fun ComposerTopBar(
         )
         Spacer(Modifier.width(AxiomTheme.space.sm))
         TextButton(onClick = onDone) {
-            Text("Done", style = AxiomTheme.type.uiLabel, color = AxiomTheme.colors.accent)
+            // "Keep" matches the word used on the home composer, and says what
+            // happens rather than announcing that you are finished.
+            Text("Keep", style = AxiomTheme.type.uiLabel, color = AxiomTheme.colors.accent)
         }
     }
 }

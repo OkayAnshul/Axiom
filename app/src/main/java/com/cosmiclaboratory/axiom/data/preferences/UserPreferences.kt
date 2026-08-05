@@ -10,6 +10,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.cosmiclaboratory.axiom.data.security.SecureKeyStore
 import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
+import com.cosmiclaboratory.axiom.domain.voice.VoicePreset
+import com.cosmiclaboratory.axiom.domain.voice.VoiceProfile
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -46,8 +48,88 @@ class UserPreferences @Inject constructor(
     /** ISO date of the last unprompted companion message — enforces one per day. */
     val lastProactiveDate: Flow<String> = store.data.map { it[KEY_LAST_PROACTIVE_DATE].orEmpty() }
 
+    /**
+     * Whatever is sitting unsent in the home composer.
+     *
+     * The journal composer has persisted from the first keystroke since it was
+     * written; the home box never did, so a half-typed thought — or a long voice
+     * dictation — died with the process. Two boxes that look the same should not
+     * have opposite odds of keeping your words.
+     */
+    val companionDraft: Flow<String> = store.data.map { it[KEY_COMPANION_DRAFT].orEmpty() }
+
+    /**
+     * ISO date of the last time someone plainly said they were struggling.
+     *
+     * Read only to suppress the cheerful unprompted check-in: following "I don't
+     * want to be here anymore" with tomorrow's breezy "how did your day go?"
+     * would be the single worst thing this app could say.
+     */
+    val lastDistressDate: Flow<String> = store.data.map { it[KEY_LAST_DISTRESS_DATE].orEmpty() }
+
+    /**
+     * How the companion talks.
+     *
+     * Lives here rather than in `persona_settings` because that table is
+     * seed-only and structurally immutable — its DAO has no update or upsert,
+     * and `OnConflictStrategy.IGNORE` on a unique index means even re-seeding
+     * cannot change a row. Storing the voice as preferences also keeps presets
+     * as code, versioned with the app, and needs no schema migration.
+     */
+    val voice: Flow<VoiceProfile> = store.data.map { prefs ->
+        val preset = VoicePreset.fromStorage(prefs[KEY_VOICE_PRESET])
+        val base = preset.profile()
+        VoiceProfile(
+            register = enumOr(prefs[KEY_VOICE_REGISTER], base.register),
+            humour = enumOr(prefs[KEY_VOICE_HUMOUR], base.humour),
+            profanity = enumOr(prefs[KEY_VOICE_PROFANITY], base.profanity),
+            pushback = enumOr(prefs[KEY_VOICE_PUSHBACK], base.pushback),
+            advice = enumOr(prefs[KEY_VOICE_ADVICE], base.advice),
+            customInstruction = prefs[KEY_VOICE_CUSTOM].orEmpty(),
+            softenWhenStruggling = prefs[KEY_VOICE_SOFTEN] ?: true,
+            preset = preset
+        )
+    }
+
+    private inline fun <reified T : Enum<T>> enumOr(raw: String?, fallback: T): T =
+        raw?.let { name -> enumValues<T>().firstOrNull { it.name == name } } ?: fallback
+
+    /** Applying a preset clears the dials so the preset's own values take effect. */
+    suspend fun applyVoicePreset(preset: VoicePreset) {
+        store.edit { prefs ->
+            prefs[KEY_VOICE_PRESET] = preset.name
+            prefs.remove(KEY_VOICE_REGISTER)
+            prefs.remove(KEY_VOICE_HUMOUR)
+            prefs.remove(KEY_VOICE_PROFANITY)
+            prefs.remove(KEY_VOICE_PUSHBACK)
+            prefs.remove(KEY_VOICE_ADVICE)
+        }
+    }
+
+    suspend fun setVoice(profile: VoiceProfile) {
+        store.edit { prefs ->
+            prefs[KEY_VOICE_PRESET] = profile.preset.name
+            prefs[KEY_VOICE_REGISTER] = profile.register.name
+            prefs[KEY_VOICE_HUMOUR] = profile.humour.name
+            prefs[KEY_VOICE_PROFANITY] = profile.profanity.name
+            prefs[KEY_VOICE_PUSHBACK] = profile.pushback.name
+            prefs[KEY_VOICE_ADVICE] = profile.advice.name
+            prefs[KEY_VOICE_SOFTEN] = profile.softenWhenStruggling
+            val custom = profile.customInstruction.trim().take(VoiceProfile.MAX_CUSTOM_LENGTH)
+            if (custom.isBlank()) prefs.remove(KEY_VOICE_CUSTOM) else prefs[KEY_VOICE_CUSTOM] = custom
+        }
+    }
+
     // v2: theme override (-1 = follow system, 0 = light, 1 = dark, 2 = amoled)
     val themeOverride: Flow<Int> = store.data.map { it[KEY_THEME_OVERRIDE] ?: -1 }
+
+    /**
+     * Let the palette drift with the time of day — warm at breakfast, neutral
+     * through the afternoon, amber by evening. On by default: it is the point of
+     * the theme, and it stays inside whichever light or dark family the user
+     * chose, so it can never flip someone into a mode they didn't ask for.
+     */
+    val adaptiveLight: Flow<Boolean> = store.data.map { it[KEY_ADAPTIVE_LIGHT] ?: true }
 
     /**
      * Backwards-compatibility shim. v2 pulls the key from [SecureKeyStore]; if a legacy
@@ -132,6 +214,20 @@ class UserPreferences @Inject constructor(
         store.edit { it[KEY_THEME_OVERRIDE] = value.coerceIn(-1, 2) }
     }
 
+    suspend fun setLastDistressDate(isoDate: String) {
+        store.edit { it[KEY_LAST_DISTRESS_DATE] = isoDate }
+    }
+
+    suspend fun setCompanionDraft(value: String) {
+        store.edit { prefs ->
+            if (value.isBlank()) prefs.remove(KEY_COMPANION_DRAFT) else prefs[KEY_COMPANION_DRAFT] = value
+        }
+    }
+
+    suspend fun setAdaptiveLight(value: Boolean) {
+        store.edit { it[KEY_ADAPTIVE_LIGHT] = value }
+    }
+
     private companion object {
         val KEY_ONBOARDING_COMPLETE = booleanPreferencesKey("onboarding_complete")
         val KEY_ACTIVE_PERSONA = stringPreferencesKey("active_persona_id")
@@ -146,6 +242,17 @@ class UserPreferences @Inject constructor(
         val KEY_DAILY_NUDGE_MINUTE = intPreferencesKey("daily_nudge_minute")
         val KEY_LAST_PROACTIVE_DATE = stringPreferencesKey("last_proactive_date")
         val KEY_THEME_OVERRIDE = intPreferencesKey("theme_override")
+        val KEY_ADAPTIVE_LIGHT = booleanPreferencesKey("adaptive_light")
+        val KEY_COMPANION_DRAFT = stringPreferencesKey("companion_draft")
+        val KEY_LAST_DISTRESS_DATE = stringPreferencesKey("last_distress_date")
+        val KEY_VOICE_PRESET = stringPreferencesKey("voice_preset")
+        val KEY_VOICE_REGISTER = stringPreferencesKey("voice_register")
+        val KEY_VOICE_HUMOUR = stringPreferencesKey("voice_humour")
+        val KEY_VOICE_PROFANITY = stringPreferencesKey("voice_profanity")
+        val KEY_VOICE_PUSHBACK = stringPreferencesKey("voice_pushback")
+        val KEY_VOICE_ADVICE = stringPreferencesKey("voice_advice")
+        val KEY_VOICE_CUSTOM = stringPreferencesKey("voice_custom")
+        val KEY_VOICE_SOFTEN = booleanPreferencesKey("voice_soften_when_struggling")
         val KEY_AI_VENDOR = stringPreferencesKey("ai_vendor")
     }
 }

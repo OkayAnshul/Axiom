@@ -6,7 +6,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
+import com.cosmiclaboratory.axiom.data.ai.AiTasks
+import com.cosmiclaboratory.axiom.data.ai.PromptTemplates
+import com.cosmiclaboratory.axiom.data.ai.dto.EntryInsightPayload
 import com.cosmiclaboratory.axiom.data.companion.MemoryExtractor
+import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
+import kotlinx.serialization.json.Json
 import com.cosmiclaboratory.axiom.data.database.entity.AIInsightEntity
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
@@ -29,7 +34,9 @@ class SummarizeEntryWorker @AssistedInject constructor(
     private val personaRepo: PersonaRepository,
     private val journalRepo: JournalRepository,
     private val questionRepo: QuestionRepository,
-    private val extractor: MemoryExtractor
+    private val extractor: MemoryExtractor,
+    private val memories: MemoryRepository,
+    private val json: Json
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -43,12 +50,31 @@ class SummarizeEntryWorker @AssistedInject constructor(
         val plain = entry.content.ifBlank { entry.markdown }
         if (plain.isBlank()) return Result.success()
 
-        val personaKey = prefs.activePersonaKey.first()
-        val persona = personaRepo.getByKey(personaKey) ?: return Result.success()
+        /*
+         * One call, on the strong model. Summary, follow-up question, themes,
+         * mood, title AND memory deltas now come from a single read of the
+         * entry — it used to be sent twice, once to summarize and once to
+         * extract, over exactly the same text.
+         */
+        val snapshot = runCatching { memories.snapshotForExtraction(MEMORY_SNAPSHOT) }
+            .getOrDefault(emptyList())
+        val result = aiProvider.completeJson(
+            systemPrompt = PromptTemplates.ENTRY_SYSTEM,
+            userPrompt = PromptTemplates.entryInsight(
+                plainText = plain,
+                hasTitle = entry.title.isNotBlank(),
+                existingItems = snapshot.map { Triple(it.id, it.kind.name, it.text) }
+            ),
+            maxTokens = INSIGHT_MAX_TOKENS,
+            model = AiTasks.QUALITY
+        )
 
-        return when (val result = aiProvider.summarizeEntry(plain, persona)) {
+        return when (result) {
             is AiResult.Ok -> {
-                val v = result.value
+                val v = runCatching {
+                    json.decodeFromString(EntryInsightPayload.serializer(), result.value)
+                }.getOrNull() ?: return Result.success()
+
                 journalRepo.saveInsight(
                     AIInsightEntity(
                         entryId = entryId,
@@ -70,11 +96,20 @@ class SummarizeEntryWorker @AssistedInject constructor(
                 EmotionMapper.fromWord(v.mood)?.let { emotion ->
                     journalRepo.setInferredMood(entryId, emotion)
                 }
-                // Best-effort memory extraction. CONVERSATION digests are skipped —
-                // their raw transcript was already extracted by the digest worker,
-                // and extracting the digest again would double-count everything.
+                // Only ever fills a blank. A title the user wrote is theirs, and
+                // a later edit must never be overwritten by a background job.
+                if (entry.title.isBlank() && v.title.isNotBlank()) {
+                    runCatching { journalRepo.setTitleIfBlank(entryId, v.title.trim().take(MAX_TITLE)) }
+                }
+                // Themes were extracted, shown as chips, and went nowhere.
+                // Promoting them to real tags makes them searchable and feeds
+                // the Patterns tab for free.
+                runCatching { journalRepo.attachThemeTags(entryId, v.themes.take(MAX_THEME_TAGS)) }
+                // CONVERSATION entries are skipped: their transcript was already
+                // extracted by the digest worker, and extracting the digest of
+                // it again would double-count everything.
                 if (entry.kind != EntryKind.CONVERSATION) {
-                    runCatching { extractor.extract(plain, MemorySource.ENTRY, entryId) }
+                    runCatching { extractor.applyRawBlock(v.memory, MemorySource.ENTRY, entryId) }
                 }
                 Result.success()
             }
@@ -87,5 +122,11 @@ class SummarizeEntryWorker @AssistedInject constructor(
 
     companion object {
         const val KEY_ENTRY_ID = "entry_id"
+
+        /** Room for summary + follow-up + themes + title + memory deltas. */
+        const val INSIGHT_MAX_TOKENS = 700
+        const val MEMORY_SNAPSHOT = 24
+        const val MAX_TITLE = 60
+        const val MAX_THEME_TAGS = 3
     }
 }

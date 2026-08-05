@@ -85,12 +85,13 @@ fun MemoryScreen(
             )
         }
     ) { padding ->
-        if (state.loaded && state.groups.isEmpty()) {
+        if (state.loaded && state.groups.isEmpty() && state.openLoops.isEmpty()) {
             AxiomEmptyState(
-                title = "Nothing remembered yet",
-                body = "As you talk and write, your companion quietly keeps what matters — " +
-                    "people, goals, recurring themes. Everything it keeps shows up here, " +
-                    "and it never leaves this device except inside your own conversations.",
+                title = "We're just getting started",
+                body = "As you talk and write, I'll quietly keep what matters — the people you " +
+                    "mention, what you're working towards, the things that keep coming back. " +
+                    "Everything I keep shows up here, and none of it leaves this device except " +
+                    "inside your own conversations.",
                 icon = Icons.Outlined.Psychology,
                 modifier = Modifier.fillMaxSize().padding(padding)
             )
@@ -100,6 +101,14 @@ fun MemoryScreen(
                 contentPadding = PaddingValues(AxiomTheme.space.screenH),
                 verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.sm)
             ) {
+                if (state.openLoops.isNotEmpty()) {
+                    item(key = "openLoops") {
+                        OpenLoopsSection(
+                            loops = state.openLoops,
+                            onDismissLoop = viewModel::dismissLoop
+                        )
+                    }
+                }
                 state.groups.forEach { (kind, items) ->
                     item(key = "header-${kind.name}") {
                         SectionHeader(kindLabel(kind), Modifier.padding(top = AxiomTheme.space.sm))

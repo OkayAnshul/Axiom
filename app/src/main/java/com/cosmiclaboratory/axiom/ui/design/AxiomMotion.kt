@@ -1,11 +1,17 @@
 package com.cosmiclaboratory.axiom.ui.design
 
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
 
 /**
@@ -56,6 +62,37 @@ data class AxiomMotion(
         dampingRatio = Spring.DampingRatioNoBouncy,
         stiffness = 800f
     ),
+    /**
+     * ~5.5s in and out. The resting pulse of the app: the ambient background,
+     * the thinking dots, the listening waveform.
+     *
+     * Slow enough that it reads as breathing rather than as animation — if you
+     * can watch it and count, it is too fast.
+     */
+    val breathe: InfiniteRepeatableSpec<Float> = infiniteRepeatable(
+        animation = tween(durationMillis = 5_500, easing = FastOutSlowInEasing),
+        repeatMode = RepeatMode.Reverse
+    ),
+
+    /**
+     * ~45s. The drift of light across the ambient canvas. Deliberately far slower
+     * than [breathe] so the two never visibly beat against each other.
+     */
+    val ambientDrift: InfiniteRepeatableSpec<Float> = infiniteRepeatable(
+        animation = tween(durationMillis = 45_000, easing = LinearEasing),
+        repeatMode = RepeatMode.Reverse
+    ),
+
+    /**
+     * Page transitions. Fade only — no slide, no scale. Sliding implies a
+     * sequence and scaling implies a hierarchy; between peer surfaces in a
+     * conversation app, neither is true. Pages should dissolve.
+     */
+    val dissolve: FiniteAnimationSpec<Float> = tween(
+        durationMillis = 260,
+        easing = FastOutSlowInEasing
+    ),
+
     /** True when the platform has animations disabled; see [reduced]. */
     val isReduced: Boolean = false
 ) {
@@ -95,7 +132,20 @@ data class AxiomMotion(
             spatialSlow = snapSpring(),
             effectsQuick = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 3000f),
             effectsStandard = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 3000f),
+            // Perpetual motion is the first thing to go: breathing and drifting
+            // are ambience, and ambience is exactly what vestibular sensitivity
+            // and battery saving are asking us to stop. Held at one frame
+            // forever, so call sites need no branch of their own.
+            breathe = stillRepeatable(),
+            ambientDrift = stillRepeatable(),
+            dissolve = snap(),
             isReduced = true
+        )
+
+        /** Repeats a single unchanging frame; visually static, structurally a spec. */
+        private fun stillRepeatable(): InfiniteRepeatableSpec<Float> = infiniteRepeatable(
+            animation = tween(durationMillis = Int.MAX_VALUE, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
         )
 
         /** Stiff enough to be visually instant while remaining a spring. */

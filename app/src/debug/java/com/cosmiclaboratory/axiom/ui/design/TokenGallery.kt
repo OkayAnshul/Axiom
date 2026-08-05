@@ -17,6 +17,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
+import java.time.LocalTime
 import kotlin.math.max
 import kotlin.math.min
 
@@ -90,6 +91,10 @@ fun TokenGallery(modifier: Modifier = Modifier) {
     val t = AxiomTheme.type
 
     val typeSamples = listOf<Pair<String, TextStyle>>(
+        // Fraunces first: its axes are set explicitly, and a regression there
+        // shows up as ultra-bold text rather than as a missing font.
+        "greeting (Fraunces)" to t.greeting,
+        "greetingLead (Fraunces)" to t.greetingLead,
         "promptDisplay" to t.promptDisplay,
         "readingTitle" to t.readingTitle,
         "readingLead" to t.readingLead,
@@ -152,8 +157,12 @@ fun TokenGallery(modifier: Modifier = Modifier) {
                 ContrastRow("ink on canvas", c.ink, c.canvas)
                 ContrastRow("ink on surface", c.ink, c.surface)
                 ContrastRow("inkMuted on canvas", c.inkMuted, c.canvas)
+                ContrastRow("inkMuted on surface", c.inkMuted, c.surface)
                 ContrastRow("inkFaint on canvas", c.inkFaint, c.canvas)
                 ContrastRow("inkFaint on surface", c.inkFaint, c.surface)
+                // sunken is the tightest background for faint text and was where
+                // the first pass of this palette failed; keep it checked.
+                ContrastRow("inkFaint on sunken", c.inkFaint, c.surfaceSunken)
                 ContrastRow("onAccent on accent", c.onAccent, c.accent)
                 ContrastRow("onAccentSoft on accentSoft", c.onAccentSoft, c.accentSoft)
                 ContrastRow("onAiTintSoft on aiTintSoft", c.onAiTintSoft, c.aiTintSoft)
@@ -162,6 +171,7 @@ fun TokenGallery(modifier: Modifier = Modifier) {
                 ContrastRow("positive on canvas", c.positive, c.canvas)
                 ContrastRow("caution on canvas", c.caution, c.canvas)
                 ContrastRow("outline on canvas (UI)", c.outline, c.canvas, large = true)
+                ContrastRow("outline on surface (UI)", c.outline, c.surface, large = true)
             }
         }
 
@@ -207,18 +217,57 @@ fun TokenGallery(modifier: Modifier = Modifier) {
     }
 }
 
-// Every palette, so a change is checked in all three at once.
-@Preview(name = "Paper light", heightDp = 1600)
+/*
+ * Every anchor AND the blends between them.
+ *
+ * The adaptive palette spends most of the day rendering a point *between* two
+ * anchors, and interpolating between two AA-passing colours does not guarantee
+ * an AA-passing midpoint — nothing in the maths says the ratio moves
+ * monotonically. So the 11:00 and 20:30 previews below are not decoration: they
+ * are the cases that actually failed on the first pass of this palette, and the
+ * contrast section must read PASS in all of them.
+ *
+ * The hour is injected rather than mocked; see AxiomTheme's `clock` parameter.
+ */
+@Preview(name = "Morning 08:00", heightDp = 1700)
 @Composable
-private fun PreviewLight() = AxiomTheme(themeMode = ThemeMode.LIGHT) { TokenGallery() }
+private fun PreviewMorning() =
+    AxiomTheme(themeMode = ThemeMode.LIGHT, clock = { LocalTime.of(8, 0) }) { TokenGallery() }
 
-@Preview(name = "Soft dark", heightDp = 1600)
+@Preview(name = "Morning~Day blend 11:00", heightDp = 1700)
 @Composable
-private fun PreviewSoftDark() = AxiomTheme(themeMode = ThemeMode.DARK) { TokenGallery() }
+private fun PreviewMorningDayBlend() =
+    AxiomTheme(themeMode = ThemeMode.LIGHT, clock = { LocalTime.of(11, 0) }) { TokenGallery() }
 
-@Preview(name = "OLED", heightDp = 1600)
+@Preview(name = "Day 14:00", heightDp = 1700)
+@Composable
+private fun PreviewDay() =
+    AxiomTheme(themeMode = ThemeMode.LIGHT, clock = { LocalTime.of(14, 0) }) { TokenGallery() }
+
+@Preview(name = "Dusk 19:00", heightDp = 1700)
+@Composable
+private fun PreviewDusk() =
+    AxiomTheme(themeMode = ThemeMode.DARK, clock = { LocalTime.of(19, 0) }) { TokenGallery() }
+
+@Preview(name = "Dusk~Night blend 20:30", heightDp = 1700)
+@Composable
+private fun PreviewDuskNightBlend() =
+    AxiomTheme(themeMode = ThemeMode.DARK, clock = { LocalTime.of(20, 30) }) { TokenGallery() }
+
+@Preview(name = "Night 00:00", heightDp = 1700)
+@Composable
+private fun PreviewNight() =
+    AxiomTheme(themeMode = ThemeMode.DARK, clock = { LocalTime.of(0, 0) }) { TokenGallery() }
+
+@Preview(name = "Midnight OLED", heightDp = 1700)
 @Composable
 private fun PreviewOled() = AxiomTheme(themeMode = ThemeMode.AMOLED) { TokenGallery() }
+
+/** Adaptive off: the palette must hold still at whatever hour it is. */
+@Preview(name = "Adaptive off, light", heightDp = 1700)
+@Composable
+private fun PreviewAdaptiveOff() =
+    AxiomTheme(themeMode = ThemeMode.LIGHT, adaptiveLight = false) { TokenGallery() }
 
 // 200% font scale — where clipped labels and broken layouts surface.
 @Preview(name = "OLED @200% font", heightDp = 2400, fontScale = 2.0f)

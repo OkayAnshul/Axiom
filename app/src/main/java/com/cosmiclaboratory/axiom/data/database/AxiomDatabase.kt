@@ -67,7 +67,7 @@ import com.cosmiclaboratory.axiom.data.database.entity.*
         CompanionMessageEntity::class,
         CompanionThreadStateEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(DateTimeConverter::class)
@@ -89,6 +89,6 @@ abstract class AxiomDatabase : RoomDatabase() {
         const val DATABASE_NAME = "axiom_database"
 
         /** Keep in step with the @Database version; migration tests assert against it. */
-        const val LATEST_VERSION = 8
+        const val LATEST_VERSION = 9
     }
 }

@@ -4,8 +4,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.OffsetMapping
 import com.cosmiclaboratory.axiom.ui.design.components.MarkdownSyntaxHighlight
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTypography
-import com.cosmiclaboratory.axiom.ui.theme.OledDarkColors
-import com.cosmiclaboratory.axiom.ui.theme.PaperLightColors
+import com.cosmiclaboratory.axiom.ui.theme.NightInkColors
+import com.cosmiclaboratory.axiom.ui.theme.MorningPaperColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -22,7 +22,7 @@ import org.junit.Test
  */
 class MarkdownSyntaxHighlightTest {
 
-    private val transform = MarkdownSyntaxHighlight(OledDarkColors, AxiomTypography())
+    private val transform = MarkdownSyntaxHighlight(NightInkColors, AxiomTypography())
 
     private val samples = listOf(
         "",
@@ -118,7 +118,7 @@ class MarkdownSyntaxHighlightTest {
 
     @Test
     fun `works with both palettes`() {
-        val light = MarkdownSyntaxHighlight(PaperLightColors, AxiomTypography())
+        val light = MarkdownSyntaxHighlight(MorningPaperColors, AxiomTypography())
         val input = "# Title with **bold**"
         assertEquals(input, light.filter(AnnotatedString(input)).text.text)
     }

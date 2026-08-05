@@ -51,8 +51,31 @@ object AxiomMigrations {
         }
     }
 
+    /**
+     * Clears `sourceId` on memories the local conversation digester wrote.
+     *
+     * It stored the journal *entry* id there while marking the row
+     * `source = CONVERSATION`, so the pointer resolved against the wrong table —
+     * entry 5 and message 5 are unrelated rows that happen to share a number.
+     * The correct id was never recorded and cannot be recovered, so the repair
+     * is to admit that: a null sourceId reads as "we don't know which turn",
+     * which is true, where the old value silently asserted a specific wrong one.
+     *
+     * Nothing else depends on it — `MemorySource` still says these came from a
+     * conversation, and the "why do you remember this" copy degrades to the
+     * source alone.
+     */
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "UPDATE `memory_items` SET `sourceId` = NULL " +
+                    "WHERE `sourceType` = 'CONVERSATION' AND `sourceId` IS NOT NULL"
+            )
+        }
+    }
+
     /** Every migration, in order. Passed wholesale to the database builder. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9)
 
     /**
      * True when [ALL] forms an unbroken chain from [BASELINE_VERSION] to

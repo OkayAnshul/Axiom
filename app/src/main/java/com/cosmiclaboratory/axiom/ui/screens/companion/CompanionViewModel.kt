@@ -18,11 +18,15 @@ import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.domain.model.humanizedMemory
+import com.cosmiclaboratory.axiom.domain.safety.CareLevel
+import com.cosmiclaboratory.axiom.domain.safety.DistressSignal
 import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionResult
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.toAxiomError
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +36,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 data class CompanionUiMessage(
@@ -39,7 +44,13 @@ data class CompanionUiMessage(
     val isUser: Boolean,
     val text: String,
     val createdAt: LocalDateTime,
-    val citedEntryIds: List<Long> = emptyList()
+    val citedEntryIds: List<Long> = emptyList(),
+    /**
+     * True for assistant messages the app composed on-device — the daily opener
+     * and its question. These are the ones worth offering to write about: they
+     * are prompts, not conversation.
+     */
+    val isPrompt: Boolean = false
 )
 
 data class CompanionUiState(
@@ -52,6 +63,27 @@ data class CompanionUiState(
     val keyConnected: Boolean = false,
     /** Entries cited by the most recent answer, rendered as tappable chips. */
     val citedEntries: List<Entry> = emptyList(),
+    // ---- the greeting -------------------------------------------------------
+    /** "Good evening, Anshul". Recomputed on every resume, so it never goes stale. */
+    val greeting: String = "Hello",
+    /** One warm sentence under the greeting, read from local signals only. */
+    val greetingLead: String? = null,
+    /** How much the two of you have kept. Drives the way into the journal. */
+    val entryCount: Int = 0,
+    /**
+     * Something written a while ago, offered back occasionally. Rereading your
+     * own past is the strongest reason anyone keeps a journal, and it costs no
+     * key and no network.
+     */
+    val resurfaced: Entry? = null,
+    // ---- keeping ------------------------------------------------------------
+    /** Set briefly after "Keep" saves a thought, so the screen can confirm it. */
+    val keptEntryId: Long? = null,
+    /**
+     * Set when someone has plainly said they are struggling. Offers help; never
+     * interrupts, blocks, or changes the subject.
+     */
+    val care: CareLevel? = null,
     // ---- ritual header (the Today remnant: one thin row, not a dashboard) ----
     val streak: StreakCalculator.Result = StreakCalculator.Result(0, 0, List(7) { false }),
     val todayMood: Int? = null,
@@ -70,6 +102,12 @@ data class CompanionUiState(
     val speaking: Boolean = false,
     /** On-device TTS engine initialized and usable; hides speak affordances when false. */
     val ttsAvailable: Boolean = false,
+    /**
+     * Which message is being read aloud, so its own control can become a stop.
+     * Without this the speaker had no off switch: [CompanionSpeaker.stop] existed
+     * and was never reachable from the UI.
+     */
+    val speakingMessageId: Long? = null,
     val autoSpeak: Boolean = false,
     val handsFree: Boolean = false,
     val voiceLanguage: VoiceLanguage = VoiceLanguage.ENGLISH_IN,
@@ -104,7 +142,18 @@ class CompanionViewModel @Inject constructor(
     /** Streamed text not yet flushed to the speaker as a complete sentence. */
     private var speechTail: String = ""
 
+    /** Debounces persistence of the unsent draft; see [setDraft]. */
+    private var draftPersistJob: Job? = null
+
     init {
+        // Restore before anything else can touch the field, so a thought you were
+        // part-way through is waiting where you left it.
+        viewModelScope.launch {
+            val saved = runCatching { prefs.companionDraft.first() }.getOrDefault("")
+            if (saved.isNotBlank()) {
+                _state.update { if (it.draft.isBlank()) it.copy(draft = saved) else it }
+            }
+        }
         viewModelScope.launch {
             maybePostDailyOpener()
             companionRepo.observeThread(THREAD_ID).collect { rows ->
@@ -118,7 +167,9 @@ class CompanionViewModel @Inject constructor(
                                 createdAt = row.createdAt,
                                 citedEntryIds = row.citedEntryIdsCsv
                                     .split(",")
-                                    .mapNotNull { it.trim().toLongOrNull() }
+                                    .mapNotNull { it.trim().toLongOrNull() },
+                                isPrompt = row.source == CompanionMessageEntity.Source.LOCAL.name &&
+                                    row.role == CompanionMessageEntity.Role.ASSISTANT.name
                             )
                         }
                     )
@@ -132,8 +183,9 @@ class CompanionViewModel @Inject constructor(
         }
         viewModelScope.launch {
             // Streak, mood and the draft chip all derive from the corpus, so they
-            // recompute whenever it changes — not only on first load.
-            entries.observeAll().collect { refreshRitual() }
+            // recompute whenever it changes — not only on first load. The list is
+            // passed through rather than re-queried inside.
+            entries.observeAll().collect { all -> refreshRitual(all) }
         }
         // ---- voice wiring ----------------------------------------------------
         viewModelScope.launch {
@@ -152,7 +204,15 @@ class CompanionViewModel @Inject constructor(
         }
         viewModelScope.launch {
             speaker.speaking.collect { speaking ->
-                _state.update { it.copy(speaking = speaking) }
+                // Clearing the id here covers every way speech can end — finished
+                // naturally, barged in on, or stopped — so the control can never
+                // be left showing a stop for something already silent.
+                _state.update {
+                    it.copy(
+                        speaking = speaking,
+                        speakingMessageId = if (speaking) it.speakingMessageId else null
+                    )
+                }
                 // Hands-free loop: the companion finished talking → listen again.
                 val s = _state.value
                 if (!speaking && s.handsFree && !s.sending && !s.listening && !s.transcribing) {
@@ -240,12 +300,50 @@ class CompanionViewModel @Inject constructor(
     }
 
     /** Per-message play button: read one past reply aloud. */
-    fun speakMessage(text: String) {
+    fun speakMessage(id: Long, text: String) {
         speaker.stop()
+        _state.update { it.copy(speakingMessageId = id) }
         val (sentences, tail) = extractSpeakableSentences(text)
         sentences.forEach { speaker.speakSentence(it) }
         if (tail.isNotBlank()) speaker.speakSentence(tail)
     }
+
+    /** The off switch. Reachable from the same control that started it. */
+    fun stopSpeaking() {
+        speaker.stop()
+        _state.update { it.copy(speakingMessageId = null) }
+    }
+
+    /**
+     * Keeps a thought in the journal without asking the companion anything.
+     *
+     * This is the half of the app that needs no API key, and until now the only
+     * way to reach it from here was to send, fail, and accept a consolation
+     * offer. Saved complete so it lands in the timeline immediately rather than
+     * as a draft.
+     */
+    fun keepDraft() {
+        val text = _state.value.draft.trim()
+        if (text.isBlank()) return
+        clearPersistedDraft()
+        _state.update { it.copy(draft = "") }
+        viewModelScope.launch {
+            val id = runCatching {
+                entries.upsert(
+                    Entry(
+                        content = text,
+                        kind = EntryKind.FREE_FORM,
+                        isComplete = true,
+                        wordCount = text.split(Regex("\\s+")).count { w -> w.isNotBlank() },
+                        charCount = text.length
+                    )
+                )
+            }.getOrNull()
+            if (id != null) _state.update { it.copy(keptEntryId = id) }
+        }
+    }
+
+    fun clearKept() = _state.update { it.copy(keptEntryId = null) }
 
     fun dismissVoiceError() = _state.update { it.copy(voiceError = null) }
 
@@ -264,14 +362,15 @@ class CompanionViewModel @Inject constructor(
     private suspend fun maybePostDailyOpener() {
         val latest = companionRepo.latestMessage(THREAD_ID)
         if (latest != null && latest.createdAt.toLocalDate() == LocalDate.now()) return
-        val name = prefs.displayName.first()
-        val greeting = greetingFor(LocalTime.now(), name)
 
+        // No greeting prefix: CompanionGreeting says "Good evening, Anshul" above
+        // the conversation, and hearing it twice makes the companion sound like a
+        // recording. The opener carries only what it uniquely knows.
         val loop = runCatching { memories.dueOpenLoops(limit = 1) }.getOrDefault(emptyList()).firstOrNull()
         if (loop != null) {
             companionRepo.appendLocal(
                 THREAD_ID,
-                "$greeting. Earlier you mentioned: ${loop.text.humanizedMemory()} How did that go?"
+                "Earlier you mentioned: ${loop.text.humanizedMemory()} How did that go?"
             )
             // Asked once. The memory survives; only the follow-up closes.
             runCatching { memories.closeLoop(loop.id) }
@@ -280,24 +379,97 @@ class CompanionViewModel @Inject constructor(
 
         val prompt = runCatching { questions.nextQuestion(prefs.activePersonaKey.first()) }
             .getOrNull()?.text ?: FALLBACK_PROMPTS.random()
-        companionRepo.appendLocal(THREAD_ID, "$greeting. $prompt")
+        companionRepo.appendLocal(THREAD_ID, prompt)
     }
 
-    private suspend fun refreshRitual() {
+    private suspend fun refreshRitual(allEntries: List<Entry> = emptyList()) {
         val today = LocalDate.now()
         val todaysEntries = runCatching { entries.forDay(today) }.getOrDefault(emptyList())
         // A mood the user chose outranks one that was read from their writing.
         val chosen = todaysEntries.firstOrNull { e -> e.mood != null && e.moodCapturedAt != null }
         val inferred = todaysEntries.firstOrNull { e -> e.mood != null && e.moodCapturedAt == null }
         val source = chosen ?: inferred
+
+        // Hoisted out of the update lambda below: MutableStateFlow.update retries
+        // its lambda on CAS contention, and re-running database reads there would
+        // do real work twice for no reason.
+        val dates = runCatching { entries.entryDates() }.getOrDefault(emptySet())
+        val streak = StreakCalculator.compute(dates)
+        val draft = runCatching { entries.drafts(1).firstOrNull() }.getOrNull()
+        val name = runCatching { prefs.displayName.first() }.getOrDefault("")
+        val lastWritten = dates.filter { it.isBefore(today) }.maxOrNull()
+
         _state.update {
             it.copy(
-                streak = StreakCalculator.compute(entries.entryDates()),
+                entryCount = allEntries.count { e -> e.isComplete && !e.isArchived },
+                resurfaced = pickResurfaced(allEntries, today),
+                greeting = greetingFor(LocalTime.now(), name),
+                greetingLead = greetingLeadFor(
+                    streak = streak,
+                    wroteToday = todaysEntries.isNotEmpty(),
+                    lastWritten = lastWritten,
+                    today = today,
+                    emotion = inferred?.emotion.takeIf { chosen == null }
+                ),
+                streak = streak,
                 todayMood = source?.mood,
                 todayEmotion = inferred?.emotion.takeIf { chosen == null },
                 todayMoodInferred = chosen == null && inferred != null,
-                writingDraft = entries.drafts(1).firstOrNull()
+                writingDraft = draft
             )
+        }
+    }
+
+    /**
+     * Something old, handed back.
+     *
+     * Chosen by the day of the year rather than at random, so it stays put while
+     * you look at it and changes tomorrow — a card that reshuffles on every
+     * recomposition is a slot machine, not a memory.
+     *
+     * Only entries older than [RESURFACE_MIN_AGE_DAYS] qualify: handing back
+     * something from Tuesday is not the same feeling at all.
+     */
+    private fun pickResurfaced(all: List<Entry>, today: LocalDate): Entry? {
+        val candidates = all.filter { e ->
+            e.isComplete && !e.isArchived && e.content.isNotBlank() &&
+                ChronoUnit.DAYS.between(e.createdAt.toLocalDate(), today) >= RESURFACE_MIN_AGE_DAYS
+        }
+        if (candidates.isEmpty()) return null
+        return candidates[today.dayOfYear % candidates.size]
+    }
+
+    /**
+     * The sentence under the greeting. Local signals only — no key, no network,
+     * no latency — so the app's warmest moment never depends on a model.
+     *
+     * Order is deliberate: an absence is worth naming before a streak is. Someone
+     * returning after a week should be met with "no need to catch me up", not
+     * congratulated on a number they just lost.
+     */
+    private fun greetingLeadFor(
+        streak: StreakCalculator.Result,
+        wroteToday: Boolean,
+        lastWritten: LocalDate?,
+        today: LocalDate,
+        emotion: Emotion?
+    ): String {
+        val daysAway = lastWritten?.let { ChronoUnit.DAYS.between(it, today) }
+        return when {
+            lastWritten == null && !wroteToday ->
+                "I'm glad you're here. Tell me anything."
+            daysAway != null && daysAway >= 7L && !wroteToday ->
+                "It's been a little while. No need to catch me up all at once."
+            daysAway != null && daysAway >= 3L && !wroteToday ->
+                "You've been quiet lately. I've been wondering how you are."
+            wroteToday && emotion != null ->
+                "You sounded ${emotion.label.lowercase()} earlier. I've been thinking about it."
+            wroteToday ->
+                "You already wrote today. I'd still like to hear how it went."
+            streak.current >= 3 ->
+                "You've been showing up for yourself this week."
+            else ->
+                "I've been wondering how today treated you."
         }
     }
 
@@ -334,13 +506,56 @@ class CompanionViewModel @Inject constructor(
         }
     }
 
-    fun setDraft(value: String) = _state.update { it.copy(draft = value) }
+    /**
+     * Keeps the unsent draft across process death, debounced so a long thought
+     * is not a write per keystroke. Cleared the moment it becomes a message or
+     * an entry, so a stale thought never reappears under a new day's greeting.
+     */
+    fun setDraft(value: String) {
+        _state.update { it.copy(draft = value) }
+        draftPersistJob?.cancel()
+        draftPersistJob = viewModelScope.launch {
+            delay(DRAFT_PERSIST_DEBOUNCE_MS)
+            runCatching { prefs.setCompanionDraft(value) }
+        }
+    }
+
+    private fun clearPersistedDraft() {
+        draftPersistJob?.cancel()
+        viewModelScope.launch { runCatching { prefs.setCompanionDraft("") } }
+    }
 
     fun send() {
         val text = _state.value.draft.trim()
         if (text.isBlank() || _state.value.sending) return
-        _state.update { it.copy(draft = "", sending = true, error = null, lastFailedText = null) }
-        sendInternal(text, persistUserTurn = true)
+        clearPersistedDraft()
+        // Runs before the send so help is offered even if the model call fails,
+        // and so it works with no key at all — the person who most needs this is
+        // the one who never set one up.
+        val care = DistressSignal.detect(text)
+        _state.update {
+            it.copy(
+                draft = "",
+                sending = true,
+                error = null,
+                lastFailedText = null,
+                care = care ?: it.care
+            )
+        }
+        if (care != null) noteDistressToday()
+        sendInternal(text, persistUserTurn = true, care = care)
+    }
+
+    fun dismissCare() = _state.update { it.copy(care = null) }
+
+    /**
+     * Records the day so the proactive worker does not follow a disclosure like
+     * this with a breezy "how was your day?" tomorrow morning.
+     */
+    private fun noteDistressToday() {
+        viewModelScope.launch {
+            runCatching { prefs.setLastDistressDate(LocalDate.now().toString()) }
+        }
     }
 
     /**
@@ -352,13 +567,17 @@ class CompanionViewModel @Inject constructor(
         val lastUser = _state.value.messages.lastOrNull { it.isUser }?.text ?: return
         if (_state.value.sending) return
         _state.update { it.copy(sending = true, error = null, lastFailedText = null) }
-        sendInternal(lastUser, persistUserTurn = false)
+        sendInternal(lastUser, persistUserTurn = false, care = DistressSignal.detect(lastUser))
     }
 
-    private fun sendInternal(text: String, persistUserTurn: Boolean) {
+    private fun sendInternal(
+        text: String,
+        persistUserTurn: Boolean,
+        care: CareLevel? = null
+    ) {
         speechTail = ""
         viewModelScope.launch {
-            engine.send(THREAD_ID, text, persistUserTurn).collect { event ->
+            engine.send(THREAD_ID, text, persistUserTurn, care).collect { event ->
                 when (event) {
                     is CompanionReplyEvent.Delta -> {
                         _state.update {
@@ -426,12 +645,21 @@ class CompanionViewModel @Inject constructor(
         speaker.stop()
     }
 
+    /**
+     * The greeting is the largest thing on the screen, so it can afford to
+     * notice the hour rather than default to "Hello".
+     *
+     * The late slots are observations, not judgements — "Still up" is what a
+     * friend says at one in the morning; "You should be asleep" is what an app
+     * says. Nothing here implies you are doing it wrong.
+     */
     private fun greetingFor(time: LocalTime, name: String): String {
         val period = when (time.hour) {
             in 5..11 -> "Good morning"
             in 12..16 -> "Good afternoon"
-            in 17..20 -> "Good evening"
-            else -> "Hello"
+            in 17..21 -> "Good evening"
+            in 22..23 -> "Winding down"
+            else -> "Still up"
         }
         return if (name.isBlank()) period else "$period, $name"
     }
@@ -443,6 +671,12 @@ class CompanionViewModel @Inject constructor(
          * digest worker, never by switching threads.
          */
         const val THREAD_ID = "companion"
+
+        /** Below this, an entry is still recent enough that it wouldn't feel resurfaced. */
+        const val RESURFACE_MIN_AGE_DAYS = 21L
+
+        /** Long enough to coalesce typing, short enough to survive a sudden kill. */
+        const val DRAFT_PERSIST_DEBOUNCE_MS = 400L
 
         val FALLBACK_PROMPTS = listOf(
             "What surprised you this week?",

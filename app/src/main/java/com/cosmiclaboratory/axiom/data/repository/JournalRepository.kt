@@ -17,6 +17,7 @@ import com.cosmiclaboratory.axiom.domain.model.EntryKind
 import com.cosmiclaboratory.axiom.domain.model.Tag
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -117,6 +118,58 @@ class JournalRepository @Inject constructor(
         refreshWidgets()
     }
 
+    /**
+     * One-time rescue for entries stranded as drafts by the old back-exits-as-draft
+     * behaviour. Safe to run on every launch: it only touches drafts that have not
+     * been edited for [idleMinutes], so an in-progress entry is never swept up.
+     */
+    suspend fun completeAbandonedDrafts(idleMinutes: Long = 60): Int {
+        val rescued = entryDao.completeAbandonedDrafts(
+            LocalDateTime.now().minusMinutes(idleMinutes)
+        )
+        if (rescued > 0) refreshWidgets()
+        return rescued
+    }
+
+    /**
+     * Fills in a title the user never wrote. Reads the row first and checks
+     * again, so a title typed while the background job was in flight wins —
+     * their words are never overwritten by a guess.
+     */
+    suspend fun setTitleIfBlank(id: Long, title: String) {
+        if (title.isBlank()) return
+        val existing = entryDao.getWithTags(id)?.toDomainModel() ?: return
+        if (existing.title.isNotBlank()) return
+        entryDao.update(existing.copy(title = title, updatedAt = LocalDateTime.now()).toEntity())
+        refreshWidgets()
+    }
+
+    /**
+     * Promotes extracted themes to real tags.
+     *
+     * Themes were being asked for, stored as a CSV, rendered as chips and then
+     * going nowhere — not searchable, not filterable, invisible to the Patterns
+     * tab. As tags they become all three for free. Matched case-insensitively so
+     * "Work" and "work" never become two tags.
+     */
+    suspend fun attachThemeTags(entryId: Long, themes: List<String>) {
+        val clean = themes.map { it.trim().lowercase() }
+            .filter { it.length in MIN_TAG_LENGTH..MAX_TAG_LENGTH }
+            .distinct()
+        if (clean.isEmpty()) return
+        val entry = entryDao.getWithTags(entryId)?.toDomainModel() ?: return
+        val held = entry.tags.map { it.name.lowercase() }.toSet()
+        val existingByName = tagDao.getAllTags().first()
+            .map { it.toDomainModel() }
+            .associateBy { it.name.lowercase() }
+
+        val toAttach = clean.filter { it !in held }.map { name ->
+            existingByName[name] ?: Tag(id = tagDao.insertTag(Tag(name = name).toEntity()), name = name)
+        }
+        if (toAttach.isEmpty()) return
+        syncTags(entryId, entry.tags + toAttach)
+    }
+
     suspend fun markComplete(id: Long) {
         entryDao.markComplete(id, LocalDateTime.now())
         refreshWidgets()
@@ -203,4 +256,11 @@ class JournalRepository @Inject constructor(
     /** Summaries of recently-summarized entries, used as context for prompt generation. */
     suspend fun recentSummariesForContext(limit: Int = 3): List<String> =
         entryDao.recentSummarized(limit).mapNotNull { insightDao.getByEntryId(it.id)?.summary }
+
+    private companion object {
+        /** Two-letter "tags" are noise; anything long is a sentence, not a tag. */
+        const val MIN_TAG_LENGTH = 3
+        const val MAX_TAG_LENGTH = 24
+    }
+
 }

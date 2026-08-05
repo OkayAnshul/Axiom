@@ -41,7 +41,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val startup by startupViewModel.state.collectAsStateWithLifecycle()
 
-            AxiomTheme(themeMode = startup.themeMode) {
+            AxiomTheme(
+                themeMode = startup.themeMode,
+                adaptiveLight = startup.adaptiveLight
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

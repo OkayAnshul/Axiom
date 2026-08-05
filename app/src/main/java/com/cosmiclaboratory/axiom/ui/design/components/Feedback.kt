@@ -1,10 +1,7 @@
 package com.cosmiclaboratory.axiom.ui.design.components
 
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -23,14 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.cosmiclaboratory.axiom.R
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.isRetryable
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
@@ -104,38 +104,45 @@ fun AxiomErrorSurface(
     onDismiss: (() -> Unit)? = null
 ) {
     val c = AxiomTheme.colors
+    // Copy comes from strings.xml, which already held every one of these keys
+    // while this function kept its own hardcoded English. Two sources of truth
+    // for the same sentence is how half an app ends up untranslated.
     val (title, body, primaryLabel) = when (error) {
         AxiomError.NoAiKey -> Triple(
-            "AI features need a key",
-            "Axiom never uploads your entries without one. Everything else works offline.",
-            "Connect AI"
+            stringResource(R.string.error_no_key_title),
+            stringResource(R.string.error_no_key_body),
+            stringResource(R.string.action_connect_ai)
         )
         is AxiomError.RateLimited -> Triple(
-            "Too many requests",
-            "The AI provider is rate-limiting. This usually clears in under a minute.",
+            stringResource(R.string.error_rate_limited_title),
+            stringResource(R.string.error_rate_limited_body),
             null
         )
         is AxiomError.Network -> Triple(
-            "Couldn't reach the AI provider",
-            "You're offline, or the request timed out. Your entry is saved either way.",
+            stringResource(R.string.error_network_title),
+            stringResource(R.string.error_network_body),
             null
         )
         is AxiomError.Malformed -> Triple(
-            "The reply came back malformed",
-            "The model returned something Axiom couldn't read. Trying again usually works.",
+            stringResource(R.string.error_malformed_title),
+            stringResource(R.string.error_malformed_body),
             null
         )
         is AxiomError.Storage -> Triple(
-            "Couldn't save to storage",
-            "Axiom couldn't write to the database. Check available space.",
+            stringResource(R.string.error_storage_title),
+            stringResource(R.string.error_storage_body),
             null
         )
         is AxiomError.Permission -> Triple(
-            "Permission needed",
-            "Axiom needs this permission to continue. You can grant it in system settings.",
-            "Open settings"
+            stringResource(R.string.error_permission_title),
+            stringResource(R.string.error_permission_body),
+            stringResource(R.string.action_open_settings)
         )
-        is AxiomError.Unknown -> Triple("Something went wrong", error.message, null)
+        is AxiomError.Unknown -> Triple(
+            stringResource(R.string.error_unknown_title),
+            error.message,
+            null
+        )
     }
 
     Column(
@@ -286,32 +293,43 @@ fun SaveStateIndicator(
     }
 }
 
-/** Three pulsing dots while the model is working. Announced politely, once. */
+/**
+ * Three dots, breathing, while the model is working. Announced politely, once.
+ *
+ * The old version pulsed on a 600ms tween, which reads as a loading spinner —
+ * a machine telling you it is busy. On the breath cycle with a slight swell as
+ * well as a fade, the same three dots read as someone thinking before they
+ * answer. Waiting is part of the conversation, so it should look like it.
+ */
 @Composable
 fun ThinkingIndicator(modifier: Modifier = Modifier) {
+    val motion = AxiomTheme.motion
     val transition = rememberInfiniteTransition(label = "thinking")
     Row(
         modifier = modifier.semantics {
             liveRegion = LiveRegionMode.Polite
             stateDescription = "Thinking"
         },
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(3) { i ->
-            val a by transition.animateFloat(
-                initialValue = 0.3f,
+            val phase by transition.animateFloat(
+                initialValue = 0f,
                 targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(600, delayMillis = i * 150),
-                    repeatMode = RepeatMode.Reverse
-                ),
+                animationSpec = motion.breathe,
                 label = "dot$i"
             )
+            // One shared breath, sampled a third of a cycle apart, so the dots
+            // travel together rather than blinking in sequence.
+            val shifted = ((phase + i / 3f) % 1f).let { t ->
+                if (t <= 0.5f) t * 2f else (1f - t) * 2f
+            }
             Box(
                 Modifier
                     .size(6.dp)
-                    .alpha(a)
+                    .scale(0.82f + 0.18f * shifted)
+                    .alpha(0.35f + 0.65f * shifted)
                     .clip(AxiomTheme.shapes.full)
                     .background(AxiomTheme.colors.aiTint)
             )

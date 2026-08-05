@@ -9,8 +9,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpStatusCode
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
@@ -39,6 +41,23 @@ object AiNetworkModule {
         install(HttpTimeout) {
             requestTimeoutMillis = 30_000
             connectTimeoutMillis = 10_000
+        }
+        /*
+         * Both providers return 429 under free-tier limits and both send
+         * Retry-After, which nothing read. Background jobs used to bounce all
+         * the way out to WorkManager's backoff for a wait the server had
+         * already told us the length of.
+         *
+         * Streaming chat opts out per-request: a half-delivered reply must not
+         * be silently restarted underneath the user.
+         */
+        install(HttpRequestRetry) {
+            retryOnServerErrors(maxRetries = 2)
+            retryIf { _, response -> response.status == HttpStatusCode.TooManyRequests }
+            exponentialDelay(base = 2.0, maxDelayMs = 20_000)
+            modifyRequest { request ->
+                request.headers.append("x-axiom-retry", retryCount.toString())
+            }
         }
         install(Logging) {
             level = LogLevel.NONE

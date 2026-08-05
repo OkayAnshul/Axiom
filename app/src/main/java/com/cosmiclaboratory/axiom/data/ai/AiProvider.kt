@@ -18,6 +18,35 @@ object GroqModels {
 }
 
 /**
+ * Which model does which job.
+ *
+ * The strong model used to have exactly one call site — the live conversation —
+ * while every task where quality is durable and visible (the journal entry
+ * written in the user's voice, what gets remembered about them for months) ran
+ * on the cheap one. That is backwards: a mediocre chat reply scrolls away, a
+ * mediocre memory persists.
+ *
+ * The consolidation that pays for it: merging the digest's three calls into one
+ * and the entry's two into one means the same text is sent once instead of
+ * three times, so the stronger model costs roughly what the old fan-out did.
+ */
+object AiTasks {
+    /** Journal entry in the user's voice, memory extraction, weekly recap. */
+    const val QUALITY = GroqModels.CHAT
+
+    /** Openers, proactive one-liners, query rewriting, connection tests. */
+    const val CHEAP = GroqModels.BACKGROUND
+}
+
+object Temperatures {
+    /** JSON and extraction: obey the schema, don't embellish. */
+    const val STRUCTURED = 0.2f
+
+    /** Anything the user reads as the companion's own voice. */
+    const val CONVERSATIONAL = 0.7f
+}
+
+/**
  * Events emitted by [AiProvider.chatStream]. The flow never throws: it always
  * terminates with exactly one [Done] or [Failed]. [Failed] carries whatever
  * partial text streamed before the failure so the caller can keep it — losing
@@ -25,7 +54,21 @@ object GroqModels {
  */
 sealed interface ChatStreamEvent {
     data class Delta(val text: String) : ChatStreamEvent
-    data class Done(val fullText: String, val tokensUsed: Int, val modelName: String) : ChatStreamEvent
+
+    /**
+     * [truncated] is true when the model stopped because it hit the token cap
+     * rather than because it had finished. Providers report this as
+     * `finish_reason: "length"` (Groq) or `MAX_TOKENS` (Gemini); it was parsed
+     * and discarded before, so a reply cut off mid-sentence was stored and shown
+     * as though the companion had simply said something odd.
+     */
+    data class Done(
+        val fullText: String,
+        val tokensUsed: Int,
+        val modelName: String,
+        val truncated: Boolean = false
+    ) : ChatStreamEvent
+
     data class Failed(val error: AiResult<Nothing>, val partialText: String) : ChatStreamEvent
 }
 
@@ -69,7 +112,7 @@ interface AiProvider {
     fun chatStream(
         systemPrompt: String,
         messages: List<Pair<String, String>>,
-        maxTokens: Int = 500,
+        maxTokens: Int = 800,
         model: String = GroqModels.CHAT
     ): Flow<ChatStreamEvent>
 
@@ -82,7 +125,13 @@ interface AiProvider {
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int = 600,
-        model: String = GroqModels.BACKGROUND
+        model: String = GroqModels.BACKGROUND,
+        /**
+         * Structured extraction is not a creative task. Everything used to run
+         * at 0.7 — the same setting as open conversation — which is why JSON
+         * replies were occasionally reworded into invalid shapes.
+         */
+        temperature: Float = Temperatures.STRUCTURED
     ): AiResult<String>
 
     /**

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -65,6 +66,8 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showTimeSheet by remember { mutableStateOf(false) }
+    var showNameSheet by remember { mutableStateOf(false) }
+    var showAboutSheet by remember { mutableStateOf(false) }
 
     /*
      * POST_NOTIFICATIONS is declared in the manifest but was never requested,
@@ -91,7 +94,7 @@ fun SettingsScreen(
     }
 
     AxiomScaffold(
-        title = "Settings",
+        title = "Your space",
         screenTag = "screen:settings",
         modifier = modifier,
         navigationIcon = { AxiomIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack) }
@@ -111,8 +114,8 @@ fun SettingsScreen(
             )
             SettingRow(
                 icon = Icons.Outlined.Psychology,
-                title = "What Axiom remembers",
-                summary = "See, edit or delete every remembered detail",
+                title = "What I remember",
+                summary = "See, edit or forget anything I've kept",
                 onClick = onOpenMemories
             )
             SettingRow(
@@ -158,7 +161,7 @@ fun SettingsScreen(
             )
             SettingRow(
                 icon = Icons.Outlined.Notifications,
-                title = "Weekly reflection",
+                title = "Look back with me on Sundays",
                 summary = if (state.weeklyRecapEnabled) "Sunday evenings" else "Off",
                 onClick = {
                     if (state.weeklyRecapEnabled) viewModel.setWeeklyRecap(false)
@@ -181,22 +184,40 @@ fun SettingsScreen(
             SettingRow(
                 icon = Icons.Outlined.Person,
                 title = "Your name",
-                summary = state.displayName.ifBlank { "Not set — used in greetings" },
-                onClick = { }
+                summary = state.displayName.ifBlank { "Not set — it's what I call you" },
+                onClick = { showNameSheet = true }
             )
             SettingRow(
                 icon = Icons.Outlined.Save,
-                title = "Backup",
-                summary = "Save your whole journal to a file, or restore one",
+                title = "Take everything with you",
+                summary = "Save your whole journal to a file, or bring one back",
                 onClick = onOpenBackup
             )
             SettingRow(
                 icon = Icons.Outlined.Info,
                 title = "About",
-                summary = "${state.entryCount} entries · fonts, licences, privacy",
-                onClick = { }
+                summary = "${state.entryCount} moments kept · fonts, licences, privacy",
+                onClick = { showAboutSheet = true }
             )
         }
+    }
+
+    if (showNameSheet) {
+        NameSheet(
+            current = state.displayName,
+            onSave = { name ->
+                viewModel.setDisplayName(name)
+                showNameSheet = false
+            },
+            onDismiss = { showNameSheet = false }
+        )
+    }
+
+    if (showAboutSheet) {
+        AboutSheet(
+            entryCount = state.entryCount,
+            onDismiss = { showAboutSheet = false }
+        )
     }
 
     if (showTimeSheet) {
@@ -396,22 +417,11 @@ fun SettingsAiScreen(
                 )
             }
 
-            SectionHeader("Companion voice")
-            state.personas.forEach { persona ->
-                AxiomCard(
-                    tone = if (persona.key == state.activePersona) CardTone.Accent else CardTone.Neutral,
-                    onClick = { viewModel.setPersona(persona.key) }
-                ) {
-                    Text(persona.displayName, style = AxiomTheme.type.uiTitleSmall, color = c.ink)
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        persona.systemPromptFragment,
-                        style = AxiomTheme.type.uiBodySmall,
-                        color = c.inkMuted,
-                        maxLines = 2
-                    )
-                }
-            }
+            VoiceEditor(
+                voice = state.voice,
+                onPreset = viewModel::applyVoicePreset,
+                onVoice = viewModel::setVoice
+            )
             Spacer(Modifier.height(AxiomTheme.space.huge))
         }
     }
@@ -459,17 +469,100 @@ fun SettingsAppearanceScreen(
                     )
                 }
             )
+            SettingRow(
+                icon = Icons.Outlined.Palette,
+                title = "Let the light change with the day",
+                summary = if (state.adaptiveLight) {
+                    "Warm in the morning, quieter by afternoon, amber at night"
+                } else {
+                    "Off — the same colours at every hour"
+                },
+                onClick = { viewModel.setAdaptiveLight(!state.adaptiveLight) },
+                trailing = {
+                    Switch(
+                        checked = state.adaptiveLight,
+                        onCheckedChange = viewModel::setAdaptiveLight,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = AxiomTheme.colors.onAccent,
+                            checkedTrackColor = AxiomTheme.colors.accent
+                        )
+                    )
+                }
+            )
+
             // Live preview: the surrounding screen already re-themes, so the
             // sample simply shows how reading type sits on the chosen surfaces.
             AxiomCard {
-                Text("The quick brown fox", style = AxiomTheme.type.readingTitle, color = c.ink)
+                Text("Good evening", style = AxiomTheme.type.greeting, color = c.ink)
                 Spacer(Modifier.height(AxiomTheme.space.sm))
                 Text(
-                    "Body text renders in Literata, sized for long reading rather " +
-                        "than for controls.",
+                    "Greetings are set in Fraunces, softened. What you read and write is " +
+                        "Literata, sized for long reading rather than for controls.",
                     style = AxiomTheme.type.readingBody,
                     color = c.inkMuted
                 )
+            }
+        }
+    }
+}
+
+/** What the companion calls you. Used in every greeting, so it is worth asking for. */
+@Composable
+private fun NameSheet(
+    current: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var draft by remember(current) { mutableStateOf(current) }
+    AxiomBottomSheet(title = "What should I call you?", onDismiss = onDismiss) {
+        Text(
+            "It only ever appears in greetings on this device.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = AxiomTheme.colors.inkMuted
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it.take(40) },
+            singleLine = true,
+            placeholder = { Text("Optional", style = AxiomTheme.type.uiBody) },
+            textStyle = AxiomTheme.type.uiBody,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        Button(
+            onClick = { onSave(draft.trim()) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AxiomTheme.colors.accent,
+                contentColor = AxiomTheme.colors.onAccent
+            ),
+            shape = AxiomTheme.shapes.sm
+        ) { Text("Save", style = AxiomTheme.type.uiLabel) }
+    }
+}
+
+/** Honest about what this is, what it counts, and whose device it lives on. */
+@Composable
+private fun AboutSheet(entryCount: Int, onDismiss: () -> Unit) {
+    val c = AxiomTheme.colors
+    AxiomBottomSheet(title = "About Axiom", onDismiss = onDismiss) {
+        Text(
+            "$entryCount moments kept, all of them on this device.",
+            style = AxiomTheme.type.readingBody,
+            color = c.ink
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        listOf(
+            "Everything you write is stored locally. There is no account and no sync.",
+            "Nothing is uploaded unless you connect an AI key yourself, and you can " +
+                "disconnect it at any time without losing anything.",
+            "Set in Fraunces, Literata and Figtree — all open-source under the SIL " +
+                "Open Font License."
+        ).forEach { line ->
+            Row(Modifier.padding(vertical = AxiomTheme.space.xs)) {
+                Text("•", style = AxiomTheme.type.uiBody, color = c.inkFaint)
+                Spacer(Modifier.width(AxiomTheme.space.sm))
+                Text(line, style = AxiomTheme.type.uiBodySmall, color = c.inkMuted)
             }
         }
     }

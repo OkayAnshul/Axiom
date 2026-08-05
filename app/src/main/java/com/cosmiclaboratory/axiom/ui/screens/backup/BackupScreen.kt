@@ -71,7 +71,7 @@ fun BackupScreen(
     ) { uri -> uri?.let(viewModel::restore) }
 
     AxiomScaffold(
-        title = "Backup",
+        title = "Take everything with you",
         screenTag = "screen:backup",
         modifier = modifier,
         navigationIcon = { AxiomIconButton(Icons.AutoMirrored.Filled.ArrowBack, "Back", onBack) }
@@ -139,7 +139,7 @@ fun BackupScreen(
                 }
             }
 
-            SectionHeader("Save a backup")
+            SectionHeader("Take it with you")
             Button(
                 onClick = { exportLauncher.launch(viewModel.suggestedFileName()) },
                 enabled = !state.busy,
@@ -149,10 +149,10 @@ fun BackupScreen(
                 ),
                 modifier = Modifier.fillMaxWidth().testTag("button:export")
             ) {
-                Text(if (state.busy) "Working…" else "Export", style = AxiomTheme.type.uiLabel)
+                Text(if (state.busy) "Gathering it up…" else "Save it all to a file", style = AxiomTheme.type.uiLabel)
             }
 
-            SectionHeader("Restore from a backup")
+            SectionHeader("Bring it back")
             AxiomCard {
                 Text(
                     "Restoring adds what's missing and leaves everything already here " +

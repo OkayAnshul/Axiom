@@ -3,6 +3,7 @@ package com.cosmiclaboratory.axiom.data.ai
 import com.cosmiclaboratory.axiom.data.ai.dto.ChatCompletionRequest
 import com.cosmiclaboratory.axiom.data.ai.dto.ChatCompletionResponse
 import com.cosmiclaboratory.axiom.data.ai.dto.ChatMessage
+import com.cosmiclaboratory.axiom.data.ai.dto.StreamOptions
 import com.cosmiclaboratory.axiom.data.ai.dto.EntrySummaryPayload
 import com.cosmiclaboratory.axiom.data.ai.dto.InitiatorPromptsPayload
 import com.cosmiclaboratory.axiom.data.ai.dto.ResponseFormat
@@ -141,10 +142,13 @@ class GroqAiProvider @Inject constructor(
             messages = payload,
             maxTokens = maxTokens,
             responseFormat = null,
-            stream = true
+            stream = true,
+            streamOptions = StreamOptions()
         )
         val accumulated = StringBuilder()
         var modelName = model
+        var finishReason: String? = null
+        var totalTokens = 0
         try {
             client.preparePost(CHAT_ENDPOINT) {
                 contentType(ContentType.Application.Json)
@@ -165,12 +169,24 @@ class GroqAiProvider @Inject constructor(
                                 emit(ChatStreamEvent.Delta(parsed.text))
                             }
                         }
+                        is SseLine.Meta -> {
+                            parsed.model?.let { modelName = it }
+                            parsed.finishReason?.let { finishReason = it }
+                            parsed.totalTokens?.let { totalTokens = it }
+                        }
                         SseLine.Done -> return@execute
                         null -> Unit
                     }
                 }
             }
-            emit(ChatStreamEvent.Done(accumulated.toString(), 0, modelName))
+            emit(
+                ChatStreamEvent.Done(
+                    fullText = accumulated.toString(),
+                    tokensUsed = totalTokens,
+                    modelName = modelName,
+                    truncated = finishReason == FINISH_LENGTH
+                )
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -182,7 +198,8 @@ class GroqAiProvider @Inject constructor(
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int,
-        model: String
+        model: String,
+        temperature: Float
     ): AiResult<String> {
         val key = keys.apiKey(AiVendor.GROQ) ?: return AiResult.NoKey
         val request = ChatCompletionRequest(
@@ -192,6 +209,7 @@ class GroqAiProvider @Inject constructor(
                 ChatMessage(role = "user", content = userPrompt)
             ),
             maxTokens = maxTokens,
+            temperature = temperature,
             responseFormat = ResponseFormat()
         )
         return runCatching {
@@ -277,19 +295,33 @@ class GroqAiProvider @Inject constructor(
         const val CHAT_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
         const val TRANSCRIPTION_ENDPOINT = "https://api.groq.com/openai/v1/audio/transcriptions"
         const val STREAM_TIMEOUT_MS = 120_000L
+        /** OpenAI-compatible finish reason meaning "hit max_tokens", not "done". */
+        const val FINISH_LENGTH = "length"
     }
 }
 
 /** One parsed server-sent-event line from a Groq streaming response. */
 internal sealed interface SseLine {
     data class Delta(val text: String, val model: String?) : SseLine
+
+    /**
+     * A chunk carrying no text but real information: why generation stopped, and
+     * what it cost. These used to be discarded, which is why a reply cut off at
+     * the token cap looked identical to one that finished.
+     */
+    data class Meta(
+        val finishReason: String?,
+        val totalTokens: Int?,
+        val model: String?
+    ) : SseLine
+
     data object Done : SseLine
 }
 
 /**
  * Parses a single line of a Groq SSE stream. Pure so it can be unit-tested
- * without Ktor. Returns null for anything that is not a data line or that
- * carries no delta (keep-alive blanks, role-only first chunk, finish chunk).
+ * without Ktor. Returns null only for lines with nothing in them at all —
+ * keep-alives, non-data lines, malformed JSON, and the role-only opening chunk.
  */
 internal fun parseGroqSseLine(line: String, json: Json): SseLine? {
     val trimmed = line.trim()
@@ -299,6 +331,15 @@ internal fun parseGroqSseLine(line: String, json: Json): SseLine? {
     if (payload == "[DONE]") return SseLine.Done
     val chunk = runCatching { json.decodeFromString(ChatCompletionChunk.serializer(), payload) }
         .getOrNull() ?: return null
-    val content = chunk.choices.firstOrNull()?.delta?.content ?: return null
-    return SseLine.Delta(content, chunk.model)
+    val choice = chunk.choices.firstOrNull()
+    // A present-but-empty content string is still a delta; only a *missing* one
+    // means this chunk is carrying something else.
+    val content = choice?.delta?.content
+    if (content != null) return SseLine.Delta(content, chunk.model)
+    val finishReason = choice?.finishReason
+    val totalTokens = chunk.usage?.totalTokens
+    if (finishReason != null || totalTokens != null) {
+        return SseLine.Meta(finishReason, totalTokens, chunk.model)
+    }
+    return null
 }

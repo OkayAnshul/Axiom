@@ -152,38 +152,6 @@ class PatternsViewModel @Inject constructor(
      * personal journal, and a query per remembered person would be far more
      * expensive than one pass of contains().
      */
-    private fun personMentions(windowed: List<Entry>): Map<String, List<Entry>> {
-        val names = latestMemories
-            .filter { it.kind == MemoryKind.PERSON }
-            .mapNotNull { nameFrom(it.text) }
-            .distinct()
-            .take(MAX_PEOPLE)
-        if (names.isEmpty()) return emptyMap()
-
-        return names.associateWith { name ->
-            windowed.filter { entry ->
-                entry.content.contains(name, ignoreCase = true) ||
-                    entry.title.contains(name, ignoreCase = true)
-            }
-        }.filterValues { it.isNotEmpty() }
-    }
-
-    /**
-     * Memories read "Riya is the user's younger sister" — the person's name is
-     * the leading capitalised word. Words the extractor itself uses are skipped
-     * so "The user's manager" does not become a person called "The".
-     */
-    private fun nameFrom(memoryText: String): String? = memoryText
-        .split(TextTokens.SEPARATOR)
-        .firstOrNull { token ->
-            token.length >= MIN_NAME_LENGTH &&
-                token.first().isUpperCase() &&
-                token.lowercase() !in NON_NAMES
-        }
-
-    private companion object {
-        const val MAX_PEOPLE = 5
-        const val MIN_NAME_LENGTH = 3
-        val NON_NAMES = setOf("the", "their", "they", "user", "his", "her", "and", "has", "was")
-    }
+    private fun personMentions(windowed: List<Entry>): Map<String, List<Entry>> =
+        PatternFinder.personMentions(windowed, latestMemories)
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -43,6 +44,8 @@ fun JournalScreen(
     onNewEntry: () -> Unit,
     onSearch: () -> Unit,
     onCalendar: () -> Unit,
+    /** Back to the conversation — by arrow or by swiping left. */
+    onBackToCompanion: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: JournalViewModel = hiltViewModel()
 ) {
@@ -55,9 +58,18 @@ fun JournalScreen(
     val fabExpanded by remember { derivedStateOf { listState.firstVisibleItemIndex == 0 } }
 
     AxiomScaffold(
-        title = "Journal",
+        title = "Your story",
         screenTag = "screen:journal",
-        modifier = modifier,
+        // Swiping left is the mirror of swiping right out of the conversation;
+        // the arrow is here because a gesture must never be the only way back.
+        modifier = modifier.swipeBetween(onSwipeLeft = onBackToCompanion),
+        navigationIcon = {
+            AxiomIconButton(
+                Icons.AutoMirrored.Filled.ArrowBack,
+                "Back to the conversation",
+                onBackToCompanion
+            )
+        },
         actions = {
             AxiomTopBarAction(Icons.Filled.Search, "Search", onSearch)
             AxiomTopBarAction(Icons.Outlined.CalendarMonth, "Calendar", onCalendar)
@@ -164,16 +176,16 @@ private fun EmptyForFilter(
     // different actions; conflating them is how users conclude an app is broken.
     if (filter == JournalFilter.All) {
         AxiomEmptyState(
-            title = "No entries yet",
-            body = "Write your first line — it doesn't have to be good.",
-            primaryLabel = "New entry",
+            title = "We'll write your story together",
+            body = "Start anywhere. It doesn't have to be good — that's rather the point.",
+            primaryLabel = "Write something",
             onPrimary = onNewEntry
         )
     } else {
         AxiomEmptyState(
-            title = "Nothing here",
-            body = "No entries match \"${filter.label}\".",
-            primaryLabel = "Show all entries",
+            title = "Nothing under that",
+            body = "Nothing you've written matches \"${filter.label}\" yet.",
+            primaryLabel = "Show everything",
             onPrimary = onClearFilter
         )
     }

@@ -1,5 +1,6 @@
 package com.cosmiclaboratory.axiom.data.repository
 
+import com.cosmiclaboratory.axiom.data.database.FtsQuerySanitizer
 import com.cosmiclaboratory.axiom.data.database.dao.MemoryItemDao
 import com.cosmiclaboratory.axiom.data.database.entity.MemoryItemEntity
 import com.cosmiclaboratory.axiom.data.database.entity.toDomainModel
@@ -131,6 +132,10 @@ class MemoryRepository @Inject constructor(
     suspend fun dueOpenLoops(now: LocalDateTime = LocalDateTime.now(), limit: Int = 3): List<MemoryItem> =
         dao.dueOpenLoops(now, limit).map { it.toDomainModel() }
 
+    /** Every open loop, upcoming ones included, for "Things I'll ask you about". */
+    fun observeOpenLoops(): Flow<List<MemoryItem>> =
+        dao.observeOpenLoops().map { rows -> rows.map { it.toDomainModel() } }
+
     suspend fun closeLoop(id: Long) = dao.closeLoop(id)
 
     /** Same-kind snapshot used by extraction for dedup context. */
@@ -147,10 +152,23 @@ class MemoryRepository @Inject constructor(
      * [TOTAL_CAP] items by effective weight, capped per kind so one chatty
      * category can't crowd out the others. Ordered map, stable kind order.
      */
-    suspend fun topForPrompt(now: LocalDateTime = LocalDateTime.now()): Map<MemoryKind, List<MemoryItem>> {
+    suspend fun topForPrompt(
+        now: LocalDateTime = LocalDateTime.now(),
+        /**
+         * What is being talked about right now. When given, memories that
+         * actually bear on it are preferred over merely heavy ones.
+         *
+         * Without this the same twenty memories were sent on every single turn:
+         * talk about work all evening and the budget still went on your sister,
+         * because selection looked only at decayed weight. Weight says what
+         * matters *in general*; this says what matters *now*.
+         */
+        topic: String = ""
+    ): Map<MemoryKind, List<MemoryItem>> {
+        val topicTerms = FtsQuerySanitizer.retrievalTerms(topic, maxTerms = 12).toSet()
         val ranked = dao.getAll()
             .map { it.toDomainModel() }
-            .sortedByDescending { it.effectiveWeight(now) }
+            .sortedByDescending { item -> promptScore(item, topicTerms, now) }
         val result = linkedMapOf<MemoryKind, MutableList<MemoryItem>>()
         var total = 0
         for (item in ranked) {
@@ -165,7 +183,33 @@ class MemoryRepository @Inject constructor(
         return result.filterValues { it.isNotEmpty() }
     }
 
+    /**
+     * Blends "how much this matters generally" with "how much it bears on this
+     * conversation".
+     *
+     * PREFERENCE is deliberately exempt from the topic term: a stated preference
+     * ("keep replies short", "don't give advice") is a standing rule, not
+     * context, and must not be crowded out just because it shares no words with
+     * tonight's subject.
+     */
+    private fun promptScore(
+        item: MemoryItem,
+        topicTerms: Set<String>,
+        now: LocalDateTime
+    ): Double {
+        val weight = item.effectiveWeight(now)
+        if (topicTerms.isEmpty() || item.kind == MemoryKind.PREFERENCE) return weight
+        val itemTerms = FtsQuerySanitizer.retrievalTerms(item.text, maxTerms = 16).toSet()
+        if (itemTerms.isEmpty()) return weight * WEIGHT_SHARE
+        val overlap = itemTerms.count { it in topicTerms }.toDouble() / topicTerms.size
+        return RELEVANCE_SHARE * overlap + WEIGHT_SHARE * weight
+    }
+
     companion object {
+        /** How much of a memory's prompt score comes from bearing on the topic. */
+        private const val RELEVANCE_SHARE = 0.6
+        private const val WEIGHT_SHARE = 0.4
+
         const val TOTAL_CAP = 20
         val KIND_CAPS: Map<MemoryKind, Int> = mapOf(
             MemoryKind.PERSON to 5,

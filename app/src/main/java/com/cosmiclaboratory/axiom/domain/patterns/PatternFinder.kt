@@ -36,6 +36,52 @@ data class Finding(
 object PatternFinder {
 
     /** Below this many observations a "pattern" is a coincidence. */
+    /**
+     * Which entries name which remembered person.
+     *
+     * This lived privately in PatternsViewModel, which is why the *companion*
+     * never got person correlations: `CompanionEngine` called [find] without the
+     * map, so "your days read brighter when Riya comes up" could appear in the
+     * Patterns tab and be structurally invisible to the companion itself. Both
+     * callers now share one implementation.
+     */
+    fun personMentions(
+        entries: List<Entry>,
+        memories: List<MemoryItem>,
+        maxPeople: Int = MAX_PEOPLE
+    ): Map<String, List<Entry>> {
+        val names = memories
+            .filter { it.kind == MemoryKind.PERSON }
+            .mapNotNull { nameFrom(it.text) }
+            .distinct()
+            .take(maxPeople)
+        if (names.isEmpty()) return emptyMap()
+        return names.associateWith { name ->
+            entries.filter { entry ->
+                entry.content.contains(name, ignoreCase = true) ||
+                    entry.title.contains(name, ignoreCase = true)
+            }
+        }.filterValues { it.isNotEmpty() }
+    }
+
+    /**
+     * Memories read "Riya is the user's younger sister" — the person's name is
+     * the leading capitalised word. Words the extractor itself uses are skipped
+     * so "The user's manager" does not become a person called "The".
+     */
+    fun nameFrom(memoryText: String): String? = memoryText
+        .split(com.cosmiclaboratory.axiom.domain.text.TextTokens.SEPARATOR)
+        .firstOrNull { token ->
+            token.length >= MIN_NAME_LENGTH &&
+                token.first().isUpperCase() &&
+                token.lowercase() !in NON_NAMES
+        }
+
+    const val MAX_PEOPLE = 5
+    private const val MIN_NAME_LENGTH = 3
+    private val NON_NAMES =
+        setOf("the", "their", "they", "user", "his", "her", "and", "has", "was")
+
     const val MIN_DAY_SAMPLES = 3
     const val MIN_TREND_DAYS = 3
     const val MIN_RECURRENCE = 3

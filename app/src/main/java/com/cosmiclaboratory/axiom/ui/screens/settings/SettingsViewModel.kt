@@ -11,6 +11,8 @@ import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.AiVendor
 import com.cosmiclaboratory.axiom.domain.model.Persona
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
+import com.cosmiclaboratory.axiom.domain.voice.VoicePreset
+import com.cosmiclaboratory.axiom.domain.voice.VoiceProfile
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.toAxiomError
@@ -35,6 +37,10 @@ sealed interface KeyTestState {
 data class SettingsUiState(
     val displayName: String = "",
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    /** Whether the palette drifts with the hour. See `AxiomLight`. */
+    val adaptiveLight: Boolean = true,
+    /** How the companion talks. Replaces the old persona choice. */
+    val voice: VoiceProfile = VoiceProfile(),
     /** Any vendor has a key — "is AI switched on at all". */
     val keyConnected: Boolean = false,
     val aiVendor: AiVendor = AiVendor.GROQ,
@@ -73,6 +79,8 @@ class SettingsViewModel @Inject constructor(
                 it.copy(
                     displayName = prefs.displayName.first(),
                     themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
+                    adaptiveLight = prefs.adaptiveLight.first(),
+                    voice = prefs.voice.first(),
                     activePersona = prefs.activePersonaKey.first(),
                     dailyNudgeEnabled = prefs.dailyNudgeEnabled.first(),
                     weeklyRecapEnabled = prefs.weeklyRecapEnabled.first(),
@@ -116,6 +124,22 @@ class SettingsViewModel @Inject constructor(
         _state.update { it.copy(themeMode = mode) }
         // Applies live — StartupViewModel follows themeOverride, so no restart.
         viewModelScope.launch { prefs.setThemeOverride(mode.storageValue) }
+    }
+
+    fun setAdaptiveLight(enabled: Boolean) {
+        _state.update { it.copy(adaptiveLight = enabled) }
+        // Applies live — StartupViewModel follows this preference too.
+        viewModelScope.launch { prefs.setAdaptiveLight(enabled) }
+    }
+
+    fun applyVoicePreset(preset: VoicePreset) {
+        _state.update { it.copy(voice = preset.profile().copy(preset = preset)) }
+        viewModelScope.launch { prefs.applyVoicePreset(preset) }
+    }
+
+    fun setVoice(profile: VoiceProfile) {
+        _state.update { it.copy(voice = profile) }
+        viewModelScope.launch { prefs.setVoice(profile) }
     }
 
     fun setPersona(key: PersonaKey) {
@@ -185,8 +209,15 @@ class SettingsViewModel @Inject constructor(
             val previous = prefs.apiKey(vendor)
             prefs.setApiKey(vendor, candidate)
             when (val result = ai.testConnection()) {
-                is AiResult.Ok -> _state.update {
-                    it.copy(keyTest = KeyTestState.Success, keyDraft = "")
+                is AiResult.Ok -> {
+                    _state.update { it.copy(keyTest = KeyTestState.Success, keyDraft = "") }
+                    // Everything written before this moment has no summary, no
+                    // memories and no themes. Catch it up, paced.
+                    runCatching { scheduler.enqueueBackfill() }
+                    // And get personalized openers today rather than whenever
+                    // the daily periodic worker next happens to fire. This call
+                    // existed and had never had a caller.
+                    runCatching { scheduler.requestImmediateInitiatorBatch() }
                 }
                 else -> {
                     prefs.setApiKey(vendor, previous)

@@ -43,6 +43,17 @@ interface MemoryItemDao {
     @Query("SELECT * FROM memory_items WHERE dueAt IS NOT NULL AND dueAt <= :now ORDER BY dueAt ASC LIMIT :limit")
     suspend fun dueOpenLoops(now: LocalDateTime, limit: Int): List<MemoryItemEntity>
 
+    /**
+     * Every open loop, due or not.
+     *
+     * [dueOpenLoops] answers "what do I owe them?" and so filters to the past.
+     * This answers "what is coming up?", which is what the user needs to see —
+     * a follow-up the app has quietly committed to should be visible and
+     * cancellable *before* it fires, not only after.
+     */
+    @Query("SELECT * FROM memory_items WHERE dueAt IS NOT NULL ORDER BY dueAt ASC")
+    fun observeOpenLoops(): Flow<List<MemoryItemEntity>>
+
     /** Asked about; never nag twice. The memory itself survives, only the loop closes. */
     @Query("UPDATE memory_items SET dueAt = NULL WHERE id = :id")
     suspend fun closeLoop(id: Long)

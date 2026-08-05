@@ -41,7 +41,7 @@ interface EntryDao {
     fun observeCompletedWithTags(): Flow<List<EntryWithTags>>
 
     @Transaction
-    @Query("SELECT * FROM entries WHERE isFavorite = 1 AND isArchived = 0 ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM entries WHERE isFavorite = 1 AND isArchived = 0 AND isComplete = 1 ORDER BY updatedAt DESC")
     fun observeFavoritesWithTags(): Flow<List<EntryWithTags>>
 
     @Transaction
@@ -49,7 +49,14 @@ interface EntryDao {
     fun observeArchivedWithTags(): Flow<List<EntryWithTags>>
 
     @Transaction
-    @Query("SELECT * FROM entries WHERE kind = :kind AND isArchived = 0 ORDER BY updatedAt DESC")
+    /*
+     * `isComplete = 1` is not optional here, and its absence was a real bug: the
+     * "All" timeline filters drafts out (they are surfaced as "finish what you
+     * started" instead), so a draft that stayed visible under Written or Voice
+     * looked like an entry the All tab had lost. Every timeline filter must
+     * agree on what counts as an entry.
+     */
+    @Query("SELECT * FROM entries WHERE kind = :kind AND isArchived = 0 AND isComplete = 1 ORDER BY updatedAt DESC")
     fun observeByKindWithTags(kind: String): Flow<List<EntryWithTags>>
 
     @Transaction
@@ -90,7 +97,8 @@ interface EntryDao {
     @Query("SELECT DISTINCT date(createdAt) FROM entries WHERE isArchived = 0 ORDER BY createdAt DESC")
     suspend fun distinctEntryDates(): List<String>
 
-    @Query("SELECT COUNT(*) FROM entries WHERE isArchived = 0")
+    /** Finished entries only — a half-typed draft is not yet a moment kept. */
+    @Query("SELECT COUNT(*) FROM entries WHERE isArchived = 0 AND isComplete = 1")
     suspend fun count(): Int
 
     // ---- search ------------------------------------------------------------
@@ -133,6 +141,25 @@ interface EntryDao {
 
     @Query("UPDATE entries SET isComplete = 1, updatedAt = :now WHERE id = :entryId")
     suspend fun markComplete(entryId: Long, now: LocalDateTime)
+
+    /**
+     * Rescues writing stranded as a draft.
+     *
+     * Backing out of the composer used to leave a draft, and drafts are kept out
+     * of the timeline — so anything written before that changed is now invisible
+     * in every filter. Nobody should have to learn that their own words are
+     * hidden behind a state they never chose.
+     *
+     * The [cutoff] protects the entry currently being typed: autosave writes a
+     * draft row from the first keystroke, and completing that mid-sentence would
+     * be its own small betrayal. `updatedAt` is left alone so the rescue does not
+     * reorder someone's timeline.
+     */
+    @Query(
+        "UPDATE entries SET isComplete = 1 WHERE isComplete = 0 " +
+            "AND (trim(title) != '' OR trim(content) != '') AND updatedAt < :cutoff"
+    )
+    suspend fun completeAbandonedDrafts(cutoff: LocalDateTime): Int
 
     @Query("UPDATE entries SET mood = :mood, moodCapturedAt = :capturedAt, updatedAt = :capturedAt WHERE id = :entryId")
     suspend fun setMood(entryId: Long, mood: Int?, capturedAt: LocalDateTime)

@@ -1,7 +1,6 @@
 package com.cosmiclaboratory.axiom.ui.screens.companion
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +9,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.RecordVoiceOver
+import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,29 +24,34 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
-import com.cosmiclaboratory.axiom.domain.streak.StreakCalculator
-import com.cosmiclaboratory.axiom.ui.design.components.MoodDot
+import com.cosmiclaboratory.axiom.ui.design.components.AxiomIconButton
 import com.cosmiclaboratory.axiom.ui.design.components.MoodPicker
-import com.cosmiclaboratory.axiom.ui.design.components.StreakStrip
-import com.cosmiclaboratory.axiom.ui.design.components.moodLabel
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 
 /**
- * The Today remnant: one thin row above the conversation, not a dashboard.
- * Streak dots, a tappable mood chip (expands to the picker), a continue-draft
- * chip when one exists, and the "What gets sent?" privacy affordance. All of
- * it local — this row must work identically with no API key and no network.
+ * One quiet line between the greeting and the conversation.
+ *
+ * The streak strip used to live here. It is gone from home deliberately: a
+ * counter above the conversation turns showing up into a score to protect, and
+ * the first bad week then costs you the app. The number still exists — it is in
+ * "What I've noticed", behind the numbers disclosure, where someone who wants it
+ * can go looking.
+ *
+ * What remains is the one thing worth asking every day, phrased as a question
+ * rather than a metric, and a way back into an unfinished entry. All of it local:
+ * this row must work identically with no API key and no network.
  */
 @Composable
 fun CompanionRitualHeader(
-    streak: StreakCalculator.Result,
     todayMood: Int?,
     todayEmotion: Emotion?,
     todayMoodInferred: Boolean,
     writingDraft: Entry?,
+    handsFree: Boolean,
+    ttsAvailable: Boolean,
     onRecordMood: (Int) -> Unit,
     onContinueDraft: (Long) -> Unit,
-    onDisclosure: () -> Unit,
+    onToggleHandsFree: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val c = AxiomTheme.colors
@@ -53,72 +60,61 @@ fun CompanionRitualHeader(
     Column(
         modifier
             .fillMaxWidth()
-            .background(c.surface)
-            .padding(horizontal = AxiomTheme.space.screenH, vertical = AxiomTheme.space.sm)
+            .padding(horizontal = AxiomTheme.space.screenH)
             .testTag("header:ritual")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (streak.current > 0) {
-                StreakStrip(result = streak, compact = true)
-                Spacer(Modifier.width(AxiomTheme.space.md))
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            Text(
+                // An inferred feeling is offered as a reading to correct, not
+                // stated as fact — hence the word, and the hedge.
+                text = when {
+                    todayMoodInferred && todayEmotion != null ->
+                        "Today sounded ${todayEmotion.label.lowercase()}."
+                    todayMood != null -> "You called today ${moodSentence(todayMood)}."
+                    else -> "How is today going?"
+                },
+                style = AxiomTheme.type.uiBodySmall,
+                color = if (todayMood != null) c.inkMuted else c.inkFaint,
                 modifier = Modifier
                     .clip(AxiomTheme.shapes.sm)
                     .clickable { showMoodPicker = !showMoodPicker }
-                    .background(c.surfaceSunken)
-                    .padding(horizontal = AxiomTheme.space.sm, vertical = AxiomTheme.space.xs)
-            ) {
-                MoodDot(mood = todayMood)
-                Spacer(Modifier.width(AxiomTheme.space.xs))
-                Text(
-                    // An inferred feeling is offered as a reading to correct, not
-                    // stated as fact — hence the word, and the hedge.
-                    text = when {
-                        todayMoodInferred && todayEmotion != null -> "Sounds like ${todayEmotion.label}"
-                        todayMood != null -> moodLabel(todayMood)
-                        else -> "How's today?"
-                    },
-                    style = AxiomTheme.type.uiLabelSmall,
-                    color = if (todayMood != null) c.ink else c.inkMuted
-                )
-            }
+                    .padding(vertical = AxiomTheme.space.xs)
+            )
 
             writingDraft?.let { draft ->
-                Spacer(Modifier.width(AxiomTheme.space.sm))
+                Spacer(Modifier.width(AxiomTheme.space.md))
                 Text(
-                    text = "Continue writing",
-                    style = AxiomTheme.type.uiLabelSmall,
+                    text = "Finish what you started",
+                    style = AxiomTheme.type.uiBodySmall,
                     color = c.accent,
                     modifier = Modifier
                         .clip(AxiomTheme.shapes.sm)
                         .clickable { onContinueDraft(draft.id) }
-                        .background(c.surfaceSunken)
-                        .padding(horizontal = AxiomTheme.space.sm, vertical = AxiomTheme.space.xs)
+                        .padding(vertical = AxiomTheme.space.xs)
                 )
             }
 
             Spacer(Modifier.weight(1f))
-            // Against three cloud-subscription competitors, this affordance IS
-            // the differentiator — first-class, not fine print.
-            Text(
-                text = "What gets sent?",
-                style = AxiomTheme.type.uiLabelSmall,
-                color = c.inkFaint,
-                modifier = Modifier
-                    .clip(AxiomTheme.shapes.sm)
-                    .clickable(onClick = onDisclosure)
-                    .padding(horizontal = AxiomTheme.space.xs, vertical = AxiomTheme.space.xs)
-            )
+
+            if (ttsAvailable) {
+                AxiomIconButton(
+                    icon = if (handsFree) {
+                        Icons.Filled.RecordVoiceOver
+                    } else {
+                        Icons.Outlined.RecordVoiceOver
+                    },
+                    label = if (handsFree) "Leave hands-free" else "Talk without typing",
+                    onClick = onToggleHandsFree,
+                    tint = if (handsFree) c.accent else c.inkFaint
+                )
+            }
         }
 
         AnimatedVisibility(visible = showMoodPicker) {
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = AxiomTheme.space.sm),
+                    .padding(vertical = AxiomTheme.space.sm),
                 horizontalArrangement = Arrangement.Center
             ) {
                 MoodPicker(
@@ -132,4 +128,17 @@ fun CompanionRitualHeader(
             }
         }
     }
+}
+
+/**
+ * The mood scale, said rather than labelled. "You called today rough" is a
+ * sentence a person could say; "Rough" beside a dot is a data point.
+ */
+private fun moodSentence(mood: Int?): String = when (mood) {
+    1 -> "rough"
+    2 -> "low"
+    3 -> "okay"
+    4 -> "good"
+    5 -> "great"
+    else -> "hard to name"
 }

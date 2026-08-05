@@ -81,8 +81,10 @@ class RoutingAiProvider @Inject constructor(
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int,
-        model: String
-    ): AiResult<String> = active().completeJson(systemPrompt, userPrompt, maxTokens, model)
+        model: String,
+        temperature: Float
+    ): AiResult<String> =
+        active().completeJson(systemPrompt, userPrompt, maxTokens, model, temperature)
 
     /** Whisper only. See the class note. */
     override suspend fun transcribeAudio(audioFile: File, language: String?): AiResult<String> =

@@ -10,7 +10,18 @@ internal data class ChatCompletionRequest(
     val temperature: Float = 0.7f,
     @SerialName("max_tokens") val maxTokens: Int = 400,
     @SerialName("response_format") val responseFormat: ResponseFormat? = ResponseFormat(),
-    val stream: Boolean = false
+    val stream: Boolean = false,
+    /**
+     * Only meaningful on streams: asks for a final chunk carrying token counts.
+     * Without it the most expensive call in the app — the companion reply —
+     * reports zero tokens and there is no way to know what anything costs.
+     */
+    @SerialName("stream_options") val streamOptions: StreamOptions? = null
+)
+
+@Serializable
+internal data class StreamOptions(
+    @SerialName("include_usage") val includeUsage: Boolean = true
 )
 
 @Serializable
@@ -59,6 +70,31 @@ internal data class EntrySummaryPayload(
     val mood: String = ""
 )
 
+/**
+ * The single response that replaced three calls. `memory` is deliberately a
+ * raw JSON element rather than a typed shape: [com.cosmiclaboratory.axiom.data.companion.MemoryExtractor]
+ * already owns parsing and validating that structure, and duplicating it here
+ * would give two places to disagree about what a memory looks like.
+ */
+@Serializable
+internal data class SessionDigestPayload(
+    val entry: String = "",
+    val mood: String = "",
+    val summary: String = "",
+    val memory: kotlinx.serialization.json.JsonElement? = null
+)
+
+/** Entry insight, now carrying the title so one call does the whole job. */
+@Serializable
+internal data class EntryInsightPayload(
+    val summary: String = "",
+    @SerialName("follow_up") val followUp: String = "",
+    val themes: List<String> = emptyList(),
+    val mood: String = "",
+    val title: String = "",
+    val memory: kotlinx.serialization.json.JsonElement? = null
+)
+
 @Serializable
 internal data class WhisperTranscriptionResponse(
     val text: String = "",
@@ -69,7 +105,9 @@ internal data class WhisperTranscriptionResponse(
 @Serializable
 internal data class ChatCompletionChunk(
     val model: String? = null,
-    val choices: List<ChunkChoice> = emptyList()
+    val choices: List<ChunkChoice> = emptyList(),
+    /** Present only on the final chunk, and only when `stream_options` asked. */
+    val usage: Usage? = null
 )
 
 @Serializable

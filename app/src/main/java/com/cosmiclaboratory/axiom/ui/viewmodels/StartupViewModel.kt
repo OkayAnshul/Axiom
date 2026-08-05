@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -27,6 +28,8 @@ class StartupViewModel @Inject constructor(
     data class StartupState(
         val isReady: Boolean = false,
         val themeMode: ThemeMode = ThemeMode.SYSTEM,
+        /** Whether the palette drifts with the hour. See `AxiomLight`. */
+        val adaptiveLight: Boolean = true,
         val onboardingComplete: Boolean = false
     )
 
@@ -34,16 +37,19 @@ class StartupViewModel @Inject constructor(
     val state: StateFlow<StartupState> = _state.asStateFlow()
 
     init {
-        // Resolve once so the first frame is already correct, then keep following the
-        // theme preference so a change in settings applies without an app restart.
+        // Resolve once so the first frame is already correct, then keep following both
+        // appearance preferences so a change in settings applies without an app restart.
         viewModelScope.launch {
             _state.value = StartupState(
                 isReady = true,
                 themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
+                adaptiveLight = prefs.adaptiveLight.first(),
                 onboardingComplete = prefs.onboardingComplete.first()
             )
-            prefs.themeOverride.collect { override ->
-                _state.value = _state.value.copy(themeMode = ThemeMode.fromStorage(override))
+            combine(prefs.themeOverride, prefs.adaptiveLight) { override, adaptive ->
+                ThemeMode.fromStorage(override) to adaptive
+            }.collect { (mode, adaptive) ->
+                _state.value = _state.value.copy(themeMode = mode, adaptiveLight = adaptive)
             }
         }
     }

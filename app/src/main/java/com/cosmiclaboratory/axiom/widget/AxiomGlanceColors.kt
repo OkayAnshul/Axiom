@@ -1,8 +1,8 @@
 package com.cosmiclaboratory.axiom.widget
 
 import androidx.glance.color.ColorProvider
-import com.cosmiclaboratory.axiom.ui.theme.OledDarkColors
-import com.cosmiclaboratory.axiom.ui.theme.PaperLightColors
+import com.cosmiclaboratory.axiom.ui.theme.NightInkColors
+import com.cosmiclaboratory.axiom.ui.theme.MorningPaperColors
 
 /**
  * Widget colours, fed from the SAME AxiomColors source as the app.
@@ -17,12 +17,12 @@ import com.cosmiclaboratory.axiom.ui.theme.PaperLightColors
  * the mapping obvious at each call site.
  */
 object WidgetColors {
-    val background = ColorProvider(day = PaperLightColors.canvas, night = OledDarkColors.canvas)
-    val surface = ColorProvider(day = PaperLightColors.surface, night = OledDarkColors.surface)
-    val ink = ColorProvider(day = PaperLightColors.ink, night = OledDarkColors.ink)
-    val inkMuted = ColorProvider(day = PaperLightColors.inkMuted, night = OledDarkColors.inkMuted)
-    val inkFaint = ColorProvider(day = PaperLightColors.inkFaint, night = OledDarkColors.inkFaint)
-    val accent = ColorProvider(day = PaperLightColors.accent, night = OledDarkColors.accent)
-    val onAccent = ColorProvider(day = PaperLightColors.onAccent, night = OledDarkColors.onAccent)
-    val hairline = ColorProvider(day = PaperLightColors.hairline, night = OledDarkColors.hairline)
+    val background = ColorProvider(day = MorningPaperColors.canvas, night = NightInkColors.canvas)
+    val surface = ColorProvider(day = MorningPaperColors.surface, night = NightInkColors.surface)
+    val ink = ColorProvider(day = MorningPaperColors.ink, night = NightInkColors.ink)
+    val inkMuted = ColorProvider(day = MorningPaperColors.inkMuted, night = NightInkColors.inkMuted)
+    val inkFaint = ColorProvider(day = MorningPaperColors.inkFaint, night = NightInkColors.inkFaint)
+    val accent = ColorProvider(day = MorningPaperColors.accent, night = NightInkColors.accent)
+    val onAccent = ColorProvider(day = MorningPaperColors.onAccent, night = NightInkColors.onAccent)
+    val hairline = ColorProvider(day = MorningPaperColors.hairline, night = NightInkColors.hairline)
 }

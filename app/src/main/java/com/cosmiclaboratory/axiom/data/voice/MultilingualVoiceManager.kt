@@ -85,7 +85,8 @@ class MultilingualVoiceManager @Inject constructor(
 
     fun cancel() {
         if (currentLanguage.onDevice) {
-            onDevice?.stopListening()
+            // Abandon, don't finish: cancelling must not deliver a transcript.
+            onDevice?.cancelListening()
         } else {
             recorder.cancel()
         }

@@ -66,6 +66,17 @@ class CompanionRepository @Inject constructor(
             updatedAt = LocalDateTime.now()
         )
 
+    /**
+     * Lets the user correct what the companion thinks your conversations have
+     * been about. The summary is a description of them, so they get the same
+     * rights over it as over a memory — `MemoryRepository.edit` is the
+     * precedent. Blank clears it rather than storing whitespace.
+     */
+    suspend fun updateRollingSummary(threadId: String, summary: String) {
+        val state = threadState(threadId)
+        saveThreadState(state.copy(rollingSummary = summary.trim()))
+    }
+
     suspend fun saveThreadState(state: CompanionThreadStateEntity) =
         threadStateDao.upsert(state.copy(updatedAt = LocalDateTime.now()))
 
