@@ -654,9 +654,19 @@ private fun CompanionComposerBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .windowInsetsPadding(
-                WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)
-            )
+            /*
+             * The keyboard inset only — NOT safeDrawing.
+             *
+             * The composer is no longer the bottom-most thing on the screen; the
+             * place bar is, and it reserves the navigation-bar inset itself.
+             * Because the two are siblings rather than nested, nothing consumes
+             * that inset once, so asking for it here reserved it a second time
+             * and left a visible band of dead space between them.
+             *
+             * The keyboard is still this row's problem: when it opens the bar
+             * leaves, and nothing else is left to lift the composer clear.
+             */
+            .windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom))
             .padding(
                 horizontal = AxiomTheme.space.screenH,
                 vertical = AxiomTheme.space.sm

@@ -22,6 +22,8 @@ import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.ui.viewmodels.StartupViewModel
 import com.cosmiclaboratory.axiom.utils.ShareIntentHandler
 import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.runtime.CompositionLocalProvider
+import com.cosmiclaboratory.axiom.ui.design.LocalCompanionName
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -45,6 +47,7 @@ class MainActivity : ComponentActivity() {
                 themeMode = startup.themeMode,
                 adaptiveLight = startup.adaptiveLight
             ) {
+              CompositionLocalProvider(LocalCompanionName provides startup.companionName) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -70,6 +73,7 @@ class MainActivity : ComponentActivity() {
                         startOnboarding = !startup.onboardingComplete
                     )
                 }
+              }
             }
         }
     }

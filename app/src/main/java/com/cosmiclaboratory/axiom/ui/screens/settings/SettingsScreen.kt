@@ -48,6 +48,8 @@ import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
 import androidx.compose.material.icons.outlined.KeyboardVoice
+import androidx.compose.material.icons.outlined.Face
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 /**
  * Settings hub. Every row shows its CURRENT VALUE — nothing is hidden behind a
@@ -67,6 +69,7 @@ fun SettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showTimeSheet by remember { mutableStateOf(false) }
     var showNameSheet by remember { mutableStateOf(false) }
+    var showCompanionNameSheet by remember { mutableStateOf(false) }
     var showAboutSheet by remember { mutableStateOf(false) }
 
     /*
@@ -182,6 +185,12 @@ fun SettingsScreen(
                 }
             )
             SettingRow(
+                icon = Icons.Outlined.Face,
+                title = "What I'm called",
+                summary = state.companionName,
+                onClick = { showCompanionNameSheet = true }
+            )
+            SettingRow(
                 icon = Icons.Outlined.Person,
                 title = "Your name",
                 summary = state.displayName.ifBlank { "Not set — it's what I call you" },
@@ -200,6 +209,17 @@ fun SettingsScreen(
                 onClick = { showAboutSheet = true }
             )
         }
+    }
+
+    if (showCompanionNameSheet) {
+        CompanionNameSheet(
+            current = state.companionName,
+            onSave = { name ->
+                viewModel.setCompanionName(name)
+                showCompanionNameSheet = false
+            },
+            onDismiss = { showCompanionNameSheet = false }
+        )
     }
 
     if (showNameSheet) {
@@ -503,6 +523,53 @@ fun SettingsAppearanceScreen(
                 )
             }
         }
+    }
+}
+
+/**
+ * What you call the companion.
+ *
+ * It reaches the bottom bar and the system prompt together, so the name on the
+ * tab is the name it answers to. This is not the launcher label: Android fixes
+ * that in the manifest at build time, and the only way to vary it is a set of
+ * `<activity-alias>` entries declared in advance — which can only offer names we
+ * picked, and which drops and re-adds the icon, losing its place on the home
+ * screen. An arbitrary name on the launcher is not something the platform
+ * allows, so this renames the companion everywhere inside the app instead.
+ */
+@Composable
+private fun CompanionNameSheet(
+    current: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var draft by remember(current) { mutableStateOf(current) }
+    AxiomBottomSheet(title = "What should you call me?", onDismiss = onDismiss) {
+        Text(
+            "It's what you'll see at the bottom of the screen, and what I'll know " +
+                "myself as. Leave it empty to go back to ${CompanionIdentity.DEFAULT_NAME}. " +
+                "The name on your home screen is set by Android and can't change.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = AxiomTheme.colors.inkMuted
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        OutlinedTextField(
+            value = draft,
+            onValueChange = { draft = it.take(CompanionIdentity.MAX_LENGTH) },
+            singleLine = true,
+            placeholder = { Text(CompanionIdentity.DEFAULT_NAME, style = AxiomTheme.type.uiBody) },
+            textStyle = AxiomTheme.type.uiBody,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(AxiomTheme.space.base))
+        Button(
+            onClick = { onSave(draft.trim()) },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AxiomTheme.colors.accent,
+                contentColor = AxiomTheme.colors.onAccent
+            ),
+            shape = AxiomTheme.shapes.sm
+        ) { Text("Save", style = AxiomTheme.type.uiLabel) }
     }
 }
 

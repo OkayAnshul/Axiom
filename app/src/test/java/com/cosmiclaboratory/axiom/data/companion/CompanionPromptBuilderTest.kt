@@ -16,6 +16,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 
 class CompanionPromptBuilderTest {
 
@@ -40,10 +41,23 @@ class CompanionPromptBuilderTest {
         emotionToday: Emotion? = null,
         noticed: String? = null,
         style: StyleProfile = StyleProfile(),
-        care: CareLevel? = null
+        care: CareLevel? = null,
+        companionName: String = CompanionIdentity.DEFAULT_NAME
     ) = CompanionPromptBuilder.Context(
-        displayName, voice, memories, rollingSummary,
-        recentInsights, excerpts, now, moodToday, streakDays, style, emotionToday, noticed, care
+        displayName = displayName,
+        voice = voice,
+        memories = memories,
+        rollingSummary = rollingSummary,
+        recentInsights = recentInsights,
+        excerpts = excerpts,
+        now = now,
+        moodToday = moodToday,
+        streakDays = streakDays,
+        style = style,
+        emotionToday = emotionToday,
+        noticed = noticed,
+        care = care,
+        companionName = companionName
     )
 
     // ---- system prompt sections --------------------------------------------
@@ -338,5 +352,35 @@ class CompanionPromptBuilderTest {
     @Test
     fun `empty history returns empty window`() {
         assertTrue(builder.windowHistory(emptyList()).isEmpty())
+    }
+
+    // ---- what the companion is called --------------------------------------
+
+    @Test
+    fun `the companion is told its own name`() {
+        val prompt = builder.buildSystemPrompt(context(companionName = "Jarvis"))
+        assertTrue(prompt.take(120), prompt.contains("You are Jarvis,"))
+    }
+
+    @Test
+    fun `a renamed companion is never called Axiom in its own prompt`() {
+        // The bottom bar says the new name. A prompt still saying "Axiom" would
+        // have the companion answering to a name the user cannot see.
+        val prompt = builder.buildSystemPrompt(context(companionName = "Sol"))
+        assertFalse(prompt, prompt.contains("Axiom"))
+    }
+
+    @Test
+    fun `a blank name falls back to the app's own`() {
+        val prompt = builder.buildSystemPrompt(context(companionName = "   "))
+        assertTrue(prompt.take(120), prompt.contains("You are Axiom,"))
+    }
+
+    @Test
+    fun `the user's name and the companion's are both used, and not confused`() {
+        val prompt = builder.buildSystemPrompt(
+            context(displayName = "Anshul", companionName = "Sol")
+        )
+        assertTrue(prompt.take(160), prompt.contains("You are Sol, Anshul's companion"))
     }
 }
