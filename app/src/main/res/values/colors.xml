@@ -1,7 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Light window background. Matches AxiomColors.paperLight.canvas so the platform
-         window and the Compose surface agree and cold start shows no flash.
+    <!-- Light window background: MorningPaperColors.canvas.
+
+         It used to be #FAF7F0, which is not any palette's canvas — the comment
+         claimed it matched and nothing checked. The light theme drifts between
+         Morning #FCF8F1 and Day #F8F8F7 across the day and a static resource
+         cannot follow it, so this is the closer-to-both of the two anchors and
+         the worst case is a difference of four in one channel.
          The dark counterpart lives in values-night/colors.xml. -->
-    <color name="axiom_window_background">#FFFAF7F0</color>
+    <color name="axiom_window_background">#FFFCF8F1</color>
+
+    <!-- Splash. Same cream as the window, so the splash and the first frame of the
+         app are the same colour and the handover is invisible. -->
+    <color name="axiom_splash_background">#FFFCF8F1</color>
+
+    <!-- The disc the launcher mark sits on during the splash.
+
+         The mark is an ember on dark paper: its flame is warm, its two rules are
+         cream. On the cream splash background those rules disappeared entirely and
+         the icon lost half of itself, which is the same failure the old white
+         "Axiom" lettering had. Giving the icon its own dark ground means one mark
+         works on both backgrounds instead of two marks working on one each.
+         Deliberately not qualified per-night: the icon should look like the same
+         object whichever theme you launch in. -->
+    <color name="axiom_splash_icon_background">#FF0D0C0B</color>
 </resources>

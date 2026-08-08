@@ -23,7 +23,17 @@ data class CompanionMessageEntity(
      * LOCAL messages join the history window — the companion should remember
      * having greeted — but cost nothing and work offline.
      */
-    val source: String = Source.MODEL.name
+    val source: String = Source.MODEL.name,
+    /**
+     * The curated question this message is asking, when it is a daily opener.
+     *
+     * Questions track "already answered" by joining `entries.questionId` rather
+     * than carrying a boolean, so the id has to survive from the prompt bank all
+     * the way to the saved entry. Persisting it here is what lets it survive
+     * process death: the opener is a row that outlives the ViewModel that wrote
+     * it, and "Write about this" can be tapped a day later.
+     */
+    val questionId: Long? = null
 ) {
     enum class Role { USER, ASSISTANT, SYSTEM }
     enum class Source { USER, MODEL, LOCAL }

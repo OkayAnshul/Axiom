@@ -19,10 +19,18 @@ import androidx.compose.ui.unit.dp
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionManager
 import com.cosmiclaboratory.axiom.utils.VoiceRecognitionResult
 
+/**
+ * [autoStart] opens the mic as soon as the composer appears, for entry points
+ * that already said "voice" — the QS tile and the widget both launch
+ * `axiom://composer?voice=true`. Consumed once via [onAutoStartConsumed] so
+ * that returning from the permission dialog, or a rotation, doesn't reopen it.
+ */
 @Composable
 fun VoiceInputFab(
     onVoiceResult: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    autoStart: Boolean = false,
+    onAutoStartConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var isListening by remember { mutableStateOf(false) }
@@ -45,6 +53,13 @@ fun VoiceInputFab(
         }
     }
     
+    LaunchedEffect(autoStart) {
+        if (autoStart) {
+            onAutoStartConsumed()
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     // Listen to voice recognition results
     LaunchedEffect(Unit) {
         voiceManager.voiceResults.collect { result ->

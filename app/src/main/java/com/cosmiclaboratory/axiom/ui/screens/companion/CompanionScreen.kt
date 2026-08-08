@@ -5,6 +5,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,6 +15,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,8 +27,11 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.RecordVoiceOver
+import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -49,11 +55,13 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
 import com.cosmiclaboratory.axiom.ui.components.ShowSnackbarOnError
+import com.cosmiclaboratory.axiom.ui.design.AxiomDimens
 import com.cosmiclaboratory.axiom.ui.design.AxiomError
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.design.rememberLocalized
@@ -90,7 +98,8 @@ fun CompanionScreen(
     onOpenPatterns: () -> Unit,
     onOpenTalks: () -> Unit,
     onSaveToJournal: (String) -> Unit,
-    onWriteAbout: (String) -> Unit,
+    /** The prompt text, and the curated question behind it when there is one. */
+    onWriteAbout: (String, Long?) -> Unit,
     onContinueDraft: (Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: CompanionViewModel = hiltViewModel()
@@ -100,6 +109,7 @@ fun CompanionScreen(
     var showDisclosure by remember { mutableStateOf(false) }
     var showShelf by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
+    var showExplainer by remember { mutableStateOf(false) }
 
     // Mic permission gates both the composer mic and the hands-free toggle.
     var pendingVoiceAction by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -144,8 +154,16 @@ fun CompanionScreen(
                 // Positive dy = content moving down = travelling back through
                 // history. Negative = returning toward the newest message, which
                 // is also what the programmatic scroll after sending produces.
-                if (available.y > SCROLL_INTENT_SLOP) greetingExpanded = false
-                else if (available.y < -SCROLL_INTENT_SLOP) greetingExpanded = true
+                //
+                // Guarded on the current value: this runs on every frame of a
+                // fling, and writing the same Boolean back into snapshot state
+                // still invalidates readers, so the greeting subtree was
+                // recomposing sixty times a second for the whole gesture.
+                if (available.y > SCROLL_INTENT_SLOP) {
+                    if (greetingExpanded) greetingExpanded = false
+                } else if (available.y < -SCROLL_INTENT_SLOP) {
+                    if (!greetingExpanded) greetingExpanded = true
+                }
                 return Offset.Zero
             }
         }
@@ -201,8 +219,24 @@ fun CompanionScreen(
                     } else {
                         withMicPermission { viewModel.setHandsFree(true) }
                     }
-                }
+                },
+                onExplainConversation = { showExplainer = true }
             )
+
+            // Said once, on the first visit, because the two best things on this
+            // screen are both unlabelled icons — and one of them only appears
+            // after the speech engine finishes waking up, so it can be missing
+            // entirely at the moment someone is looking around.
+            AnimatedVisibility(
+                visible = state.showTalkHint,
+                enter = axiomExpand(),
+                exit = axiomCollapse()
+            ) {
+                TalkHint(
+                    ttsAvailable = state.ttsAvailable,
+                    onDismiss = viewModel::dismissTalkHint
+                )
+            }
 
             Box(Modifier.weight(1f)) {
                 LazyColumn(
@@ -252,28 +286,49 @@ fun CompanionScreen(
                                     )
                                 } else {
                                     val isSpeaking = state.speakingMessageId == message.id
-                                    CompanionReplyBlock(
-                                        text = message.text,
-                                        citedIds = message.citedEntryIds,
-                                        citedEntries = state.citedEntries,
-                                        onOpenEntry = onOpenEntry,
-                                        onSaveToJournal = { onSaveToJournal(message.text) },
-                                        onSwipeRight = onOpenJournal,
-                                        speaking = isSpeaking,
-                                        onPlay = when {
-                                            !state.ttsAvailable -> null
-                                            isSpeaking -> viewModel::stopSpeaking
-                                            else -> {
-                                                { viewModel.speakMessage(message.id, message.text) }
-                                            }
-                                        },
-                                        // Only the app's own prompts get this. A
-                                        // reply in conversation is not a question
-                                        // waiting to be answered in writing.
-                                        onWriteAbout = if (message.isPrompt) {
-                                            { onWriteAbout(message.text) }
-                                        } else null
-                                    )
+                                    // Today's opener gets the carousel; every
+                                    // other prompt (an older day's, or one whose
+                                    // alternatives didn't outlive the process)
+                                    // stays a plain block that still writes.
+                                    val isTodaysPrompt = message.isPrompt &&
+                                        message.id == state.promptMessageId &&
+                                        state.promptOptions.isNotEmpty()
+
+                                    if (isTodaysPrompt) {
+                                        PromptCarousel(
+                                            options = state.promptOptions,
+                                            index = state.promptIndex,
+                                            onIndexChange = viewModel::selectPrompt,
+                                            onWriteAbout = { option ->
+                                                onWriteAbout(option.text, option.questionId)
+                                            },
+                                            showHint = state.showPromptSwipeHint,
+                                            onHintSeen = viewModel::dismissPromptSwipeHint
+                                        )
+                                    } else {
+                                        CompanionReplyBlock(
+                                            text = message.text,
+                                            citedIds = message.citedEntryIds,
+                                            citedEntries = state.citedEntries,
+                                            onOpenEntry = onOpenEntry,
+                                            onSaveToJournal = { onSaveToJournal(message.text) },
+                                            onSwipeRight = onOpenJournal,
+                                            speaking = isSpeaking,
+                                            onPlay = when {
+                                                !state.ttsAvailable -> null
+                                                isSpeaking -> viewModel::stopSpeaking
+                                                else -> {
+                                                    { viewModel.speakMessage(message.id, message.text) }
+                                                }
+                                            },
+                                            // Only the app's own prompts get this. A
+                                            // reply in conversation is not a question
+                                            // waiting to be answered in writing.
+                                            onWriteAbout = if (message.isPrompt) {
+                                                { onWriteAbout(message.text, message.questionId) }
+                                            } else null
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -301,6 +356,50 @@ fun CompanionScreen(
                         }
                     }
                 }
+
+                // Small, low-contrast, bottom-right: a clear is something you
+                // occasionally want and never want to hit by accident, so it is
+                // sized like a footnote rather than a primary action. It shares
+                // the confirm dialog with the shelf entry, so both go through
+                // the same save-then-delete path.
+                //
+                // Faded by hand rather than with AnimatedVisibility, because the
+                // enclosing Column's scoped overload wins receiver resolution
+                // inside this Box and would take the alignment away.
+                val clearAlpha by animateFloatAsState(
+                    targetValue = if (state.messages.isNotEmpty()) 1f else 0f,
+                    animationSpec = AxiomTheme.motion.effects(),
+                    label = "clearButtonAlpha"
+                )
+                if (clearAlpha > ALPHA_EPSILON) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(
+                                end = AxiomTheme.space.screenH,
+                                bottom = AxiomTheme.space.sm
+                            )
+                            .graphicsLayer { alpha = clearAlpha }
+                    ) {
+                        ClearConversationButton(onClick = { confirmClear = true })
+                    }
+                }
+            }
+
+            // Everything said before this launch, one tap away for as long as
+            // the retention setting allows. Placed here, directly above the
+            // composer, because it is about the conversation you are in rather
+            // than a destination — putting it in the top bar would make picking
+            // your own words back up feel like navigating somewhere.
+            AnimatedVisibility(
+                visible = state.parkedCount > 0,
+                enter = axiomExpand(),
+                exit = axiomCollapse()
+            ) {
+                ResumeParkedRow(
+                    count = state.parkedCount,
+                    onResume = viewModel::resumeParked
+                )
             }
 
             // Below the conversation and above the composer: visible without
@@ -394,6 +493,13 @@ fun CompanionScreen(
 
     if (showDisclosure) {
         WhatGetsSentSheet(onDismiss = { showDisclosure = false })
+    }
+
+    if (showExplainer) {
+        ConversationExplainerSheet(
+            onDismiss = { showExplainer = false },
+            onOpenStory = onOpenJournal
+        )
     }
 
     // Clearing was wired straight to the viewmodel with no confirmation at all,
@@ -560,6 +666,44 @@ private fun CompanionUserBubble(
                 .swipeBetween(onSwipeRight = onSwipeRight)
                 .background(AxiomTheme.colors.accentSoft)
                 .padding(horizontal = AxiomTheme.space.base, vertical = AxiomTheme.space.md)
+        )
+    }
+}
+
+/**
+ * The mic and hands-free are the best things on this screen and the least
+ * obvious: both are icons whose only label is a long-press tooltip, and the
+ * hands-free one is hidden entirely until the speech engine reports ready. This
+ * names them, once, and then never again.
+ */
+@Composable
+private fun TalkHint(ttsAvailable: Boolean, onDismiss: () -> Unit) {
+    val c = AxiomTheme.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = AxiomTheme.space.screenH, vertical = AxiomTheme.space.xs)
+    ) {
+        Text(
+            text = if (ttsAvailable) {
+                "You can talk instead of typing — the microphone types for you, " +
+                    "and the voice button lets us go back and forth hands-free."
+            } else {
+                "You can talk instead of typing — tap the microphone and just say it."
+            },
+            style = AxiomTheme.type.uiBodySmall,
+            color = c.inkFaint,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(Modifier.width(AxiomTheme.space.sm))
+        Text(
+            text = "Got it",
+            style = AxiomTheme.type.uiLabel,
+            color = c.accent,
+            modifier = Modifier
+                .clip(AxiomTheme.shapes.sm)
+                .clickable(onClick = onDismiss)
+                .padding(vertical = AxiomTheme.space.xs, horizontal = AxiomTheme.space.xs)
         )
     }
 }
@@ -812,3 +956,104 @@ fun WhatGetsSentSheet(onDismiss: () -> Unit) {
         )
     }
 }
+
+/**
+ * The clear control: deliberately the smallest interactive thing on the screen.
+ *
+ * It sits over the conversation rather than in the top bar because that is where
+ * the thing it acts on is, and it is 36dp — under the usual touch floor — on
+ * purpose. A control that wipes a conversation should take a moment of aim. The
+ * confirm dialog is the actual safety; this is the tone.
+ */
+@Composable
+private fun ClearConversationButton(onClick: () -> Unit) {
+    val c = AxiomTheme.colors
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.90f else 1f,
+        animationSpec = AxiomTheme.motion.spatialQuick,
+        label = "clearScale"
+    )
+    Box(
+        Modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .size(CLEAR_BUTTON_SIZE)
+            .clip(AxiomTheme.shapes.full)
+            .background(c.surfaceRaised)
+            .border(AxiomDimens.HairlineWidth, c.hairline, AxiomTheme.shapes.full)
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                role = Role.Button,
+                onClickLabel = "Clear this conversation",
+                onClick = onClick
+            )
+            .testTag("action:clear_conversation"),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Outlined.DeleteSweep,
+            contentDescription = "Clear this conversation",
+            tint = c.inkFaint,
+            modifier = Modifier.size(CLEAR_ICON_SIZE)
+        )
+    }
+}
+
+/**
+ * "Pick up where we left off."
+ *
+ * Shown only while a parked conversation is still inside its retention window.
+ * Phrased as picking something up rather than restoring or undoing, because
+ * nothing was lost — the messages were set down, and this is reaching for them.
+ */
+@Composable
+private fun ResumeParkedRow(count: Int, onResume: () -> Unit) {
+    val c = AxiomTheme.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(
+                horizontal = AxiomTheme.space.screenH,
+                vertical = AxiomTheme.space.xs
+            )
+            .clip(AxiomTheme.shapes.md)
+            .clickable(role = Role.Button, onClick = onResume)
+            .padding(
+                horizontal = AxiomTheme.space.md,
+                vertical = AxiomTheme.space.sm
+            )
+            .testTag("action:resume_parked"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            Icons.Outlined.History,
+            contentDescription = null,
+            tint = c.accent,
+            modifier = Modifier.size(RESUME_ICON_SIZE)
+        )
+        Spacer(Modifier.width(AxiomTheme.space.sm))
+        Text(
+            "Pick up where we left off",
+            style = AxiomTheme.type.uiLabel,
+            color = c.accent
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            if (count == 1) "1 message" else "$count messages",
+            style = AxiomTheme.type.uiMeta,
+            color = c.inkFaint
+        )
+    }
+}
+
+/** Below the alpha at which a fading control still deserves to exist. */
+private const val ALPHA_EPSILON = 0.01f
+
+private val CLEAR_BUTTON_SIZE = 36.dp
+private val CLEAR_ICON_SIZE = 18.dp
+private val RESUME_ICON_SIZE = 18.dp

@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.domain.model.AIInsight
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.design.ReadingColumn
+import com.cosmiclaboratory.axiom.ui.design.SharedKeys
+import com.cosmiclaboratory.axiom.ui.design.axiomSharedBounds
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.utils.ExportManager
@@ -81,10 +83,14 @@ fun ReaderScreen(
                 modifier = Modifier.padding(padding)
             )
 
+            // The other end of the card that was tapped in the timeline. Applied
+            // outside the scroll modifier so the bounds animate the container
+            // rather than the scrolling content inside it.
             else -> ReadingColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    .axiomSharedBounds(SharedKeys.entry(entry.id))
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = AxiomTheme.space.screenH)
                     .testTag("list:reader")

@@ -22,9 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,9 +33,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.cosmiclaboratory.axiom.R
 import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
+import com.cosmiclaboratory.axiom.ui.design.AxiomSpacing
 import com.cosmiclaboratory.axiom.ui.design.LocalCompanionName
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 
@@ -91,20 +92,34 @@ fun AxiomPlaceBar(
                 start = AxiomTheme.space.screenH,
                 end = AxiomTheme.space.screenH,
                 top = AxiomTheme.space.xxs,
-                bottom = AxiomTheme.space.xs
+                bottom = AxiomTheme.space.xxs
             )
             .testTag("bar:places")
     ) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(BAR_HEIGHT)) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(TOUCH_HEIGHT)) {
             val half = maxWidth / 2
 
             // The pill is drawn first and positioned by the animation, so the
             // labels above it never move — only the ground under them does.
+            //
+            // It is deliberately shorter than the row that contains it: the bar
+            // should look like a light foot to the screen, but a tab still has
+            // to be as easy to hit as anything else. Shrinking what you see
+            // without shrinking what you can press is the whole trick.
+            //
+            // CenterStart, not Center. The offset below is measured from the
+            // left edge, so the pill has to start there — aligning it centred
+            // parks a half-width pill at a quarter width in, and it straddles
+            // both tabs instead of sitting under one.
             Box(
                 Modifier
+                    .align(Alignment.CenterStart)
                     .offset(x = half * slide)
                     .width(half)
-                    .fillMaxHeight()
+                    .height(PILL_HEIGHT)
+                    // Inset before the background, so it shrinks what is drawn
+                    // and not what can be pressed — the targets are the Row's.
+                    .padding(horizontal = AxiomTheme.space.xxs)
                     .clip(AxiomTheme.shapes.lg)
                     .background(c.accentSoft)
             )
@@ -112,14 +127,14 @@ fun AxiomPlaceBar(
             Row(Modifier.fillMaxWidth()) {
                 PlaceTab(
                     label = CompanionIdentity.resolve(companionName),
-                    icon = Icons.AutoMirrored.Outlined.Chat,
+                    icon = ImageVector.vectorResource(R.drawable.ic_axiom_spark),
                     selected = current == AxiomPlace.Conversation,
                     onClick = { onSelect(AxiomPlace.Conversation) },
                     modifier = Modifier.weight(1f)
                 )
                 PlaceTab(
                     label = "Your story",
-                    icon = Icons.Outlined.AutoStories,
+                    icon = ImageVector.vectorResource(R.drawable.ic_axiom_story),
                     selected = current == AxiomPlace.Story,
                     onClick = { onSelect(AxiomPlace.Story) },
                     modifier = Modifier.weight(1f)
@@ -177,6 +192,22 @@ private fun PlaceTab(
     }
 }
 
-private val BAR_HEIGHT = 48.dp
-private val ICON_SIZE = 20.dp
+/** What you can press. Never below [AxiomDimens.MinTouchTarget]. */
+private val TOUCH_HEIGHT = 48.dp
+
+/** What you can see. Lighter than the target it sits inside. */
+private val PILL_HEIGHT = 38.dp
+
+private val ICON_SIZE = 18.dp
 private const val PRESSED_SCALE = 0.94f
+
+/**
+ * How much room the bar takes, not counting the navigation-bar inset it also
+ * consumes. Published so anything that has to float clear of the bar — the
+ * app-wide snackbar, most obviously — reserves the real number instead of
+ * carrying a copy of it that drifts.
+ *
+ * Declared after the constants it is built from: top-level initializers run in
+ * file order, and reading them from above would silently yield zero.
+ */
+val AxiomPlaceBarHeight: Dp = TOUCH_HEIGHT + AxiomSpacing().xxs * 2

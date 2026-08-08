@@ -1,7 +1,6 @@
 package com.cosmiclaboratory.axiom.domain.memory
 
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
-import com.cosmiclaboratory.axiom.domain.text.TextTokens
 import java.time.Duration
 import java.time.LocalDateTime
 
@@ -26,7 +25,7 @@ import java.time.LocalDateTime
 object MemoryConsolidator {
 
     /** Same-kind memories above this token overlap are the same memory. */
-    const val MERGE_THRESHOLD = 0.55
+    const val MERGE_THRESHOLD = MemorySimilarity.MERGE_THRESHOLD
 
     /** Never reinforced, never edited, and this old, before pruning is considered. */
     const val PRUNE_AFTER_DAYS = 180L
@@ -112,30 +111,11 @@ object MemoryConsolidator {
         return effectiveWeight(memory, ageDays) < PRUNE_WEIGHT_BELOW
     }
 
-    /** Same decay curve the prompt selection uses, so the two agree on "faded". */
+    /** Shared with prompt selection, so the two agree on what "faded" means. */
     private fun effectiveWeight(memory: MemoryItem, ageDays: Long): Double =
-        memory.weight * Math.exp(-ageDays.coerceAtLeast(0L) / 90.0)
+        MemoryDecay.effectiveWeight(memory.weight, ageDays.toDouble())
 
-    /**
-     * Content words only. Two things dilute overlap without carrying meaning:
-     * ordinary function words, and the scaffolding the extraction prompt
-     * produces — memories are written in the third person, so "the user's"
-     * appears in half of them and would otherwise make unrelated memories look
-     * alike while making a first-person edit of the same fact look different.
-     */
-    private fun tokens(text: String): Set<String> =
-        TextTokens.words(text, minLength = 3)
-            .filterNot { it in NON_CONTENT }
-            .toSet()
+    private fun tokens(text: String): Set<String> = MemorySimilarity.tokens(text)
 
-    private val NON_CONTENT = setOf(
-        "the", "and", "but", "for", "with", "that", "this", "they", "she", "her",
-        "his", "him", "its", "was", "were", "are", "has", "had", "have",
-        "user", "users", "their", "them", "who", "which", "about"
-    )
-
-    private fun overlap(a: Set<String>, b: Set<String>): Double {
-        if (a.isEmpty() || b.isEmpty()) return 0.0
-        return a.intersect(b).size.toDouble() / a.union(b).size
-    }
+    private fun overlap(a: Set<String>, b: Set<String>): Double = MemorySimilarity.jaccard(a, b)
 }

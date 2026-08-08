@@ -7,13 +7,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
@@ -34,16 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.domain.model.AiVendor
+import com.cosmiclaboratory.axiom.domain.model.ConversationRetention
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
+import com.cosmiclaboratory.axiom.domain.notification.CheckInTimes
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.theme.AxiomTheme
 import com.cosmiclaboratory.axiom.ui.theme.ThemeMode
@@ -70,6 +66,7 @@ fun SettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showTimeSheet by remember { mutableStateOf(false) }
+    var showRetentionSheet by remember { mutableStateOf(false) }
     var showNameSheet by remember { mutableStateOf(false) }
     var showCompanionNameSheet by remember { mutableStateOf(false) }
     var showAboutSheet by remember { mutableStateOf(false) }
@@ -113,7 +110,10 @@ fun SettingsScreen(
             SettingRow(
                 icon = Icons.Outlined.AutoAwesome,
                 title = "AI",
-                summary = if (state.keyConnected) "Connected · ${state.activePersona.name.lowercase()}"
+                // The voice, not the derived persona: printing the enum name
+                // gave "Connected · calm", which is neither a thing the user
+                // picked nor a label they have seen anywhere else.
+                summary = if (state.keyConnected) "Connected · ${state.voice.preset.displayName}"
                 else "Not connected — everything else works offline",
                 onClick = onOpenAi
             )
@@ -194,6 +194,16 @@ fun SettingsScreen(
                     )
                 }
             )
+            // Placed with the conversation settings rather than the
+            // notification ones: this is about what you walk back into, not
+            // about being interrupted.
+            SettingRow(
+                icon = Icons.Outlined.History,
+                title = "Starting fresh",
+                summary = "Every visit opens blank · " +
+                    "keep the last one ${state.conversationRetention.label.lowercase()}",
+                onClick = { showRetentionSheet = true }
+            )
             SettingRow(
                 icon = Icons.Outlined.Face,
                 title = "What I'm called",
@@ -250,6 +260,17 @@ fun SettingsScreen(
         )
     }
 
+    if (showRetentionSheet) {
+        RetentionSheet(
+            selected = state.conversationRetention,
+            onPick = { retention ->
+                viewModel.setConversationRetention(retention)
+                showRetentionSheet = false
+            },
+            onDismiss = { showRetentionSheet = false }
+        )
+    }
+
     if (showTimeSheet) {
         CheckInTimeSheet(
             selected = state.checkInMinuteOfDay,
@@ -263,9 +284,54 @@ fun SettingsScreen(
 }
 
 /**
+ * How long a conversation stays available after you close the app.
+ *
+ * The blank-on-open behaviour is not optional and is stated in the sheet's own
+ * subtitle rather than offered as a switch — arriving to a clean screen is what
+ * the conversation is now, and this only governs how long the last one is still
+ * within reach behind it.
+ */
+@Composable
+private fun RetentionSheet(
+    selected: ConversationRetention,
+    onPick: (ConversationRetention) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AxiomBottomSheet(title = "Keep the last conversation", onDismiss = onDismiss) {
+        Text(
+            "Every visit starts blank. Until this runs out, the last one is one " +
+                "tap away; after it, I write it into your story and let it go.",
+            style = AxiomTheme.type.uiBodySmall,
+            color = AxiomTheme.colors.inkMuted,
+            modifier = Modifier.padding(bottom = AxiomTheme.space.sm)
+        )
+        ConversationRetention.entries.forEach { option ->
+            AxiomCard(
+                tone = if (option == selected) CardTone.Accent else CardTone.Neutral,
+                onClick = { onPick(option) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AxiomTheme.space.xs)
+            ) {
+                Text(option.label, style = AxiomTheme.type.uiTitleSmall, color = AxiomTheme.colors.ink)
+                Text(
+                    option.blurb,
+                    style = AxiomTheme.type.uiBodySmall,
+                    color = AxiomTheme.colors.inkMuted
+                )
+            }
+        }
+    }
+}
+
+/**
  * Four times rather than a clock face: this is "when is it welcome to hear
  * from me", not an alarm. Delivery is approximate anyway — the companion
- * speaks at or after this time, once the device is awake.
+ * speaks within [CheckInTimes.WINDOW_MINUTES] of this time, once the device
+ * is awake.
+ *
+ * The options come from [CheckInTimes] because onboarding asks the same
+ * question, and the two used to be able to drift apart.
  */
 @Composable
 private fun CheckInTimeSheet(
@@ -274,12 +340,7 @@ private fun CheckInTimeSheet(
     onDismiss: () -> Unit
 ) {
     AxiomBottomSheet(title = "Not before", onDismiss = onDismiss) {
-        listOf(
-            9 * 60 to "Morning",
-            13 * 60 to "Midday",
-            18 * 60 to "Evening",
-            21 * 60 to "Night"
-        ).forEach { (minute, label) ->
+        CheckInTimes.ALL.forEach { (minute, label) ->
             AxiomCard(
                 tone = if (minute == selected) CardTone.Accent else CardTone.Neutral,
                 onClick = { onPick(minute) },
@@ -315,7 +376,6 @@ fun SettingsAiScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val c = AxiomTheme.colors
-    val uriHandler = LocalUriHandler.current
 
     AxiomScaffold(
         title = "AI",
@@ -361,8 +421,10 @@ fun SettingsAiScreen(
                             modifier = Modifier.weight(1f)
                         )
                         // Shows at a glance which one you already have set up.
+                        // This rendered an empty string, so the marker it was
+                        // meant to be never appeared at all.
                         if (state.aiVendor != vendor && state.keyConnected) {
-                            Text("", style = AxiomTheme.type.uiMeta, color = c.inkFaint)
+                            Text("Key saved", style = AxiomTheme.type.uiMeta, color = c.inkFaint)
                         }
                     }
                     Spacer(Modifier.height(2.dp))
@@ -385,53 +447,16 @@ fun SettingsAiScreen(
                     }
                 }
             } else {
-                AxiomCard {
-                    Box {
-                        if (state.keyDraft.isEmpty()) {
-                            Text(state.aiVendor.keyHint, style = AxiomTheme.type.uiBody, color = c.inkFaint)
-                        }
-                        BasicTextField(
-                            value = state.keyDraft,
-                            onValueChange = viewModel::setKeyDraft,
-                            textStyle = AxiomTheme.type.uiBody.copy(color = c.ink),
-                            cursorBrush = SolidColor(c.accent),
-                            singleLine = true,
-                            visualTransformation = if (state.keyMasked) {
-                                PasswordVisualTransformation()
-                            } else VisualTransformation.None,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("field:api_key")
-                        )
-                    }
-                    Spacer(Modifier.height(AxiomTheme.space.md))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Button(
-                            onClick = viewModel::saveAndTestKey,
-                            enabled = state.keyDraft.isNotBlank() && state.keyTest != KeyTestState.Testing,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = c.accent, contentColor = c.onAccent
-                            ),
-                            shape = AxiomTheme.shapes.sm
-                        ) {
-                            Text(
-                                if (state.keyTest == KeyTestState.Testing) "Testing…" else "Save and test",
-                                style = AxiomTheme.type.uiLabel
-                            )
-                        }
-                        Spacer(Modifier.width(AxiomTheme.space.sm))
-                        AxiomIconButton(
-                            icon = if (state.keyMasked) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                            label = if (state.keyMasked) "Show key" else "Hide key",
-                            onClick = viewModel::toggleKeyMask,
-                            tint = c.inkMuted
-                        )
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { uriHandler.openUri(state.aiVendor.keyUrl) }) {
-                            Text("Get a free key", style = AxiomTheme.type.uiLabel, color = c.accent)
-                        }
-                    }
-                }
+                // Shared with onboarding's key page — see ApiKeyConnectCard.
+                ApiKeyConnectCard(
+                    vendor = state.aiVendor,
+                    keyDraft = state.keyDraft,
+                    masked = state.keyMasked,
+                    testing = state.keyTest == KeyTestState.Testing,
+                    onKeyDraftChange = viewModel::setKeyDraft,
+                    onToggleMask = viewModel::toggleKeyMask,
+                    onSaveAndTest = viewModel::saveAndTestKey
+                )
             }
 
             // Every outcome of the live check is visible; a silent test is useless.

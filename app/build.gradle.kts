@@ -109,7 +109,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-    
+
+    // Animation — only for the companion pulse. Everything else in the app
+    // animates through AxiomMotion; see CompanionPulse for why this one is
+    // different, and for the reduced-motion and palette wiring Lottie needs
+    // bolted on because it does not participate in either.
+    implementation(libs.lottie.compose)
+
     // Architecture & DI
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

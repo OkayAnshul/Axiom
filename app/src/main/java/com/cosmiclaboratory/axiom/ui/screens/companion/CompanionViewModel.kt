@@ -13,6 +13,7 @@ import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
 import com.cosmiclaboratory.axiom.data.voice.CompanionSpeaker
 import com.cosmiclaboratory.axiom.data.voice.MultilingualVoiceManager
 import com.cosmiclaboratory.axiom.data.voice.extractSpeakableSentences
+import com.cosmiclaboratory.axiom.domain.model.ConversationRetention
 import com.cosmiclaboratory.axiom.domain.model.Emotion
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.domain.model.EntryKind
@@ -27,7 +28,9 @@ import com.cosmiclaboratory.axiom.ui.design.toAxiomError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -51,8 +54,17 @@ data class CompanionUiMessage(
      * and its question. These are the ones worth offering to write about: they
      * are prompts, not conversation.
      */
-    val isPrompt: Boolean = false
+    val isPrompt: Boolean = false,
+    /**
+     * The curated question this prompt is asking, when it came from the bank.
+     * Carried into the composer so the answer can be credited to it — that join
+     * is the only thing stopping the same prompts coming round forever.
+     */
+    val questionId: Long? = null
 )
+
+/** One prompt the reader can swipe to. [questionId] is null for the fallback list. */
+data class PromptOption(val text: String, val questionId: Long?)
 
 data class CompanionUiState(
     val messages: List<CompanionUiMessage> = emptyList(),
@@ -100,6 +112,25 @@ data class CompanionUiState(
     val writingDraft: Entry? = null,
     /** The last user message that failed to send — powers "Save to your journal". */
     val lastFailedText: String? = null,
+    /**
+     * How many messages are parked out of sight and still within their window.
+     * Zero means there is nothing to pick back up, and the offer is not shown.
+     */
+    val parkedCount: Int = 0,
+    // ---- today's prompt -----------------------------------------------------
+    /**
+     * Today's opener and a few alternatives, so the prompt reads as an offer
+     * rather than an assignment. Empty once the reader has said anything today:
+     * there is nothing left to choose between.
+     */
+    val promptOptions: List<PromptOption> = emptyList(),
+    val promptIndex: Int = 0,
+    /** The persisted opener row the swipe rewrites in place. */
+    val promptMessageId: Long? = null,
+    /** Shown once, under the first prompt anyone sees, then never again. */
+    val showPromptSwipeHint: Boolean = false,
+    /** Names the mic and hands-free once, because both are unlabelled icons. */
+    val showTalkHint: Boolean = false,
     // ---- voice --------------------------------------------------------------
     val listening: Boolean = false,
     /** Whisper upload in flight (Hinglish mode only). */
@@ -126,6 +157,7 @@ data class CompanionUiState(
  * instead of dashboard cards. Everything except the model reply works with no
  * API key — the screen must never dead-end.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class CompanionViewModel @Inject constructor(
     private val engine: CompanionEngine,
@@ -151,6 +183,16 @@ class CompanionViewModel @Inject constructor(
     /** Debounces persistence of the unsent draft; see [setDraft]. */
     private var draftPersistJob: Job? = null
 
+    /**
+     * Where the visible conversation starts. Everything at or below it is parked.
+     *
+     * A flow rather than a plain field because the screen's message list is
+     * derived from it: parking on launch and resuming both move it, and the
+     * collector below re-subscribes to the right slice of the thread when it
+     * does.
+     */
+    private val parkWatermark = MutableStateFlow(0L)
+
     init {
         // Restore before anything else can touch the field, so a thought you were
         // part-way through is waiting where you left it.
@@ -161,8 +203,13 @@ class CompanionViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            // Before the opener, so today's prompt lands on a screen that has
+            // already decided what it is showing rather than under yesterday.
+            startFresh()
             maybePostDailyOpener()
-            companionRepo.observeThread(THREAD_ID).collect { rows ->
+            parkWatermark
+                .flatMapLatest { after -> companionRepo.observeThreadAfter(THREAD_ID, after) }
+                .collect { rows ->
                 _state.update { s ->
                     s.copy(
                         messages = rows.map { row ->
@@ -175,7 +222,8 @@ class CompanionViewModel @Inject constructor(
                                     .split(",")
                                     .mapNotNull { it.trim().toLongOrNull() },
                                 isPrompt = row.source == CompanionMessageEntity.Source.LOCAL.name &&
-                                    row.role == CompanionMessageEntity.Role.ASSISTANT.name
+                                    row.role == CompanionMessageEntity.Role.ASSISTANT.name,
+                                questionId = row.questionId
                             )
                         }
                     )
@@ -186,6 +234,10 @@ class CompanionViewModel @Inject constructor(
             prefs.observeGroqKeyPresent().collect { present ->
                 _state.update { it.copy(keyConnected = present) }
             }
+        }
+        viewModelScope.launch {
+            val seen = runCatching { prefs.talkHintSeen.first() }.getOrDefault(true)
+            _state.update { it.copy(showTalkHint = !seen) }
         }
         viewModelScope.launch {
             // Streak, mood and the draft chip all derive from the corpus, so they
@@ -383,9 +435,64 @@ class CompanionViewModel @Inject constructor(
             return
         }
 
-        val prompt = runCatching { questions.nextQuestion(prefs.activePersonaKey.first()) }
-            .getOrNull()?.text ?: FALLBACK_PROMPTS.random()
-        companionRepo.appendLocal(THREAD_ID, prompt)
+        // A few at once, so the opener can be swiped past rather than obeyed.
+        // Only the first is "spent" by being shown; see nextQuestions().
+        val drawn = runCatching {
+            questions.nextQuestions(prefs.activePersonaKey.first(), PROMPT_CHOICES)
+        }.getOrDefault(emptyList())
+
+        val options = if (drawn.isNotEmpty()) {
+            drawn.map { PromptOption(it.text, it.id) }
+        } else {
+            FALLBACK_PROMPTS.shuffled().take(PROMPT_CHOICES).map { PromptOption(it, null) }
+        }
+
+        val first = options.first()
+        val messageId = companionRepo.appendLocal(THREAD_ID, first.text, first.questionId)
+        val hintSeen = runCatching { prefs.promptSwipeHintSeen.first() }.getOrDefault(false)
+        _state.update {
+            it.copy(
+                promptOptions = options,
+                promptIndex = 0,
+                promptMessageId = messageId,
+                showPromptSwipeHint = !hintSeen && options.size > 1
+            )
+        }
+    }
+
+    /**
+     * The reader swiped to a different prompt.
+     *
+     * This rewrites today's opener in place rather than appending a second one:
+     * the conversation should read as though it asked one question this morning,
+     * not as though it kept changing its mind. The daily guard in
+     * [maybePostDailyOpener] keys off the latest message's date, so rewriting
+     * also leaves that intact.
+     */
+    fun selectPrompt(index: Int) {
+        val s = _state.value
+        val option = s.promptOptions.getOrNull(index) ?: return
+        val messageId = s.promptMessageId ?: return
+        if (index == s.promptIndex) return
+        _state.update { it.copy(promptIndex = index) }
+        viewModelScope.launch {
+            runCatching {
+                companionRepo.updateLocal(messageId, option.text, option.questionId)
+            }
+        }
+    }
+
+    /** The swipe hint has done its job; never show it again. */
+    fun dismissPromptSwipeHint() {
+        if (!_state.value.showPromptSwipeHint) return
+        _state.update { it.copy(showPromptSwipeHint = false) }
+        viewModelScope.launch { runCatching { prefs.setPromptSwipeHintSeen(true) } }
+    }
+
+    fun dismissTalkHint() {
+        if (!_state.value.showTalkHint) return
+        _state.update { it.copy(showTalkHint = false) }
+        viewModelScope.launch { runCatching { prefs.setTalkHintSeen(true) } }
     }
 
     private suspend fun refreshRitual(allEntries: List<Entry> = emptyList()) {
@@ -680,11 +787,105 @@ class CompanionViewModel @Inject constructor(
     fun dismissClearFailure() = _state.update { it.copy(clearFailed = false) }
 
     private suspend fun wipe() {
-        companionRepo.deleteThread(THREAD_ID)
+        // clearMessages, not deleteThread: the rolling summary is the compressed
+        // history of every conversation there has ever been, and dropping it
+        // here made "clear today's messages" mean "forget you know me".
+        companionRepo.clearMessages(THREAD_ID)
+        parkWatermark.value = 0
         _state.update {
-            it.copy(citedEntries = emptyList(), error = null, clearing = false, clearFailed = false)
+            it.copy(
+                citedEntries = emptyList(),
+                error = null,
+                clearing = false,
+                clearFailed = false,
+                parkedCount = 0
+            )
         }
         maybePostDailyOpener()
+    }
+
+    // ---- starting fresh -----------------------------------------------------
+
+    /**
+     * Decides what a launch shows before anything is drawn.
+     *
+     * Opening the app should feel like arriving, not like walking back into a
+     * room mid-sentence, so the conversation starts blank every time. What was
+     * said is parked rather than deleted, and stays one tap away for as long as
+     * [ConversationRetention] allows. Past that it is digested into the journal
+     * — memories and all — and released.
+     *
+     * Expiry is judged from the newest message's timestamp, never from when the
+     * park happened. Anchoring on the park time meant every launch re-stamped
+     * the clock, so a conversation opened once a day outlived any window without
+     * a word being added to it — and resuming, which clears the park entirely,
+     * reset it outright.
+     */
+    private suspend fun startFresh() {
+        val threadState = runCatching { companionRepo.threadState(THREAD_ID) }.getOrNull() ?: return
+        val latest = runCatching { companionRepo.latestMessage(THREAD_ID) }.getOrNull()
+        if (latest == null) {
+            parkWatermark.value = 0
+            return
+        }
+
+        val retention = runCatching { prefs.conversationRetention.first() }
+            .getOrDefault(ConversationRetention.SAME_DAY)
+        if (retention.hasExpired(latest.createdAt, LocalDateTime.now())) {
+            releaseParked()
+            return
+        }
+
+        // Still within the window, so park whatever has arrived since last time
+        // — a proactive check-in or a reply from the notification shade both
+        // land here between launches.
+        val watermark = if (latest.id > threadState.parkedUpToMessageId) {
+            companionRepo.park(THREAD_ID, latest.id)
+            latest.id
+        } else {
+            threadState.parkedUpToMessageId
+        }
+        parkWatermark.value = watermark
+        refreshParkedCount(watermark)
+    }
+
+    /**
+     * Digests the parked conversation into the journal, then clears it.
+     *
+     * Same contract as [clearThread]: a [ConversationDigester.Outcome.Retry]
+     * means nothing was written, so nothing is deleted and the park stands. The
+     * next launch tries again. Losing a conversation because the network was
+     * down at the wrong moment is exactly the failure this ordering prevents.
+     */
+    private suspend fun releaseParked() {
+        val outcome = runCatching { digester.digest(THREAD_ID) }
+            .getOrDefault(ConversationDigester.Outcome.Retry)
+        if (outcome == ConversationDigester.Outcome.Retry) {
+            val held = runCatching { companionRepo.threadState(THREAD_ID).parkedUpToMessageId }
+                .getOrDefault(0L)
+            parkWatermark.value = held
+            refreshParkedCount(held)
+            return
+        }
+        companionRepo.clearMessages(THREAD_ID)
+        parkWatermark.value = 0
+        _state.update { it.copy(parkedCount = 0) }
+    }
+
+    /** Brings back everything parked, for the rest of its window. */
+    fun resumeParked() {
+        viewModelScope.launch {
+            runCatching { companionRepo.unpark(THREAD_ID) }
+            parkWatermark.value = 0
+            _state.update { it.copy(parkedCount = 0) }
+        }
+    }
+
+    private suspend fun refreshParkedCount(watermark: Long) {
+        val count = if (watermark <= 0) 0 else {
+            runCatching { companionRepo.countUpTo(THREAD_ID, watermark) }.getOrDefault(0)
+        }
+        _state.update { it.copy(parkedCount = count) }
     }
 
     override fun onCleared() {
@@ -724,6 +925,13 @@ class CompanionViewModel @Inject constructor(
 
         /** Long enough to coalesce typing, short enough to survive a sudden kill. */
         const val DRAFT_PERSIST_DEBOUNCE_MS = 400L
+
+        /**
+         * How many prompts to offer. Enough that "none of these" is rare, few
+         * enough that choosing between them doesn't become the task — the point
+         * is to make the prompt feel declinable, not to open a menu.
+         */
+        const val PROMPT_CHOICES = 5
 
         val FALLBACK_PROMPTS = listOf(
             "What surprised you this week?",

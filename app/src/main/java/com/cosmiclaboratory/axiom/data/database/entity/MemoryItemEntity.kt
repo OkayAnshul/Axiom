@@ -1,13 +1,27 @@
 package com.cosmiclaboratory.axiom.data.database.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.cosmiclaboratory.axiom.domain.model.MemoryItem
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import java.time.LocalDateTime
 
-@Entity(tableName = "memory_items")
+/**
+ * Indices added in v12. The table had none, and every companion turn reads the
+ * whole of it: `lastSeenAt` is what decay orders by, `kind` is what the per-kind
+ * prompt caps group by, and `dueAt` is what the open-loop lookup filters on
+ * during each check-in.
+ */
+@Entity(
+    tableName = "memory_items",
+    indices = [
+        Index(value = ["lastSeenAt"]),
+        Index(value = ["kind"]),
+        Index(value = ["dueAt"])
+    ]
+)
 data class MemoryItemEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,

@@ -127,10 +127,17 @@ fun CompanionGreeting(
         ) {
             Column {
                 Spacer(Modifier.height(AxiomTheme.space.sm))
+                // Deliberately quieter than the greeting above it.
+                //
+                // This line carries things like "You already wrote today. I'd
+                // still like to hear how it went." At 20sp Fraunces it had the
+                // weight of a heading, and a heading telling you what you have
+                // and haven't done reads as an instruction. It is an aside, so
+                // it is set like one: UI text, muted, secondary to the prompt.
                 Text(
                     text = lead.orEmpty(),
-                    style = AxiomTheme.type.greetingLead,
-                    color = c.inkMuted
+                    style = AxiomTheme.type.uiBody,
+                    color = c.inkFaint
                 )
 
                 // What you've built, made visible again. Removing the tab bar

@@ -97,11 +97,25 @@
                 android:resource="@xml/notes_list_widget_info" />
         </receiver>
         
-        <!-- Quick Settings Tile Service -->
+        <!-- Inline reply from a companion notification.
+             Unexported: the only thing that ever sends this action is our own
+             PendingIntent, which is MUTABLE so the system can write the typed
+             text into it. Unexported is what makes that mutability safe. -->
+        <receiver
+            android:name=".data.notification.CompanionReplyReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.cosmiclaboratory.axiom.action.COMPANION_REPLY" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Settings Tile Service.
+             The tile icon is a silhouette because Quick Settings tints it a single
+             colour; it used to point at the full-colour launcher foreground. -->
         <service
             android:name=".tile.QuickNoteTileService"
             android:exported="true"
-            android:icon="@drawable/ic_launcher_foreground"
+            android:icon="@drawable/ic_axiom_spark"
             android:label="@string/quick_note_tile_label"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

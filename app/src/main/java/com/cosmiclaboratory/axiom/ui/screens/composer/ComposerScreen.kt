@@ -145,7 +145,12 @@ fun ComposerScreen(
                 wordCount = state.wordCount,
                 mood = state.mood,
                 onMoodChange = viewModel::setMood,
-                onTranscript = viewModel::appendTranscript
+                onTranscript = viewModel::appendTranscript,
+                // Arriving from the QS tile or the widget with voice already
+                // asked for. This flag was read from the route and then never
+                // used, so those entry points opened a silent composer.
+                autoStartVoice = state.openVoiceOnStart,
+                onVoiceStarted = viewModel::consumeVoiceAutoStart
             )
         }
     }
@@ -258,7 +263,9 @@ private fun ComposerBottomBar(
     wordCount: Int,
     mood: Int?,
     onMoodChange: (Int) -> Unit,
-    onTranscript: (String) -> Unit
+    onTranscript: (String) -> Unit,
+    autoStartVoice: Boolean = false,
+    onVoiceStarted: () -> Unit = {}
 ) {
     val c = AxiomTheme.colors
     var showMood by remember { mutableStateOf(false) }
@@ -304,7 +311,11 @@ private fun ComposerBottomBar(
             }
             // The real on-device recogniser, not a placeholder: results append
             // at the end of the body via the composer's normal save path.
-            VoiceInputFab(onVoiceResult = onTranscript)
+            VoiceInputFab(
+                onVoiceResult = onTranscript,
+                autoStart = autoStartVoice,
+                onAutoStartConsumed = onVoiceStarted
+            )
         }
     }
 }

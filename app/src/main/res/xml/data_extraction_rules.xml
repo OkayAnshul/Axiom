@@ -1,19 +1,32 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 31+ backup and transfer rules. See @xml/backup_rules for the pre-31 twin and
+  for why axiom_secure_prefs and the Room database are excluded.
+
+  The two blocks are separate on purpose, because the two situations differ:
+
+  cloud-backup travels through Google's servers and lands on a device whose
+  Keystore is a different Keystore. The encrypted key file could not be read
+  there even in principle.
+
+  device-transfer is a direct device-to-device copy, and the Keystore still does
+  not come with it — hardware-backed keys are non-exportable by construction.
+  So the same exclusions apply. The block is spelled out rather than omitted:
+  leaving it out makes device-transfer fall back to backing up everything, which
+  is the exact behaviour being prevented here.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <exclude domain="sharedpref" path="axiom_secure_prefs.xml" />
+        <exclude domain="database" path="axiom_database" />
+        <exclude domain="database" path="axiom_database-wal" />
+        <exclude domain="database" path="axiom_database-shm" />
     </cloud-backup>
-    <!--
+
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <exclude domain="sharedpref" path="axiom_secure_prefs.xml" />
+        <exclude domain="database" path="axiom_database" />
+        <exclude domain="database" path="axiom_database-wal" />
+        <exclude domain="database" path="axiom_database-shm" />
     </device-transfer>
-    -->
 </data-extraction-rules>

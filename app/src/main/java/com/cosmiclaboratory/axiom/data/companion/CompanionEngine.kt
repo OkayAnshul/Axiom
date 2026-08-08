@@ -15,6 +15,7 @@ import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.repository.SemanticIndexProvider
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.Entry
+import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import com.cosmiclaboratory.axiom.domain.safety.CareLevel
 import com.cosmiclaboratory.axiom.domain.search.Retriever
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
@@ -57,6 +58,7 @@ class CompanionEngine @Inject constructor(
     private val personaRepo: PersonaRepository,
     private val companionRepo: CompanionRepository,
     private val memories: MemoryRepository,
+    private val extractor: MemoryExtractor,
     private val semanticIndex: SemanticIndexProvider,
     private val prefs: UserPreferences,
     private val promptBuilder: CompanionPromptBuilder,
@@ -93,6 +95,7 @@ class CompanionEngine @Inject constructor(
         // running summary BEFORE building the prompt, so this turn already
         // benefits from it.
         runCatching { compactIfNeeded(threadId) }
+        runCatching { extractMidSessionIfNeeded(threadId) }
 
         val topK = retrieve(threadId, text)
 
@@ -182,6 +185,46 @@ class CompanionEngine @Inject constructor(
                 rollingSummary = summary,
                 summarizedUpToMessageId = fallingOut.last().id
             )
+        )
+    }
+
+    /**
+     * Learns something partway through a conversation, rather than only after it.
+     *
+     * Memories were written by the digester alone, which fires about three hours
+     * after the last message or two minutes after the app is backgrounded. Tell
+     * the companion something that matters in turn two of a long evening and it
+     * could fall out of the twenty-four-message verbatim window before anything
+     * recorded it — the fact was said, acknowledged, and then genuinely
+     * forgotten. [reinforceMentionedMemories] does not help: it can only bump
+     * rows that already exist.
+     *
+     * Runs every [MID_SESSION_EVERY_TURNS] user turns on the cheap model, over
+     * the same stretch the digester would eventually see. Extraction is
+     * idempotent by construction — the near-duplicate guard in [MemoryExtractor]
+     * turns a repeat into a reinforcement — so the later digest re-reading this
+     * text strengthens what was found instead of duplicating it.
+     *
+     * Keyless is a no-op: [MemoryExtractor] returns NoKey and the local digester
+     * still covers this stretch when the session ends.
+     */
+    private suspend fun extractMidSessionIfNeeded(threadId: String) {
+        val state = companionRepo.threadState(threadId)
+        val pending = companionRepo.messagesAfter(threadId, state.digestedUpToMessageId)
+        val userTurns = pending.count { it.role == CompanionMessageEntity.Role.USER.name }
+        if (userTurns == 0 || userTurns % MID_SESSION_EVERY_TURNS != 0) return
+
+        val transcript = pending.joinToString("\n") { message ->
+            val speaker = if (message.role == CompanionMessageEntity.Role.USER.name) "User" else "Companion"
+            "$speaker: ${message.content}"
+        }
+        // Deliberately does NOT advance digestedUpToMessageId. That watermark is
+        // the digester's, and moving it here would rob the end-of-session digest
+        // of the transcript it needs to write the journal entry.
+        extractor.extract(
+            text = transcript,
+            source = MemorySource.CONVERSATION,
+            sourceId = pending.lastOrNull()?.id
         )
     }
 
@@ -367,6 +410,15 @@ class CompanionEngine @Inject constructor(
         const val RETRIEVAL_CANDIDATES = 12
 
         /** Enough fallen-out turns to be worth a call; below this, just let them go. */
+        /**
+         * How many user turns between mid-session memory passes.
+         *
+         * Eight is a compromise, not a measurement: often enough that a long
+         * evening is recorded as it happens, rare enough that it costs about one
+         * cheap call per session rather than one per turn.
+         */
+        const val MID_SESSION_EVERY_TURNS = 8
+
         const val COMPACT_THRESHOLD = 6
         const val COMPACTION_MAX_TOKENS = 300
 

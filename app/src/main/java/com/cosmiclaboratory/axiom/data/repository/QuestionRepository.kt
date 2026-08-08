@@ -50,6 +50,36 @@ class QuestionRepository @Inject constructor(
         return null
     }
 
+    /**
+     * Today's question, plus a few alternatives to swipe through.
+     *
+     * Only the first one goes through [nextQuestion]'s full priority order,
+     * because that path has a side effect: promoting an AI initiator marks it
+     * consumed. Drawing the alternatives the same way would burn four generated
+     * prompts the reader never saw. So the rest come from the curated bank,
+     * which costs nothing to look at and is only "spent" by being answered.
+     *
+     * The head may be null when nothing at all is available; callers fall back
+     * to their own list. Alternatives simply run short rather than repeating.
+     */
+    suspend fun nextQuestions(
+        persona: PersonaKey,
+        count: Int,
+        lastTheme: String? = null
+    ): List<Question> {
+        val head = nextQuestion(persona, lastTheme)
+        val alternates = if (count <= 1) emptyList() else {
+            val cutoffIso = LocalDateTime.now().minusDays(14)
+                .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            questionDao.curatedAlternatives(
+                limit = count - 1,
+                excludeIds = listOfNotNull(head?.id),
+                cutoffIso = cutoffIso
+            ).map { it.toDomainModel() }
+        }
+        return (listOfNotNull(head) + alternates)
+    }
+
     suspend fun unconsumedInitiatorCount(persona: PersonaKey): Int =
         cacheDao.unconsumedCount(persona.storageValue)
 

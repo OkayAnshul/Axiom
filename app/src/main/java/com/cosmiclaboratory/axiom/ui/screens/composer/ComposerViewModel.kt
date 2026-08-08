@@ -116,6 +116,17 @@ class ComposerViewModel @Inject constructor(
         scheduleSave(immediate = true)
     }
 
+    /**
+     * The mic has been opened, so the route's request is spent. Held in state
+     * rather than read straight from [args] so it survives exactly once: the
+     * permission dialog recomposes this screen, and a rotation rebuilds it from
+     * the same route, both of which would otherwise reopen the mic.
+     */
+    fun consumeVoiceAutoStart() {
+        if (!_state.value.openVoiceOnStart) return
+        _state.update { it.copy(openVoiceOnStart = false) }
+    }
+
     fun appendTranscript(text: String) {
         if (text.isBlank()) return
         _state.update { s ->

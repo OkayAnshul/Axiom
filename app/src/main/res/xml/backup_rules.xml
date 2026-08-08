@@ -1,13 +1,33 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto-backup rules for API 30 and below (@xml/data_extraction_rules covers 31+).
+  Both files must agree; a device on either side of the split should restore the
+  same way.
+
+  Two things are deliberately kept out of the backup.
+
+  axiom_secure_prefs — SecureKeyStore's EncryptedSharedPreferences. Its MasterKey
+  lives in the Android Keystore, which is never included in a backup. Restoring
+  the file onto a device whose Keystore does not hold that key produces a blob
+  nothing can decrypt, and EncryptedSharedPreferences.create() throws on open.
+  An absent key file means "reconnect your key"; a present, undecryptable one
+  means a crash on launch. So: never back it up.
+
+  axiom_database — Room runs in WAL mode, so the durable state at any instant is
+  spread across axiom_database, -wal and -shm. Auto-backup takes no database
+  lock and can capture the main file without the matching write-ahead log,
+  which restores as a journal that is quietly missing its most recent entries.
+  Axiom already ships a first-class encrypted export (see BackupScreen), which
+  checkpoints properly and which the user controls. A silent partial restore is
+  worse than an honest empty start plus a restore prompt.
+
+  What is left to back up is the DataStore in axiom_user_prefs: theme, companion
+  name, check-in time, chosen vendor. Losing those is a mild annoyance; restoring
+  them is free and cannot corrupt anything.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="axiom_secure_prefs.xml" />
+    <exclude domain="database" path="axiom_database" />
+    <exclude domain="database" path="axiom_database-wal" />
+    <exclude domain="database" path="axiom_database-shm" />
 </full-backup-content>
