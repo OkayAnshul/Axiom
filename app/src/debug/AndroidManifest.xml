@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only additions. AGP merges this into debug variants and never into
+  release, which is what keeps the demo-data tooling out of the bundle that gets
+  uploaded to Play. See DemoSeedReceiver for how it is driven.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+          Exported, because `adb shell am broadcast` runs as the shell user and
+          an unexported receiver only accepts broadcasts from its own UID — the
+          broadcast is enqueued and then silently dropped at delivery.
+
+          Safe here only because this manifest is debug-only: the receiver does
+          not exist in the release bundle, so there is no exported surface to
+          attack on a shipped install.
+        -->
+        <receiver
+            android:name=".demo.DemoSeedReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cosmiclaboratory.axiom.DEMO_SEED" />
+                <action android:name="com.cosmiclaboratory.axiom.DEMO_CLEAR" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
