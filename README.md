@@ -68,6 +68,48 @@ of what it was told before, filtered by what has survived decay.
 
 ---
 
+## What you actually get
+
+Twelve screens, two home-screen widgets and a Quick Settings tile.
+
+### The companion
+
+| Feature | Detail |
+|---|---|
+| **Talk instead of compose** | The home surface is a conversation. Say how the day went; leaving digests it into a journal entry in your own voice |
+| **It speaks first** | One message a day, only on days you have not been by, plus a look back on Sundays. **Off by default.** You pick morning, midday, evening or night — named times rather than a clock face, because it is a preference about the shape of your day |
+| **Answer from the shade** | Reply to a check-in straight from the notification, without opening the app |
+| **Open loops** | Mention an interview on Tuesday, get asked on Wednesday — then it drops the subject, because a companion that nags is one you stop talking to |
+| **Memory you can audit** | People, facts, goals, preferences and open loops, each with provenance — *noticed 8 Jun · came up 7×* — all editable and deletable |
+| **Talks** | Every past conversation, kept by the day it happened |
+
+### The journal
+
+| Feature | Detail |
+|---|---|
+| **Timeline** | Everything you have kept, grouped by day, with mood indicators |
+| **Composer & reader** | One markdown renderer and one composer across the app, with a formatting toolbar |
+| **Calendar** | A month at a glance, and every day you showed up |
+| **Search** | FTS4 full-text *and* a semantic index — "when did I feel like this before?" is a different question from "which entries contain these words" |
+| **Patterns** | Which weekday runs hardest, whether this week reads lighter than last, which people your better days cluster around — worked out on-device, and silent when there is not enough to say |
+| **Voice notes** | Dictation with on-device recognition. Hindi and Hinglish are first-class, including in search |
+
+### Everywhere else
+
+**Quick Note widget** and a **notes-list widget** built with Glance · a **Quick Settings tile** for
+the thought you would otherwise lose · an **encrypted whole-journal export** and restore, so an
+update never costs you your writing · **onboarding** that explains the privacy model before asking
+for anything.
+
+### Safety and privacy
+
+Crisis detection runs on-device with **no model, no network and no key**, because someone in
+distress at 3am without an API key configured is exactly the person who must not hit a dead end.
+Mood classification, pattern detection and semantic search are all local too. AI is **opt-in**: with
+no key, you still have a complete journal.
+
+---
+
 ## Engineering
 
 **32,789 lines of Kotlin across 230 files** (190 main, 35 test), single module, Compose-only.
