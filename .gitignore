@@ -1,18 +1,17 @@
 *.iml
 .gradle
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+
+# IDE state — machine-local, and it changes on its own. Only the shared code
+# style survives, so formatting is the same for anyone who opens the project.
+/.idea/*
+!/.idea/codeStyles/
 
 # Local archives / scratch
 *.zip
@@ -22,3 +21,10 @@ local.properties
 /keystore.properties
 *.jks
 *.keystore
+
+# Screenshot output — regenerate with tools/screenshots.sh
+/screenshots/
+
+# Personal notes about how to talk about this project. Not the repository's
+# business, and it reads badly to the people it is written for.
+/docs/INTERVIEW-PREP.md
