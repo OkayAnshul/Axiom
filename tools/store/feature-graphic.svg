@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Play Store feature graphic, 1024x500.
+
+  Same substrate and same ember as the icon. No screenshot inside it and no
+  device frame: Play crops and overlays this at several sizes, and anything with
+  fine detail turns to mush. A mark, a name and one line is what survives.
+
+  Nothing important sits within 60px of any edge — Play's own overlays and the
+  rounded corners on some surfaces eat into that.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+  <defs>
+    <radialGradient id="glow" cx="300" cy="250" r="420" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D99A5B" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#D99A5B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F3BE79"/>
+      <stop offset="0.55" stop-color="#DD9A55"/>
+      <stop offset="1" stop-color="#C4762F"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="500" fill="#0D0C0B"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+
+  <!-- The mark, scaled up from the 108-unit icon artwork. -->
+  <g transform="translate(150 118) scale(2.45)">
+    <path d="M54,24C54,24 69,41 69,51.5C69,59.8 62.3,66.5 54,66.5C45.7,66.5 39,59.8 39,51.5C39,41 54,24 54,24Z"
+          fill="url(#ember)" transform="translate(-54 -24)"/>
+    <path d="M26,69.5C35,68.1 46,69.7 53,73.5L53,84C46,80.2 35,78.6 26,80Z"
+          fill="#EDE6D9" fill-opacity="0.82" transform="translate(-54 -24)"/>
+    <path d="M82,69.5C73,68.1 62,69.7 55,73.5L55,84C62,80.2 73,78.6 82,80Z"
+          fill="#EDE6D9" fill-opacity="0.58" transform="translate(-54 -24)"/>
+  </g>
+
+  <text x="420" y="228"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="86" font-weight="600" fill="#EDE6D9" letter-spacing="-2">Axiom</text>
+
+  <text x="424" y="292"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="31" fill="#A79E90">A journal that remembers you.</text>
+
+  <text x="424" y="338"
+        font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="25" fill="#D99A5B">Everything stays on your phone.</text>
+</svg>
