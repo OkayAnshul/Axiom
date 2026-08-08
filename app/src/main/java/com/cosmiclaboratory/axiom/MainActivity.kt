@@ -43,6 +43,24 @@ class MainActivity : ComponentActivity() {
         setContent {
             val startup by startupViewModel.state.collectAsStateWithLifecycle()
 
+            /*
+             * Nothing is composed until preferences have actually resolved.
+             *
+             * StartupState.onboardingComplete defaults to false, which makes "not
+             * onboarded" indistinguishable from "haven't looked yet". Feeding that
+             * provisional value into the nav graph meant the first composition
+             * always rooted at Onboarding and laid out the name page behind the
+             * splash. The splash is torn down on the very next draw after isReady
+             * flips, but swapping the graph costs another frame plus a 260ms
+             * dissolve — so a returning user saw the name page flash past.
+             *
+             * Returning early also keeps the deep-link effect below from running
+             * against a graph that is about to be replaced: the replacement pops
+             * the back stack, which is how a QS-tile or widget launch could lose
+             * its destination and land on the conversation instead.
+             */
+            if (!startup.isReady) return@setContent
+
             AxiomTheme(
                 themeMode = startup.themeMode,
                 adaptiveLight = startup.adaptiveLight

@@ -188,6 +188,9 @@ class ConversationDigester @Inject constructor(
                     markdown = body,
                     kind = EntryKind.CONVERSATION,
                     isComplete = true,
+                    // Dated to the conversation, not to whenever the worker got
+                    // round to it — a talk from last night belongs to last night.
+                    createdAt = session.last().createdAt,
                     mood = mood,
                     // null moodCapturedAt marks the mood as inferred, not chosen.
                     moodCapturedAt = null,

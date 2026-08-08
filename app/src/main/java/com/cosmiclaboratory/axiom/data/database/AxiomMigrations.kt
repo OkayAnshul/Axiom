@@ -126,8 +126,75 @@ object AxiomMigrations {
         }
     }
 
+    /**
+     * Adds `companion_messages.questionId`, so a daily opener remembers which
+     * curated question it is asking.
+     *
+     * Questions have never carried an "answered" flag — [dao.QuestionDao] decides
+     * it by joining `entries.questionId`, which is self-healing: delete the entry
+     * and the question returns to rotation with no cleanup code. The catch is
+     * that the join only works if the id actually reaches the entry, and it never
+     * did. The opener persisted the question's *text* and threw the id away, so
+     * `entries.questionId` was always null, nothing ever matched, and the fifty
+     * curated prompts recycled indefinitely.
+     *
+     * Nullable and additive: existing openers keep asking their question, they
+     * simply cannot be credited retroactively — the text is all that was kept, and
+     * guessing which question it came from by string-matching would be a fine way
+     * to mark the wrong one answered.
+     */
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `companion_messages` ADD COLUMN `questionId` INTEGER")
+        }
+    }
+
+    /**
+     * Two additions that happen to land together.
+     *
+     * **`companion_thread_state.parkedUpToMessageId`** — the conversation now
+     * starts blank on every fresh launch, with what you said earlier still there
+     * behind a "pick up where we left off" chip until its window closes. That
+     * needs to distinguish "hidden" from "gone", and this table already tracks
+     * exactly this kind of watermark for the summarizer and the digester, so
+     * parking is a third one rather than a new mechanism.
+     *
+     * One column, not two: the retention window is measured from the parked
+     * conversation's last message, which `companion_messages.createdAt` already
+     * records, so there is nothing to store about when parking happened.
+     *
+     * **`memory_items` indices** — the table had none at all. Every single
+     * companion turn ran `SELECT *` across it and sorted in memory, which is
+     * fine at a few hundred rows and is on the critical path of a reply at a few
+     * thousand. `lastSeenAt` backs decay ordering, `kind` backs the per-kind
+     * caps, and `dueAt` backs the open-loop lookup that runs on every check-in.
+     * Indices are pure addition: no row changes, and a downgrade just ignores
+     * them.
+     */
+    val MIGRATION_11_12 = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE `companion_thread_state` " +
+                    "ADD COLUMN `parkedUpToMessageId` INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_memory_items_lastSeenAt` " +
+                    "ON `memory_items` (`lastSeenAt`)"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_memory_items_kind` " +
+                    "ON `memory_items` (`kind`)"
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_memory_items_dueAt` " +
+                    "ON `memory_items` (`dueAt`)"
+            )
+        }
+    }
+
     /** Every migration, in order. Passed wholesale to the database builder. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+    val ALL: Array<Migration> =
+        arrayOf(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
 
     /**
      * True when [ALL] forms an unbroken chain from [BASELINE_VERSION] to

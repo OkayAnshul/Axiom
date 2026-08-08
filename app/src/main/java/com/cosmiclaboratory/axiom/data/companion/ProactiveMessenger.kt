@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import com.cosmiclaboratory.axiom.MainActivity
 import com.cosmiclaboratory.axiom.R
@@ -20,8 +21,10 @@ import com.cosmiclaboratory.axiom.data.notification.AxiomNotifications
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.CompanionRepository
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
+import com.cosmiclaboratory.axiom.data.notification.CompanionReplyReceiver
 import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
-import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
+import com.cosmiclaboratory.axiom.data.repository.QuestionRepository
+import com.cosmiclaboratory.axiom.domain.model.CompanionIdentity
 import com.cosmiclaboratory.axiom.domain.model.Entry
 import com.cosmiclaboratory.axiom.ui.navigation.AxiomDeepLinks
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -53,7 +56,7 @@ class ProactiveMessenger @Inject constructor(
     private val companionRepo: CompanionRepository,
     private val memories: MemoryRepository,
     private val entries: JournalRepository,
-    private val personas: PersonaRepository,
+    private val questions: QuestionRepository,
     private val prefs: UserPreferences
 ) {
 
@@ -86,7 +89,19 @@ class ProactiveMessenger @Inject constructor(
         val fallback = localCheckIn(prefs.displayName.first(), now.hour, loops.firstOrNull()?.text)
         val message = compose(prompt, fallback)
 
-        deliver(message.text, message.fromModel, now)
+        // A check-in that can only be answered by typing is a check-in most
+        // people leave unanswered. Offering the question to *write about*
+        // converts the moment they are already paying attention into the thing
+        // the app is actually for.
+        //
+        // An open loop makes a better prompt than a generated question, because
+        // it is a thing they told us themselves and asked to be reminded of.
+        val writingPrompt = loops.firstOrNull()?.text?.let { "You mentioned: $it" }
+            ?: runCatching {
+                questions.nextQuestion(prefs.activePersonaKey.first(), lastTheme = null)?.text
+            }.getOrNull()
+
+        deliver(message.text, message.fromModel, now, writingPrompt)
         // Asked once, closed once — a friend does not ask twice.
         loops.forEach { runCatching { memories.closeLoop(it.id) } }
         return true
@@ -163,17 +178,29 @@ class ProactiveMessenger @Inject constructor(
 
     // ---- delivery -----------------------------------------------------------
 
-    private suspend fun deliver(text: String, fromModel: Boolean, now: LocalDateTime) {
+    private suspend fun deliver(
+        text: String,
+        fromModel: Boolean,
+        now: LocalDateTime,
+        writingPrompt: String? = null
+    ) {
         if (fromModel) {
             companionRepo.appendAssistant(THREAD_ID, text, emptyList())
         } else {
             companionRepo.appendLocal(THREAD_ID, text)
         }
         prefs.setLastProactiveDate(now.toLocalDate().toString())
-        notify(text)
+        notify(text, writingPrompt)
     }
 
-    private suspend fun notify(text: String) {
+    /**
+     * Posts the companion's answer to a reply sent from the shade. Public
+     * because [com.cosmiclaboratory.axiom.data.work.CompanionReplyWorker] owns
+     * that round trip — a broadcast receiver cannot wait for a model.
+     */
+    suspend fun notifyReply(text: String) = notify(text, writingPrompt = null)
+
+    private suspend fun notify(text: String, writingPrompt: String?) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
@@ -182,31 +209,87 @@ class ProactiveMessenger @Inject constructor(
         }
         AxiomNotifications.ensureChannels(context)
 
-        // A message from someone, so it is titled with who is speaking.
-        val title = runCatching { personas.getByKey(prefs.activePersonaKey.first())?.displayName }
-            .getOrNull() ?: "Axiom"
+        // A message from someone, so it is titled with who is speaking — and
+        // "who" is the name the user gave the companion, which is what the
+        // place bar and the greeting already call it. It used to be the persona's
+        // display name, so a notification arrived from "Calm Companion" while
+        // every surface inside the app said something else.
+        val title = runCatching { CompanionIdentity.resolve(prefs.companionName.first()) }
+            .getOrNull() ?: CompanionIdentity.DEFAULT_NAME
 
+        val builder = NotificationCompat.Builder(context, AxiomNotifications.CHANNEL_COMPANION)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openConversationIntent())
+            .setAutoCancel(true)
+            .addAction(replyAction(title))
+
+        // Second action, and second only: replying is the lower-effort answer
+        // and belongs first. Writing is the one that produces something.
+        writingPrompt?.let { builder.addAction(writeAboutAction(it)) }
+
+        runCatching {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
+        }
+    }
+
+    private fun openConversationIntent(): PendingIntent {
         val intent = Intent(
             Intent.ACTION_VIEW,
             Uri.parse(AxiomDeepLinks.COMPANION),
             context,
             MainActivity::class.java
         ).apply { addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
-
-        val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
+        return PendingIntent.getActivity(
+            context, REQUEST_OPEN, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val notification = NotificationCompat.Builder(context, AxiomNotifications.CHANNEL_COMPANION)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+    }
+
+    /**
+     * Inline reply. MUTABLE rather than IMMUTABLE, and that is not an oversight:
+     * a RemoteInput action exists precisely so the system can write the typed
+     * text into the intent before sending it, which an immutable PendingIntent
+     * forbids. The receiver is unexported, so nothing outside the app can reach
+     * it.
+     */
+    private fun replyAction(title: String): NotificationCompat.Action {
+        val remoteInput = RemoteInput.Builder(CompanionReplyReceiver.KEY_REPLY_TEXT)
+            .setLabel("Reply to $title")
             .build()
-        runCatching { NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification) }
+        val intent = Intent(context, CompanionReplyReceiver::class.java).apply {
+            action = CompanionReplyReceiver.ACTION_REPLY
+            putExtra(CompanionReplyReceiver.EXTRA_THREAD_ID, THREAD_ID)
+            putExtra(CompanionReplyReceiver.EXTRA_NOTIFICATION_ID, NOTIFICATION_ID)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context, REQUEST_REPLY, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Reply", pendingIntent)
+            .addRemoteInput(remoteInput)
+            .setAllowGeneratedReplies(false)
+            .build()
+    }
+
+    /** One tap from the shade into the composer, question already at the top. */
+    private fun writeAboutAction(prompt: String): NotificationCompat.Action {
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(AxiomDeepLinks.composerWithPrompt(prompt)),
+            context,
+            MainActivity::class.java
+        ).apply { addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) }
+        val pendingIntent = PendingIntent.getActivity(
+            context, REQUEST_WRITE, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Action.Builder(
+            R.drawable.ic_notification, "Write about this", pendingIntent
+        ).build()
     }
 
     // ---- context ------------------------------------------------------------
@@ -258,6 +341,13 @@ class ProactiveMessenger @Inject constructor(
     private companion object {
         const val THREAD_ID = "companion"
         const val NOTIFICATION_ID = 4201
+
+        // Distinct request codes: PendingIntents with the same code and matching
+        // extras are the same object, so sharing one would have the reply action
+        // quietly overwrite the tap target.
+        const val REQUEST_OPEN = 0
+        const val REQUEST_REPLY = 1
+        const val REQUEST_WRITE = 2
 
         /** How long to stay quiet after someone said they were struggling. */
         const val DISTRESS_QUIET_DAYS = 2L

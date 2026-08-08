@@ -1,5 +1,6 @@
 package com.cosmiclaboratory.axiom.ui.navigation
 
+import android.net.Uri
 import kotlinx.serialization.Serializable
 
 /**
@@ -77,4 +78,16 @@ object AxiomDeepLinks {
     const val PATTERNS = "$SCHEME://patterns"
     const val SETTINGS_AI = "$SCHEME://settings/ai"
     fun reader(id: Long) = "$SCHEME://reader/$id"
+
+    /**
+     * Open the composer already headed by [prompt].
+     *
+     * This is what turns a notification into writing rather than into a visit:
+     * the check-in arrives as something to write *about*, and one tap lands in
+     * the composer with the question already at the top. Encoded because a
+     * prompt is a sentence and sentences contain spaces, ampersands and question
+     * marks.
+     */
+    fun composerWithPrompt(prompt: String): String =
+        "$COMPOSER?promptText=${Uri.encode(prompt)}"
 }

@@ -23,8 +23,9 @@
       hand-rolled splash destination that blocked for a hardcoded 3.5 seconds.
     -->
     <style name="Theme.Axiom.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/axiom_window_background</item>
+        <item name="windowSplashScreenBackground">@color/axiom_splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/axiom_splash_icon_background</item>
         <item name="postSplashScreenTheme">@style/Theme.Axiom</item>
     </style>
 </resources>

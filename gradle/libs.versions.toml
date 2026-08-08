@@ -46,6 +46,7 @@ securityCrypto = "1.1.0-alpha06"
 # Fonts
 
 # Animation
+lottie = "6.6.6"
 
 # Testing
 mockito = "5.8.0"
@@ -103,6 +104,7 @@ androidx-security-crypto = { group = "androidx.security", name = "security-crypt
 # Fonts (Google Fonts via Compose)
 
 # Animation
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
 
 # Network — Ktor for Groq AI client
 ktor-client-core = { group = "io.ktor", name = "ktor-client-core", version.ref = "ktor" }

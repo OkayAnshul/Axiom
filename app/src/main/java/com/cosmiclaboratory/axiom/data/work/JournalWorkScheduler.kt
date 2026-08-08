@@ -123,6 +123,30 @@ class JournalWorkScheduler @Inject constructor(
         workManager.cancelUniqueWork(ProactiveCheckInWorker.UNIQUE_NAME)
     }
 
+    /**
+     * Answers a reply typed into the notification shade.
+     *
+     * REPLACE rather than KEEP: two quick replies mean the second is the one
+     * they want answered, and the worker reads the newest message anyway. It
+     * does take a network constraint, unlike the check-in — there is no local
+     * fallback for "reply to this specific thing they just said", so waiting for
+     * a connection beats posting nothing.
+     */
+    fun requestCompanionReply(threadId: String) {
+        val request = OneTimeWorkRequestBuilder<CompanionReplyWorker>()
+            .setInputData(workDataOf(CompanionReplyWorker.KEY_THREAD_ID to threadId))
+            .setConstraints(
+                Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
+            .build()
+        workManager.enqueueUniqueWork(
+            CompanionReplyWorker.UNIQUE_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
+    }
+
     /** Weekly memory tidy-up. On-device, so no network constraint. */
     fun scheduleMemoryConsolidation() {
         val request = PeriodicWorkRequestBuilder<MemoryConsolidationWorker>(7, TimeUnit.DAYS)

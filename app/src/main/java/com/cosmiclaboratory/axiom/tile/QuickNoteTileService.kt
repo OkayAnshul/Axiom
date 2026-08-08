@@ -2,12 +2,10 @@ package com.cosmiclaboratory.axiom.tile
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.cosmiclaboratory.axiom.MainActivity
-import com.cosmiclaboratory.axiom.R
 
 class QuickNoteTileService : TileService() {
 
@@ -44,7 +42,10 @@ class QuickNoteTileService : TileService() {
 
     private fun updateTile() {
         qsTile?.let { tile ->
-            tile.icon = Icon.createWithResource(this, R.drawable.ic_launcher_foreground)
+            // The icon is left to the manifest's android:icon (ic_axiom_spark).
+            // Assigning it here used to override that with the full-colour
+            // launcher foreground, which Quick Settings then flattened to a
+            // single tone — defeating the silhouette the manifest points at.
             tile.label = "Quick Entry"
             tile.contentDescription = "Create a new note quickly"
             tile.state = Tile.STATE_ACTIVE

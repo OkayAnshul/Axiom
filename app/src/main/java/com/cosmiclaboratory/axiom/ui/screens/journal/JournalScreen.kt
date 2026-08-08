@@ -22,10 +22,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.cosmiclaboratory.axiom.ui.components.LocalSnackbarHostState
+import com.cosmiclaboratory.axiom.ui.design.SharedKeys
+import com.cosmiclaboratory.axiom.ui.design.axiomSharedBounds
 import com.cosmiclaboratory.axiom.ui.design.components.*
 import com.cosmiclaboratory.axiom.ui.navigation.ShelfSheet
 import com.cosmiclaboratory.axiom.ui.screens.companion.WhatGetsSentSheet
@@ -132,10 +133,14 @@ fun JournalScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .testTag("list:journal"),
+                    // Only enough to clear the FAB. The scaffold padding on the
+                    // Column above already reserves the place bar and the
+                    // navigation-bar inset; the old 96dp was stacked on top of
+                    // that and left the list ending in a void.
                     contentPadding = PaddingValues(
                         start = AxiomTheme.space.screenH,
                         end = AxiomTheme.space.screenH,
-                        bottom = 96.dp
+                        bottom = AxiomTheme.space.xxl
                     ),
                     verticalArrangement = Arrangement.spacedBy(AxiomTheme.space.listGap)
                 ) {
@@ -145,7 +150,11 @@ fun JournalScreen(
                         }
                         items(day.entries, key = { it.id }) { entry ->
                             EntryCard(
-                                modifier = axiomItemMotion(),
+                                // The card travels into the reader rather than
+                                // dissolving into it, so the thing you tapped is
+                                // visibly the thing you are now reading.
+                                modifier = axiomItemMotion()
+                                    .axiomSharedBounds(SharedKeys.entry(entry.id)),
                                 entry = entry,
                                 onClick = { onOpenEntry(entry.id) },
                                 onLongClick = {

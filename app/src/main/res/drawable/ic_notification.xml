@@ -1,0 +1,24 @@
+<!--
+  The status-bar icon.
+
+  Android masks a notification small icon to its alpha channel and tints the
+  result, so anything with a gradient, a fill colour, or partial alpha arrives as
+  one solid blob. This slot used to point at ic_launcher_foreground, which is all
+  three of those things — every check-in the app has ever sent showed a white
+  teardrop with no detail in it.
+
+  Solid rather than outlined, unlike ic_axiom_spark: the status bar renders this
+  well below its nominal 24dp, and at that size the spark's inner cut and core
+  dot close up into noise. The page is dropped entirely for the same reason —
+  what survives is the ember, which is enough to know who is speaking.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFFFF">
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,2.5C12,2.5 18.5,9 18.5,13.5C18.5,17.09 15.59,20 12,20C8.41,20 5.5,17.09 5.5,13.5C5.5,9 12,2.5 12,2.5Z" />
+</vector>

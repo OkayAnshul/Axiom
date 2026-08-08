@@ -1,5 +1,7 @@
 package com.cosmiclaboratory.axiom.domain.voice
 
+import com.cosmiclaboratory.axiom.domain.model.PersonaKey
+
 /**
  * How the companion talks.
  *
@@ -152,6 +154,27 @@ enum class VoicePreset(
             emoji = Emoji.Sparing, pushback = Pushback.Challenge, advice = Advice.Freely
         )
     });
+
+    /**
+     * The persona this voice files its generated openers under.
+     *
+     * A persona is no longer a voice — this file is. What survives of it is a
+     * partition key: [com.cosmiclaboratory.axiom.data.repository.QuestionRepository]
+     * caches a batch of generated conversation openers per persona, and two
+     * people with different voices should not be handed the same batch.
+     *
+     * So this mapping only has to be stable and injective. The names on either
+     * side are not claims about each other, and nothing reads the persona's
+     * prompt fragment any more.
+     */
+    fun toPersonaKey(): PersonaKey = when (this) {
+        Gentle -> PersonaKey.CALM
+        Warm -> PersonaKey.EMOTIONAL
+        Level -> PersonaKey.ANALYTICAL
+        Dry -> PersonaKey.SARCASTIC
+        Blunt -> PersonaKey.ENERGETIC
+        Unfiltered -> PersonaKey.DEEP
+    }
 
     companion object {
         fun fromStorage(value: String?): VoicePreset =

@@ -6,11 +6,10 @@ import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
-import com.cosmiclaboratory.axiom.data.repository.PersonaRepository
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import com.cosmiclaboratory.axiom.domain.model.AiVendor
-import com.cosmiclaboratory.axiom.domain.model.Persona
-import com.cosmiclaboratory.axiom.domain.model.PersonaKey
+import com.cosmiclaboratory.axiom.domain.model.ConversationRetention
+import com.cosmiclaboratory.axiom.domain.notification.CheckInTimes
 import com.cosmiclaboratory.axiom.domain.voice.VoicePreset
 import com.cosmiclaboratory.axiom.domain.voice.VoiceProfile
 import com.cosmiclaboratory.axiom.domain.model.VoiceLanguage
@@ -52,12 +51,12 @@ data class SettingsUiState(
     val keyDraft: String = "",
     val keyMasked: Boolean = true,
     val keyTest: KeyTestState = KeyTestState.Idle,
-    val personas: List<Persona> = emptyList(),
-    val activePersona: PersonaKey = PersonaKey.CALM,
     val dailyNudgeEnabled: Boolean = false,
     val weeklyRecapEnabled: Boolean = true,
     /** Earliest moment the companion may check in, as minutes past midnight. */
-    val checkInMinuteOfDay: Int = 21 * 60,
+    val checkInMinuteOfDay: Int = CheckInTimes.DEFAULT_MINUTE_OF_DAY,
+    /** How long a parked conversation stays resumable. */
+    val conversationRetention: ConversationRetention = ConversationRetention.SAME_DAY,
     val entryCount: Int = 0,
     val voiceLanguage: VoiceLanguage = VoiceLanguage.ENGLISH_IN,
     val whisperFallbackEnabled: Boolean = true,
@@ -67,7 +66,6 @@ data class SettingsUiState(
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val prefs: UserPreferences,
-    private val personas: PersonaRepository,
     private val entries: JournalRepository,
     private val ai: AiProvider,
     private val scheduler: JournalWorkScheduler
@@ -85,10 +83,10 @@ class SettingsViewModel @Inject constructor(
                     themeMode = ThemeMode.fromStorage(prefs.themeOverride.first()),
                     adaptiveLight = prefs.adaptiveLight.first(),
                     voice = prefs.voice.first(),
-                    activePersona = prefs.activePersonaKey.first(),
                     dailyNudgeEnabled = prefs.dailyNudgeEnabled.first(),
                     weeklyRecapEnabled = prefs.weeklyRecapEnabled.first(),
                     checkInMinuteOfDay = prefs.dailyNudgeMinuteOfDay.first(),
+                    conversationRetention = prefs.conversationRetention.first(),
                     entryCount = entries.count(),
                     aiVendor = prefs.aiVendor.first(),
                     vendorKeyConnected = prefs.apiKey(prefs.aiVendor.first()) != null,
@@ -113,9 +111,6 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
             }
-        }
-        viewModelScope.launch {
-            personas.observeAll().collect { list -> _state.update { it.copy(personas = list) } }
         }
     }
 
@@ -145,17 +140,19 @@ class SettingsViewModel @Inject constructor(
 
     fun applyVoicePreset(preset: VoicePreset) {
         _state.update { it.copy(voice = preset.profile().copy(preset = preset)) }
-        viewModelScope.launch { prefs.applyVoicePreset(preset) }
+        viewModelScope.launch {
+            prefs.applyVoicePreset(preset)
+            // The persona is derived from the voice now, and it partitions the
+            // generated-opener cache — so changing voice has to move the
+            // partition with it, or the new voice keeps reading openers written
+            // for the old one. Onboarding does the same on the way in.
+            prefs.setActivePersona(preset.toPersonaKey())
+        }
     }
 
     fun setVoice(profile: VoiceProfile) {
         _state.update { it.copy(voice = profile) }
         viewModelScope.launch { prefs.setVoice(profile) }
-    }
-
-    fun setPersona(key: PersonaKey) {
-        _state.update { it.copy(activePersona = key) }
-        viewModelScope.launch { prefs.setActivePersona(key) }
     }
 
     fun setDailyNudge(enabled: Boolean) {
@@ -179,6 +176,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { prefs.setDailyNudgeMinuteOfDay(minuteOfDay) }
     }
 
+    fun setConversationRetention(value: ConversationRetention) {
+        _state.update { it.copy(conversationRetention = value) }
+        viewModelScope.launch { prefs.setConversationRetention(value) }
+    }
+
     /** The hourly tick exists only while something proactive is switched on. */
     private suspend fun syncProactiveSchedule() {
         val wanted = prefs.dailyNudgeEnabled.first() || prefs.weeklyRecapEnabled.first()
@@ -188,11 +190,6 @@ class SettingsViewModel @Inject constructor(
     fun setVoiceLanguage(language: VoiceLanguage) {
         _state.update { it.copy(voiceLanguage = language) }
         viewModelScope.launch { prefs.setPreferredVoiceLanguage(language.name) }
-    }
-
-    fun setWhisperFallback(enabled: Boolean) {
-        _state.update { it.copy(whisperFallbackEnabled = enabled) }
-        viewModelScope.launch { prefs.setWhisperFallbackEnabled(enabled) }
     }
 
     fun setAutoSpeak(enabled: Boolean) {

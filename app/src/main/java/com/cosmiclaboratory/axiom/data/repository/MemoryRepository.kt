@@ -10,11 +10,10 @@ import com.cosmiclaboratory.axiom.domain.memory.MemoryConsolidator
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import java.time.Duration
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.exp
+import com.cosmiclaboratory.axiom.domain.memory.MemoryDecay
 import com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene
 
 /**
@@ -27,7 +26,8 @@ import com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene
  */
 @Singleton
 class MemoryRepository @Inject constructor(
-    private val dao: MemoryItemDao
+    private val dao: MemoryItemDao,
+    private val semanticIndex: MemorySemanticIndexProvider
 ) {
 
     fun observeAll(): Flow<List<MemoryItem>> =
@@ -167,7 +167,7 @@ class MemoryRepository @Inject constructor(
         topic: String = ""
     ): Map<MemoryKind, List<MemoryItem>> {
         val topicTerms = FtsQuerySanitizer.retrievalTerms(topic, maxTerms = 12).toSet()
-        val ranked = dao.getAll()
+        val candidates = dao.getAll()
             .map { it.toDomainModel() }
             // Applied on the way out, not just on the way in. Rows written
             // before the theme filters existed were still being sent — a live
@@ -175,7 +175,24 @@ class MemoryRepository @Inject constructor(
             // facts about the user. This is the only route memories take into a
             // prompt, so filtering here closes it for good.
             .filterNot { MemoryHygiene.isDegenerate(it.text) }
-            .sortedByDescending { item -> promptScore(item, topicTerms, now) }
+
+        // Term overlap only fires on shared words. The semantic index catches
+        // the same subject said differently — "burnt out at the office" reaching
+        // "finds work stressful" — so its scores are folded in as a bonus rather
+        // than replacing the overlap term, which stays the more trustworthy
+        // signal when the user names a thing outright.
+        val semantic: Map<Long, Double> = if (topic.isBlank()) {
+            emptyMap()
+        } else {
+            runCatching {
+                semanticIndex.indexFor(candidates)
+                    .search(topic, limit = SEMANTIC_CANDIDATES)
+                    .associate { it.id to it.score }
+            }.getOrDefault(emptyMap())
+        }
+
+        val ranked = candidates
+            .sortedByDescending { item -> promptScore(item, topicTerms, now, semantic[item.id]) }
         val result = linkedMapOf<MemoryKind, MutableList<MemoryItem>>()
         var total = 0
         for (item in ranked) {
@@ -202,20 +219,48 @@ class MemoryRepository @Inject constructor(
     private fun promptScore(
         item: MemoryItem,
         topicTerms: Set<String>,
-        now: LocalDateTime
+        now: LocalDateTime,
+        /** Cosine score from the semantic index, when it found this one. */
+        semanticScore: Double? = null
     ): Double {
         val weight = item.effectiveWeight(now)
         if (topicTerms.isEmpty() || item.kind == MemoryKind.PREFERENCE) return weight
         val itemTerms = FtsQuerySanitizer.retrievalTerms(item.text, maxTerms = 16).toSet()
-        if (itemTerms.isEmpty()) return weight * WEIGHT_SHARE
-        val overlap = itemTerms.count { it in topicTerms }.toDouble() / topicTerms.size
-        return RELEVANCE_SHARE * overlap + WEIGHT_SHARE * weight
+        if (itemTerms.isEmpty()) {
+            return weight * WEIGHT_SHARE + SEMANTIC_SHARE * (semanticScore ?: 0.0)
+        }
+        // Normalised by the SMALLER of the two term sets, not by the topic's.
+        //
+        // Dividing by the topic length meant relevance shrank as the user wrote
+        // more: a twelve-word message could score a perfectly matching four-word
+        // memory at 0.33, so weight dominated exactly when there was most to
+        // match on. A symmetric measure asks "how much of the shorter thing is
+        // in the longer one", which is the question actually being asked of a
+        // one-line memory against a paragraph.
+        val shared = itemTerms.count { it in topicTerms }.toDouble()
+        val overlap = shared / minOf(itemTerms.size, topicTerms.size)
+        return RELEVANCE_SHARE * overlap +
+            WEIGHT_SHARE * weight +
+            SEMANTIC_SHARE * (semanticScore ?: 0.0)
     }
 
     companion object {
         /** How much of a memory's prompt score comes from bearing on the topic. */
         private const val RELEVANCE_SHARE = 0.6
         private const val WEIGHT_SHARE = 0.4
+
+        /**
+         * Additive, and smaller than either — a bonus, not a third opinion.
+         *
+         * Cosine scores here run roughly 0.1–0.5, so this can move a semantically
+         * related memory up past a heavier unrelated one without ever letting a
+         * loose association outrank a memory whose words the user actually just
+         * said.
+         */
+        private const val SEMANTIC_SHARE = 0.35
+
+        /** Enough to cover the per-kind caps several times over. */
+        private const val SEMANTIC_CANDIDATES = 40
 
         const val TOTAL_CAP = 20
         val KIND_CAPS: Map<MemoryKind, Int> = mapOf(
@@ -230,11 +275,12 @@ class MemoryRepository @Inject constructor(
             MemoryKind.PREFERENCE to 4
         )
 
-        private const val DECAY_DAYS = 90.0
-
-        fun MemoryItem.effectiveWeight(now: LocalDateTime): Double {
-            val days = Duration.between(lastSeenAt, now).toHours() / 24.0
-            return weight * exp(-days.coerceAtLeast(0.0) / DECAY_DAYS)
-        }
+        /**
+         * The curve itself lives in [MemoryDecay], shared with consolidation —
+         * the two used to be separate copies of the same exponential, so a
+         * change to one could have pruned memories the prompt was still using.
+         */
+        fun MemoryItem.effectiveWeight(now: LocalDateTime): Double =
+            MemoryDecay.effectiveWeight(this, now)
     }
 }

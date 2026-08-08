@@ -54,6 +54,7 @@ fun CompanionRitualHeader(
     onRecordMood: (Int) -> Unit,
     onContinueDraft: (Long) -> Unit,
     onToggleHandsFree: () -> Unit,
+    onExplainConversation: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val c = AxiomTheme.colors
@@ -66,6 +67,11 @@ fun CompanionRitualHeader(
             .testTag("header:ritual")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Leads the row: it is the only thing on screen that says the
+            // conversation goes somewhere afterwards.
+            CompanionPulse(onClick = onExplainConversation)
+            Spacer(Modifier.width(AxiomTheme.space.sm))
+
             Text(
                 // An inferred feeling is offered as a reading to correct, not
                 // stated as fact — hence the word, and the hedge.

@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark window background. Matches AxiomColors.oledDark.canvas so the platform
-         window and the Compose surface agree and cold start shows no flash. -->
-    <color name="axiom_window_background">#FF000000</color>
+    <!-- Dark window background: NightInkColors.canvas.
+
+         It used to be pure black, which is MidnightOledColors — the AMOLED
+         opt-in, not the default. Launching in the evening handed a black window
+         to a #131620 surface and the flash was plainly visible. Night ink is the
+         closer anchor to both of the palettes a dark launch can actually land
+         on, and an AMOLED user now gets a near-black difference instead of a
+         jarring one. -->
+    <color name="axiom_window_background">#FF0D0C0B</color>
+
+    <!-- Splash, dark. Matches the window for the same reason. The icon's own
+         ground (axiom_splash_icon_background) is deliberately NOT overridden
+         here — see the note in values/colors.xml. -->
+    <color name="axiom_splash_background">#FF0D0C0B</color>
 </resources>

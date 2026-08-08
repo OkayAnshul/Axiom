@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.cosmiclaboratory.axiom.data.companion.ProactiveMessenger
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
+import com.cosmiclaboratory.axiom.domain.notification.CheckInTimes
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
@@ -41,7 +42,8 @@ class ProactiveCheckInWorker @AssistedInject constructor(
 
         val now = LocalDateTime.now()
         val minuteOfDay = now.hour * 60 + now.minute
-        if (minuteOfDay < prefs.dailyNudgeMinuteOfDay.first()) return Result.success()
+        val target = prefs.dailyNudgeMinuteOfDay.first()
+        if (!CheckInTimes.shouldSendAt(minuteOfDay, target)) return Result.success()
 
         // Sunday belongs to the recap; the two never arrive on the same day.
         val isRecapDay = now.dayOfWeek == DayOfWeek.SUNDAY

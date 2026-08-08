@@ -4,6 +4,7 @@ import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
 import com.cosmiclaboratory.axiom.data.ai.PromptTemplates
 import com.cosmiclaboratory.axiom.data.repository.MemoryRepository
+import com.cosmiclaboratory.axiom.domain.memory.MemorySimilarity
 import com.cosmiclaboratory.axiom.domain.model.MemoryKind
 import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import kotlinx.serialization.SerialName
@@ -140,7 +141,7 @@ class MemoryExtractor @Inject constructor(
     companion object {
         const val MAX_NEW_PER_RUN = 8
         const val MIN_TEXT_LENGTH = 8
-        const val DUPLICATE_THRESHOLD = 0.6
+        const val DUPLICATE_THRESHOLD = MemorySimilarity.DUPLICATE_THRESHOLD
         const val NEW_BASE_WEIGHT = 0.3f
         const val NEW_CONFIDENCE_WEIGHT = 0.4f
 
@@ -150,16 +151,9 @@ class MemoryExtractor @Inject constructor(
     }
 }
 
-/** Token-set Jaccard similarity over lowercase word tokens. Pure, unit-tested. */
-internal fun tokenJaccard(a: String, b: String): Double {
-    val tokensA = jaccardTokens(a)
-    val tokensB = jaccardTokens(b)
-    if (tokensA.isEmpty() || tokensB.isEmpty()) return 0.0
-    val intersection = tokensA.intersect(tokensB).size.toDouble()
-    val union = tokensA.union(tokensB).size.toDouble()
-    return intersection / union
-}
-
-
-private fun jaccardTokens(text: String): Set<String> =
-    TextTokens.words(text, minLength = 2).toSet()
+/**
+ * Kept as a name because this is the vocabulary the extraction path speaks in,
+ * but the definition now lives in [MemorySimilarity] alongside the other two
+ * that used to disagree with it.
+ */
+internal fun tokenJaccard(a: String, b: String): Double = MemorySimilarity.jaccard(a, b)

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.cosmiclaboratory.axiom.data.security.SecureKeyStore
 import com.cosmiclaboratory.axiom.domain.model.AiVendor
+import com.cosmiclaboratory.axiom.domain.model.ConversationRetention
 import com.cosmiclaboratory.axiom.domain.model.PersonaKey
 import com.cosmiclaboratory.axiom.domain.voice.VoicePreset
 import com.cosmiclaboratory.axiom.domain.voice.VoiceProfile
@@ -58,6 +59,11 @@ class UserPreferences @Inject constructor(
 
     /** ISO date of the last unprompted companion message — enforces one per day. */
     val lastProactiveDate: Flow<String> = store.data.map { it[KEY_LAST_PROACTIVE_DATE].orEmpty() }
+
+    /** How long a parked conversation stays resumable. See [ConversationRetention]. */
+    val conversationRetention: Flow<ConversationRetention> = store.data.map {
+        ConversationRetention.fromStorage(it[KEY_CONVERSATION_RETENTION])
+    }
 
     /**
      * Whatever is sitting unsent in the home composer.
@@ -200,6 +206,24 @@ class UserPreferences @Inject constructor(
         store.edit { it[KEY_DISPLAY_NAME] = value.trim() }
     }
 
+    /**
+     * One-time hints. Both default to false — an unseen hint is worth showing,
+     * and showing it a second time to someone who reinstalled is a smaller cost
+     * than never surfacing the feature at all.
+     */
+    val promptSwipeHintSeen: Flow<Boolean> =
+        store.data.map { it[KEY_PROMPT_SWIPE_HINT] ?: false }
+
+    suspend fun setPromptSwipeHintSeen(value: Boolean) {
+        store.edit { it[KEY_PROMPT_SWIPE_HINT] = value }
+    }
+
+    val talkHintSeen: Flow<Boolean> = store.data.map { it[KEY_TALK_HINT] ?: false }
+
+    suspend fun setTalkHintSeen(value: Boolean) {
+        store.edit { it[KEY_TALK_HINT] = value }
+    }
+
     /** Blank clears the choice and restores the default rather than storing "". */
     suspend fun setCompanionName(value: String) {
         store.edit { it[KEY_COMPANION_NAME] = value.trim().take(CompanionIdentity.MAX_LENGTH) }
@@ -227,6 +251,10 @@ class UserPreferences @Inject constructor(
 
     suspend fun setLastProactiveDate(isoDate: String) {
         store.edit { it[KEY_LAST_PROACTIVE_DATE] = isoDate }
+    }
+
+    suspend fun setConversationRetention(value: ConversationRetention) {
+        store.edit { it[KEY_CONVERSATION_RETENTION] = value.storageValue }
     }
 
     suspend fun setThemeOverride(value: Int) {
@@ -261,6 +289,7 @@ class UserPreferences @Inject constructor(
         val KEY_DAILY_NUDGE_ENABLED = booleanPreferencesKey("daily_nudge_enabled")
         val KEY_DAILY_NUDGE_MINUTE = intPreferencesKey("daily_nudge_minute")
         val KEY_LAST_PROACTIVE_DATE = stringPreferencesKey("last_proactive_date")
+        val KEY_CONVERSATION_RETENTION = stringPreferencesKey("conversation_retention")
         val KEY_THEME_OVERRIDE = intPreferencesKey("theme_override")
         val KEY_ADAPTIVE_LIGHT = booleanPreferencesKey("adaptive_light")
         val KEY_COMPANION_DRAFT = stringPreferencesKey("companion_draft")
@@ -275,5 +304,7 @@ class UserPreferences @Inject constructor(
         val KEY_VOICE_CUSTOM = stringPreferencesKey("voice_custom")
         val KEY_VOICE_SOFTEN = booleanPreferencesKey("voice_soften_when_struggling")
         val KEY_AI_VENDOR = stringPreferencesKey("ai_vendor")
+        val KEY_PROMPT_SWIPE_HINT = booleanPreferencesKey("prompt_swipe_hint_seen")
+        val KEY_TALK_HINT = booleanPreferencesKey("talk_hint_seen")
     }
 }

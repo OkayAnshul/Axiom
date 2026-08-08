@@ -95,12 +95,19 @@ class JournalRepository @Inject constructor(
 
     // ---- writing -----------------------------------------------------------
 
+    /**
+     * When an entry was created is the caller's business, not this method's.
+     *
+     * New rows used to have `createdAt` overwritten with the wall clock, which
+     * is right for everything a person types — [Entry] defaults the field to
+     * now(), so those are unaffected — but wrong for anything written up after
+     * the fact. A conversation held last night and digested this morning was
+     * titled "From a conversation — 4 August" while filing itself under Today,
+     * and then swallowed the next day's conversation too, because the
+     * append-to-today lookup found it under the wrong date.
+     */
     suspend fun upsert(entry: Entry): Long {
-        val now = LocalDateTime.now()
-        val row = entry.copy(
-            createdAt = if (entry.id == 0L) now else entry.createdAt,
-            updatedAt = now
-        ).toEntity()
+        val row = entry.copy(updatedAt = LocalDateTime.now()).toEntity()
         val id = entryDao.insert(row)
         val entryId = if (entry.id == 0L) id else entry.id
         syncTags(entryId, entry.tags)

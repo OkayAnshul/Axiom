@@ -53,4 +53,31 @@ interface QuestionDao {
         ORDER BY RANDOM() LIMIT 1
     """)
     suspend fun randomCuratedUnanswered(): QuestionEntity?
+
+    /**
+     * A handful of other curated questions to offer alongside today's, so the
+     * prompt can be swiped rather than obeyed.
+     *
+     * Never-answered questions come first, then ones answered longer ago than
+     * [cutoffIso]; within each group the order is random, so the alternatives
+     * are not the same five every morning.
+     *
+     * GROUP BY is load-bearing here, unlike in the LIMIT 1 queries above: a
+     * question answered three times joins to three entry rows, which would
+     * otherwise return the same prompt three times in one batch.
+     */
+    @Query("""
+        SELECT q.* FROM questions q
+        LEFT JOIN entries a ON a.questionId = q.id AND a.isComplete = 1
+        WHERE q.source = 'CURATED' AND q.id NOT IN (:excludeIds)
+        GROUP BY q.id
+        HAVING MAX(a.createdAt) IS NULL OR MAX(a.createdAt) < :cutoffIso
+        ORDER BY (MAX(a.createdAt) IS NOT NULL), RANDOM()
+        LIMIT :limit
+    """)
+    suspend fun curatedAlternatives(
+        limit: Int,
+        excludeIds: List<Long>,
+        cutoffIso: String
+    ): List<QuestionEntity>
 }

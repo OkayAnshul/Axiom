@@ -12,11 +12,13 @@ import com.cosmiclaboratory.axiom.domain.model.MemorySource
 import com.cosmiclaboratory.axiom.domain.nlp.CommitmentDetector
 import com.cosmiclaboratory.axiom.domain.text.TextTokens
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.cosmiclaboratory.axiom.domain.memory.MemoryHygiene
+import com.cosmiclaboratory.axiom.domain.memory.MemorySimilarity
 
 /**
  * Turns a finished conversation into journal and memory **without an API key**.
@@ -57,10 +59,10 @@ class LocalConversationDigester @Inject constructor(
         val userTurns = userMessages.map { it.content.trim() }
         if (userTurns.isEmpty()) return Result(null, 0, 0)
 
-        val sessionDate = session.lastOrNull()?.createdAt?.toLocalDate() ?: today
+        val sessionEndedAt = session.lastOrNull()?.createdAt ?: today.atStartOfDay()
         val body = userTurns.joinToString("\n\n")
 
-        val entryId = saveEntry(body, sessionDate)
+        val entryId = saveEntry(body, sessionEndedAt)
         val loops = recordCommitments(userMessages, today)
         val memories = recordPeopleAndThemes(userMessages)
         return Result(entryId, memories, loops)
@@ -70,7 +72,8 @@ class LocalConversationDigester @Inject constructor(
      * Appends to the day's conversation entry if one exists, mirroring the AI
      * digest so the two paths can never produce two entries for one day.
      */
-    private suspend fun saveEntry(body: String, sessionDate: LocalDate): Long? {
+    private suspend fun saveEntry(body: String, sessionEndedAt: LocalDateTime): Long? {
+        val sessionDate = sessionEndedAt.toLocalDate()
         val mood = inferMood(body)
         val existing = runCatching { journalRepo.forDay(sessionDate) }
             .getOrDefault(emptyList())
@@ -96,6 +99,9 @@ class LocalConversationDigester @Inject constructor(
                         markdown = body,
                         kind = EntryKind.CONVERSATION,
                         isComplete = true,
+                        // Dated to the conversation, not to whenever the worker
+                        // got round to it. See JournalRepository.upsert.
+                        createdAt = sessionEndedAt,
                         mood = mood,
                         // null moodCapturedAt marks the mood as inferred.
                         moodCapturedAt = null,
@@ -290,17 +296,18 @@ class LocalConversationDigester @Inject constructor(
     }
 
     /**
-     * Token-overlap guard, the same shape [MemoryExtractor] uses on the AI path:
-     * a memory that mostly repeats one already held is not new.
+     * A memory that mostly repeats one already held is not new.
+     *
+     * Containment rather than Jaccard, and deliberately so: these candidates are
+     * short generated sentences ("Riya came up in conversation"), and asking
+     * whether one is wholly inside an existing memory is the right question,
+     * where asking whether they are the same length is not.
      */
     fun isNovel(candidate: String, existing: Set<String>): Boolean {
-        val terms = TextTokens.words(candidate.lowercase(), minLength = 3).toSet()
+        val terms = MemorySimilarity.tokens(candidate)
         if (terms.isEmpty()) return false
         return existing.none { held ->
-            val heldTerms = TextTokens.words(held, minLength = 3).toSet()
-            if (heldTerms.isEmpty()) return@none false
-            val shared = terms.count { it in heldTerms }.toDouble()
-            shared / minOf(terms.size, heldTerms.size) >= DUPLICATE_OVERLAP
+            MemorySimilarity.containment(terms, MemorySimilarity.tokens(held)) >= DUPLICATE_OVERLAP
         }
     }
 
@@ -317,17 +324,8 @@ class LocalConversationDigester @Inject constructor(
         const val MIN_TURNS_FOR_THEME = 3
         const val COMMITMENT_WEIGHT = 0.5f
 
-        /** Short words are rarely topics. "interview" is a theme; "long" is not. */
-
-
         /** A memory is a sentence. This is the hard ceiling on one. */
         const val MAX_MEMORY_CHARS = 200
-
-        /**
-         * Words that recur in conversation without being what it was about.
-         * Not a general stoplist — [FtsQuerySanitizer] already drops those —
-         * just the filler that survives it and reads absurd as a "theme".
-         */
 
         /** Low: these are guesses from repetition, and should fade unless repeated. */
         const val SOFT_WEIGHT = 0.35f

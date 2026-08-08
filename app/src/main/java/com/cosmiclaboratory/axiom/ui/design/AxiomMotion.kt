@@ -13,6 +13,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.unit.IntOffset
 
 /**
  * Motion tokens over core [spring].
@@ -84,11 +85,26 @@ data class AxiomMotion(
     ),
 
     /**
-     * Page transitions. Fade only — no slide, no scale. Sliding implies a
-     * sequence and scaling implies a hierarchy; between peer surfaces in a
-     * conversation app, neither is true. Pages should dissolve.
+     * Transitions between PEER surfaces. Fade only — no slide, no scale.
+     * Sliding implies a sequence and scaling implies a hierarchy; between the
+     * conversation and the story, neither is true. Peers dissolve.
      */
     val dissolve: FiniteAnimationSpec<Float> = tween(
+        durationMillis = 260,
+        easing = FastOutSlowInEasing
+    ),
+
+    /**
+     * Transitions that go DOWN into something and back out: an entry, the
+     * composer, a settings page.
+     *
+     * These are the cases where sliding tells the truth — you opened a thing
+     * from somewhere, and back returns you there. Applying the peer dissolve to
+     * them made every destination feel equally far away, which is why the app
+     * had no sense of depth at all. Same duration as [dissolve] so a slide and
+     * the fade riding on it land together.
+     */
+    val pageSlide: FiniteAnimationSpec<IntOffset> = tween(
         durationMillis = 260,
         easing = FastOutSlowInEasing
     ),
@@ -154,6 +170,7 @@ data class AxiomMotion(
             breathe = stillRepeatable(),
             ambientDrift = stillRepeatable(),
             dissolve = snap(),
+            pageSlide = snap(),
             isReduced = true
         )
 
