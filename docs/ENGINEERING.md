@@ -266,6 +266,13 @@ The cost was paid for by consolidation rather than by budget: merging the digest
 into one and the entry's two into one means the same text is sent once instead of three times, so
 the stronger model costs roughly what the old fan-out did.
 
+**Both vendors have to honour that choice, and for a long time only one did.** Gemini's `jsonCall`
+hardcoded the cheap tier and `completeJson` never passed its `model` through, so the digester's
+deliberate `AiTasks.QUALITY` was discarded for every Gemini user — the entry in their own voice and
+their long-term memories ran on the cheap model, exactly inverting the reasoning above. Nothing
+failed; the output was just quietly worse, which is why it went unnoticed. Two tests now pin that
+each tier reaches the wire.
+
 Temperature is likewise split by purpose — `0.2` for JSON and extraction ("obey the schema, don't
 embellish"), `0.7` for anything the user reads as the companion's own voice.
 

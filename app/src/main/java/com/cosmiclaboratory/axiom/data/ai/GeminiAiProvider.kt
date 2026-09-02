@@ -258,7 +258,7 @@ class GeminiAiProvider @Inject constructor(
         maxTokens: Int,
         model: String,
         temperature: Float
-    ): AiResult<String> = jsonCall(systemPrompt, userPrompt, maxTokens) { it }
+    ): AiResult<String> = jsonCall(systemPrompt, userPrompt, maxTokens, model) { it }
 
     /**
      * Not supported. Gemini takes audio as inlined base64 with its own limits,
@@ -268,13 +268,43 @@ class GeminiAiProvider @Inject constructor(
     override suspend fun transcribeAudio(audioFile: File, language: String?): AiResult<String> =
         AiResult.NoKey
 
+    /**
+     * A JSON-mode call on whichever tier [model] names.
+     *
+     * The tier used to be hardcoded to [GeminiModels.BACKGROUND] here, and
+     * [completeJson] did not pass its `model` through — so
+     * [com.cosmiclaboratory.axiom.data.companion.ConversationDigester]'s
+     * deliberate `AiTasks.QUALITY` was silently ignored for every Gemini user.
+     * The journal entry written in someone's voice, and what gets remembered
+     * about them for months, ran on the cheap model, while the Groq path
+     * honoured the choice. That is exactly the allocation AiTasks exists to
+     * prevent: a mediocre chat reply scrolls away, a mediocre memory persists.
+     *
+     * The default stays on the cheap tier because the two callers that do not
+     * pass a model — openers and entry summaries — are cheap-tier work on the
+     * Groq side too.
+     */
     private suspend fun <T> jsonCall(
         systemPrompt: String,
         userPrompt: String,
         maxTokens: Int = 600,
+        model: String = GroqModels.BACKGROUND,
         parse: (String) -> T
     ): AiResult<T> {
         val key = keys.apiKey(AiVendor.GEMINI) ?: return AiResult.NoKey
+        return withChatFallback(model) { resolved ->
+            jsonCallOnce(key, systemPrompt, userPrompt, maxTokens, resolved, parse)
+        }
+    }
+
+    private suspend fun <T> jsonCallOnce(
+        key: String,
+        systemPrompt: String,
+        userPrompt: String,
+        maxTokens: Int,
+        model: String,
+        parse: (String) -> T
+    ): AiResult<T> {
         val request = GeminiRequest(
             contents = listOf(GeminiContent("user", listOf(GeminiPart(userPrompt)))),
             systemInstruction = systemPrompt.takeIf { it.isNotBlank() }
@@ -286,7 +316,7 @@ class GeminiAiProvider @Inject constructor(
         )
         return runCatching {
             val response: GeminiResponse = client.post(
-                endpoint(GeminiModels.BACKGROUND, "generateContent", key)
+                endpoint(model, "generateContent", key)
             ) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
@@ -294,7 +324,7 @@ class GeminiAiProvider @Inject constructor(
             val content = response.text().trim()
             if (content.isEmpty()) return AiResult.Parse(IllegalStateException("Empty Gemini response"))
             try {
-                AiResult.Ok(parse(content), response.usageMetadata?.totalTokenCount ?: 0, GeminiModels.BACKGROUND)
+                AiResult.Ok(parse(content), response.usageMetadata?.totalTokenCount ?: 0, model)
             } catch (e: Throwable) {
                 AiResult.Parse(e)
             }

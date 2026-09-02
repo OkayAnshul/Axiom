@@ -195,6 +195,46 @@ class AiProviderErrorMappingTest {
         assertTrue(secondCall.single().contains(GeminiModels.CHAT_FALLBACK))
     }
 
+    // ---- Which tier does which job -------------------------------------
+
+    /**
+     * `AiTasks.QUALITY` has to reach the wire.
+     *
+     * `jsonCall` hardcoded the cheap tier and `completeJson` dropped its `model`
+     * on the floor, so ConversationDigester asking for the strong model — for
+     * the journal entry in the user's voice and for memory extraction — got the
+     * cheap one on every Gemini account, while Groq honoured it. Nothing failed;
+     * the output was just quietly worse, which is why it survived so long.
+     */
+    @Test
+    fun `gemini json work runs on the tier the caller asked for`() = runBlocking {
+        val engine = engine { respond(geminiJsonOkBody, HttpStatusCode.OK, jsonHeaders) }
+
+        gemini(engine).completeJson("sys", "user", 600, AiTasks.QUALITY, 0.2f)
+
+        assertTrue(
+            "QUALITY must hit the quality tier, went to ${engine.urls.single()}",
+            engine.urls.single().contains(GeminiModels.CHAT)
+        )
+    }
+
+    /** And the cheap tier stays cheap — background jobs must not silently upgrade. */
+    @Test
+    fun `gemini background work stays on the cheap tier`() = runBlocking {
+        val engine = engine { respond(geminiJsonOkBody, HttpStatusCode.OK, jsonHeaders) }
+
+        gemini(engine).completeJson("sys", "user", 600, AiTasks.CHEAP, 0.2f)
+
+        assertTrue(
+            "CHEAP must hit the background tier, went to ${engine.urls.single()}",
+            engine.urls.single().contains(GeminiModels.BACKGROUND)
+        )
+    }
+
+    private val geminiJsonOkBody =
+        """{"candidates":[{"content":{"role":"model","parts":[{"text":"{}"}]},""" +
+            """"finishReason":"STOP"}],"usageMetadata":{"totalTokenCount":3}}"""
+
     /** A bad key is not fixed by a different model — falling back would waste a call. */
     @Test
     fun `gemini does not fall back when the key is the problem`() = runBlocking {
