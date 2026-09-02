@@ -16,10 +16,10 @@ class GroqSseParserTest {
 
     @Test
     fun `delta line yields its content`() {
-        val line = """data: {"id":"x","model":"llama-3.3-70b-versatile","choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}"""
+        val line = """data: {"id":"x","model":"openai/gpt-oss-120b","choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}"""
         val result = parse(line) as SseLine.Delta
         assertEquals("Hello", result.text)
-        assertEquals("llama-3.3-70b-versatile", result.model)
+        assertEquals("openai/gpt-oss-120b", result.model)
     }
 
     @Test

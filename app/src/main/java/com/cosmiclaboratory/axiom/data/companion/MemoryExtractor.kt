@@ -67,6 +67,7 @@ class MemoryExtractor @Inject constructor(
             is AiResult.NoKey -> return result
             is AiResult.RateLimited -> return result
             is AiResult.Network -> return result
+            is AiResult.Unsupported -> return result
             is AiResult.Parse -> return result
         }
         val payload = runCatching { json.decodeFromString(ExtractionPayload.serializer(), content) }

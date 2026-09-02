@@ -10,11 +10,30 @@ import java.io.File
  * extraction, digests) uses the cheap fast model — those jobs are structured
  * JSON tasks where the small model is adequate and rate-limit pools per model
  * are separate.
+ *
+ * These were `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` until Groq
+ * shut both off for free and developer tiers on 16 August 2026. Nothing about
+ * the app announced that: a decommissioned model answers with 404, which mapped
+ * to a network error, so a perfectly good key was rolled back on save and the
+ * user was told to check their connection. The pairing below is Groq's own
+ * recommended replacement for each.
  */
 object GroqModels {
-    const val CHAT = "llama-3.3-70b-versatile"
-    const val BACKGROUND = "llama-3.1-8b-instant"
+    const val CHAT = "openai/gpt-oss-120b"
+    const val BACKGROUND = "openai/gpt-oss-20b"
     const val WHISPER = "whisper-large-v3-turbo"
+}
+
+/**
+ * How hard a reasoning model is asked to think before it answers.
+ *
+ * Everything here runs at [LOW]. The jobs are extraction against a fixed schema
+ * and a companion reply in someone's own voice; neither improves with
+ * deliberation, and both are billed for it. Only the two Llama models this app
+ * used to run on were non-reasoning, which is why nothing needed this before.
+ */
+object ReasoningEffort {
+    const val LOW = "low"
 }
 
 /**

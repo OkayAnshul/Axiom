@@ -102,6 +102,12 @@ class ConversationDigester @Inject constructor(
             }
             AiResult.RateLimited -> return Outcome.Retry
             is AiResult.Network -> return Outcome.Retry
+            is AiResult.Unsupported -> {
+                // Retrying a withdrawn model never succeeds, and the watermark
+                // would never advance — the conversation would be re-sent on
+                // every pass until the app is updated. Treat it like no key.
+                return localFallback(state.digestedUpToMessageId, pending, threadId)
+            }
             is AiResult.Parse -> {
                 // A malformed reply used to lose the entry silently and forever,
                 // because the watermark still advanced. Fall back to the local

@@ -13,6 +13,7 @@ import com.cosmiclaboratory.axiom.domain.model.Persona
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.retry
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
@@ -26,6 +27,7 @@ import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.json.Json
@@ -33,10 +35,27 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Model routing for Gemini, mirroring the split used for Groq. */
+/**
+ * Model routing for Gemini, mirroring the split used for Groq.
+ *
+ * These were `gemini-2.0-flash` and `gemini-2.0-flash-lite` until Google shut
+ * the whole 2.0 Flash family down on 1 June 2026. Same failure as the Groq
+ * side, arriving two months earlier and even more quietly, because Gemini
+ * reports a dead model the same way it reports everything else — a 400.
+ */
 object GeminiModels {
-    const val CHAT = "gemini-2.0-flash"
-    const val BACKGROUND = "gemini-2.0-flash-lite"
+    const val CHAT = "gemini-3.7-flash"
+    const val BACKGROUND = "gemini-3.5-flash-lite"
+
+    /**
+     * Where the quality tier drops to when it is unavailable.
+     *
+     * The same string as [BACKGROUND] today, but named separately because the
+     * two are chosen for different reasons: one is "cheap enough to run on
+     * every entry", this one is "the best thing still answering". Retuning
+     * either must not silently move the other.
+     */
+    const val CHAT_FALLBACK = BACKGROUND
 }
 
 /**
@@ -109,6 +128,18 @@ class GeminiAiProvider @Inject constructor(
         model: String
     ): AiResult<String> {
         val key = keys.apiKey(AiVendor.GEMINI) ?: return AiResult.NoKey
+        return withChatFallback(model) { resolved ->
+            chatOnce(key, systemPrompt, messages, maxTokens, resolved)
+        }
+    }
+
+    private suspend fun chatOnce(
+        key: String,
+        systemPrompt: String,
+        messages: List<Pair<String, String>>,
+        maxTokens: Int,
+        model: String
+    ): AiResult<String> {
         val request = GeminiRequest(
             contents = messages.map { (role, content) ->
                 GeminiContent(geminiRole(role), listOf(GeminiPart(content)))
@@ -118,7 +149,7 @@ class GeminiAiProvider @Inject constructor(
             generationConfig = GeminiGenerationConfig(maxOutputTokens = maxTokens)
         )
         return runCatching {
-            val response: GeminiResponse = client.post(endpoint(mapModel(model), "generateContent", key)) {
+            val response: GeminiResponse = client.post(endpoint(model, "generateContent", key)) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }.body()
@@ -126,7 +157,7 @@ class GeminiAiProvider @Inject constructor(
             if (text.isEmpty()) {
                 AiResult.Parse(IllegalStateException("Empty Gemini response"))
             } else {
-                AiResult.Ok(text, response.usageMetadata?.totalTokenCount ?: 0, mapModel(model))
+                AiResult.Ok(text, response.usageMetadata?.totalTokenCount ?: 0, model)
             }
         }.getOrElse { mapError(it) }
     }
@@ -142,6 +173,39 @@ class GeminiAiProvider @Inject constructor(
             emit(ChatStreamEvent.Failed(AiResult.NoKey, ""))
             return@flow
         }
+        val first = resolveChatModel(model)
+        var terminal = streamOnce(key, systemPrompt, messages, maxTokens, first)
+        /*
+         * Falling back is only safe while the reader has seen nothing. A failure
+         * that arrives after the first delta means someone is already watching
+         * the reply, and starting a second generation underneath them is exactly
+         * the hazard `noRetry()` above exists to prevent — so a partially
+         * delivered stream keeps its failure and its text.
+         */
+        if (first != GeminiModels.CHAT_FALLBACK && terminal.isRecoverableBeforeFirstDelta()) {
+            if ((terminal as ChatStreamEvent.Failed).error is AiResult.Unsupported) {
+                chatTierWithdrawn = true
+            }
+            terminal = streamOnce(key, systemPrompt, messages, maxTokens, GeminiModels.CHAT_FALLBACK)
+        }
+        emit(terminal)
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Runs one streaming attempt, emitting deltas as they arrive and *returning*
+     * the terminal event rather than emitting it.
+     *
+     * Returning it is what makes the fallback above possible: the caller has to
+     * see how the attempt ended before deciding whether a second one is allowed,
+     * and [ChatStreamEvent] promises exactly one Done or Failed per flow.
+     */
+    private suspend fun FlowCollector<ChatStreamEvent>.streamOnce(
+        key: String,
+        systemPrompt: String,
+        messages: List<Pair<String, String>>,
+        maxTokens: Int,
+        model: String
+    ): ChatStreamEvent {
         val request = GeminiRequest(
             contents = messages.map { (role, content) ->
                 GeminiContent(geminiRole(role), listOf(GeminiPart(content)))
@@ -153,11 +217,14 @@ class GeminiAiProvider @Inject constructor(
         val accumulated = StringBuilder()
         var finishReason: String? = null
         var totalTokens = 0
-        try {
-            client.preparePost(endpoint(mapModel(model), "streamGenerateContent", key, sse = true)) {
+        return try {
+            client.preparePost(endpoint(model, "streamGenerateContent", key, sse = true)) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
                 timeout { requestTimeoutMillis = STREAM_TIMEOUT_MS }
+                // See the note in GroqAiProvider.chatStream: a stream must
+                // never be restarted underneath a reader.
+                retry { noRetry() }
             }.execute { response ->
                 val channel = response.bodyAsChannel()
                 while (true) {
@@ -172,20 +239,18 @@ class GeminiAiProvider @Inject constructor(
                     }
                 }
             }
-            emit(
-                ChatStreamEvent.Done(
-                    fullText = accumulated.toString(),
-                    tokensUsed = totalTokens,
-                    modelName = mapModel(model),
-                    truncated = finishReason == FINISH_MAX_TOKENS
-                )
+            ChatStreamEvent.Done(
+                fullText = accumulated.toString(),
+                tokensUsed = totalTokens,
+                modelName = model,
+                truncated = finishReason == FINISH_MAX_TOKENS
             )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            emit(ChatStreamEvent.Failed(mapError(e), accumulated.toString()))
+            ChatStreamEvent.Failed(mapError(e), accumulated.toString())
         }
-    }.flowOn(Dispatchers.IO)
+    }
 
     override suspend fun completeJson(
         systemPrompt: String,
@@ -240,6 +305,65 @@ class GeminiAiProvider @Inject constructor(
     private fun mapModel(model: String): String =
         if (model == GroqModels.BACKGROUND) GeminiModels.BACKGROUND else GeminiModels.CHAT
 
+    /**
+     * Set once the quality model has answered 404 in this process.
+     *
+     * Google retires model IDs on a schedule a shipped build cannot see, and
+     * this app's whole premise is a free tier whose exact contents are behind a
+     * login. So the first request to a withdrawn model discovers it, and every
+     * later one skips straight to what still answers — one wasted call per
+     * process rather than one per request.
+     *
+     * Deliberately not persisted. A model coming back, or the user moving to a
+     * paid tier, should cost a restart, not a reinstall.
+     */
+    @Volatile
+    private var chatTierWithdrawn = false
+
+    private fun resolveChatModel(requested: String): String {
+        val tier = mapModel(requested)
+        return if (tier == GeminiModels.CHAT && chatTierWithdrawn) GeminiModels.CHAT_FALLBACK else tier
+    }
+
+    /**
+     * Runs [call] on the resolved tier, dropping to [GeminiModels.CHAT_FALLBACK]
+     * once if the quality model will not serve this request.
+     *
+     * The two recoverable failures are treated differently on purpose.
+     * [AiResult.Unsupported] is permanent — the model is gone — so it is
+     * remembered. [AiResult.RateLimited] is a busy minute; falling back for this
+     * one call is worth it, but remembering it would quietly demote a user to
+     * the weaker model for the rest of the session. Everything else is either
+     * about the key or about the request, and a different model does not fix it.
+     */
+    private suspend fun <T> withChatFallback(
+        requested: String,
+        call: suspend (String) -> AiResult<T>
+    ): AiResult<T> {
+        val model = resolveChatModel(requested)
+        val first = call(model)
+        if (model == GeminiModels.CHAT_FALLBACK) return first
+        return when (first) {
+            is AiResult.Unsupported -> {
+                chatTierWithdrawn = true
+                call(GeminiModels.CHAT_FALLBACK)
+            }
+            // Keep the original 429 if the fallback fails too, so the UI still
+            // shows a rate limit rather than whatever the second attempt hit.
+            AiResult.RateLimited -> call(GeminiModels.CHAT_FALLBACK).takeIf { it is AiResult.Ok } ?: first
+            else -> first
+        }
+    }
+
+    /**
+     * Whether a finished stream may be retried on another model: it failed for a
+     * reason a different model could fix, and the reader has seen nothing yet.
+     */
+    private fun ChatStreamEvent.isRecoverableBeforeFirstDelta(): Boolean {
+        if (this !is ChatStreamEvent.Failed || partialText.isNotEmpty()) return false
+        return error is AiResult.Unsupported || error is AiResult.RateLimited
+    }
+
     private fun endpoint(model: String, method: String, key: String, sse: Boolean = false): String {
         val query = if (sse) "?alt=sse&key=$key" else "?key=$key"
         return "$BASE_URL/$model:$method$query"
@@ -259,17 +383,39 @@ class GeminiAiProvider @Inject constructor(
         is ResponseException -> when (e.response.status) {
             HttpStatusCode.TooManyRequests -> AiResult.RateLimited
             HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> AiResult.NoKey
-            HttpStatusCode.BadRequest -> AiResult.Parse(e)
+            /* A model Google has retired. Permanent, and not the key's fault. */
+            HttpStatusCode.NotFound -> AiResult.Unsupported(e.message ?: "Model unavailable")
+            HttpStatusCode.BadRequest -> classifyBadRequest(e)
             else -> AiResult.Network(e)
         }
         else -> AiResult.Network(e)
     }
+
+    /**
+     * Gemini says "bad key" and "bad request" with the same status code.
+     *
+     * Unlike every other provider, an invalid API key here is a 400, not a 401
+     * — the reason for the note above about mapping 400 to [AiResult.NoKey]
+     * wholesale. But the body distinguishes the two perfectly well: a rejected
+     * key carries `API_KEY_INVALID`. Matching on that is narrow enough to be
+     * safe, and anything unrecognised still falls through to [AiResult.Parse],
+     * so a body Google reworded costs a wrong error message rather than a
+     * deleted credential.
+     */
+    private fun classifyBadRequest(e: ResponseException): AiResult<Nothing> =
+        if (e.message?.contains(API_KEY_INVALID, ignoreCase = true) == true) {
+            AiResult.NoKey
+        } else {
+            AiResult.Parse(e)
+        }
 
     private companion object {
         const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
         const val STREAM_TIMEOUT_MS = 120_000L
         /** Gemini's equivalent of OpenAI's `finish_reason: "length"`. */
         const val FINISH_MAX_TOKENS = "MAX_TOKENS"
+        /** `error.details[].reason` on a rejected key. See [classifyBadRequest]. */
+        const val API_KEY_INVALID = "API_KEY_INVALID"
     }
 }
 

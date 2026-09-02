@@ -16,7 +16,13 @@ internal data class ChatCompletionRequest(
      * Without it the most expensive call in the app — the companion reply —
      * reports zero tokens and there is no way to know what anything costs.
      */
-    @SerialName("stream_options") val streamOptions: StreamOptions? = null
+    @SerialName("stream_options") val streamOptions: StreamOptions? = null,
+    /**
+     * Only meaningful on reasoning models, which both current Groq models are.
+     * Null for anything that is not one — the field is rejected rather than
+     * ignored by models that do not reason.
+     */
+    @SerialName("reasoning_effort") val reasoningEffort: String? = null
 )
 
 @Serializable

@@ -77,6 +77,7 @@ class MultilingualVoiceManager @Inject constructor(
                 is AiResult.NoKey -> external.trySend(VoiceRecognitionResult.Error("Connect a Groq key for Hinglish"))
                 is AiResult.RateLimited -> external.trySend(VoiceRecognitionResult.Error("Groq rate-limited; try again"))
                 is AiResult.Network -> external.trySend(VoiceRecognitionResult.Error("Network error: ${res.cause.message}"))
+                is AiResult.Unsupported -> external.trySend(VoiceRecognitionResult.Error("Transcription model unavailable; update the app"))
                 is AiResult.Parse -> external.trySend(VoiceRecognitionResult.Error("Couldn't parse transcript"))
             }
             file.delete()

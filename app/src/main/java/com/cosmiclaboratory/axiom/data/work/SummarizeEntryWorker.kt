@@ -116,6 +116,8 @@ class SummarizeEntryWorker @AssistedInject constructor(
             AiResult.NoKey -> Result.success()
             AiResult.RateLimited -> Result.retry()
             is AiResult.Network -> Result.retry()
+            // See InitiatorPromptBatchWorker: not retryable by anyone.
+            is AiResult.Unsupported -> Result.failure()
             is AiResult.Parse -> Result.success()
         }
     }

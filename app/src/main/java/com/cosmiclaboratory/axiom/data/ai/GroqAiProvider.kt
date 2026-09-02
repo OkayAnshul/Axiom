@@ -15,6 +15,7 @@ import com.cosmiclaboratory.axiom.data.ai.dto.ChatCompletionChunk
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.retry
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -78,8 +79,9 @@ class GroqAiProvider @Inject constructor(
         val request = ChatCompletionRequest(
             model = GroqModels.BACKGROUND,
             messages = listOf(ChatMessage(role = "user", content = "ping")),
-            maxTokens = 1,
-            responseFormat = null
+            maxTokens = budget(1),
+            responseFormat = null,
+            reasoningEffort = ReasoningEffort.LOW
         )
         return runCatching {
             val response: ChatCompletionResponse = client.post(CHAT_ENDPOINT) {
@@ -107,8 +109,9 @@ class GroqAiProvider @Inject constructor(
         val request = ChatCompletionRequest(
             model = model,
             messages = payload,
-            maxTokens = maxTokens,
-            responseFormat = null
+            maxTokens = budget(maxTokens),
+            responseFormat = null,
+            reasoningEffort = ReasoningEffort.LOW
         )
         return runCatching {
             val response: ChatCompletionResponse = client.post(CHAT_ENDPOINT) {
@@ -140,10 +143,11 @@ class GroqAiProvider @Inject constructor(
         val request = ChatCompletionRequest(
             model = model,
             messages = payload,
-            maxTokens = maxTokens,
+            maxTokens = budget(maxTokens),
             responseFormat = null,
             stream = true,
-            streamOptions = StreamOptions()
+            streamOptions = StreamOptions(),
+            reasoningEffort = ReasoningEffort.LOW
         )
         val accumulated = StringBuilder()
         var modelName = model
@@ -157,6 +161,11 @@ class GroqAiProvider @Inject constructor(
                 // The client-wide 30s budget is sized for one-shot calls; a
                 // stream stays open for its whole generation.
                 timeout { requestTimeoutMillis = STREAM_TIMEOUT_MS }
+                // The opt-out AiModule already describes. A retry re-sends the
+                // whole prompt and starts a second generation, and the caller
+                // has no way to tell that from the first one continuing — the
+                // user would watch a reply restart mid-sentence.
+                retry { noRetry() }
             }.execute { response ->
                 val channel = response.bodyAsChannel()
                 while (true) {
@@ -208,9 +217,10 @@ class GroqAiProvider @Inject constructor(
                 ChatMessage(role = "system", content = systemPrompt),
                 ChatMessage(role = "user", content = userPrompt)
             ),
-            maxTokens = maxTokens,
+            maxTokens = budget(maxTokens),
             temperature = temperature,
-            responseFormat = ResponseFormat()
+            responseFormat = ResponseFormat(),
+            reasoningEffort = ReasoningEffort.LOW
         )
         return runCatching {
             val response: ChatCompletionResponse = client.post(CHAT_ENDPOINT) {
@@ -264,7 +274,9 @@ class GroqAiProvider @Inject constructor(
         val request = ChatCompletionRequest(
             model = GroqModels.BACKGROUND,
             messages = builder.buildMessages(persona, userPrompt),
-            responseFormat = ResponseFormat()
+            maxTokens = budget(JSON_CHAT_MAX_TOKENS),
+            responseFormat = ResponseFormat(),
+            reasoningEffort = ReasoningEffort.LOW
         )
         return runCatching {
             val response: ChatCompletionResponse = client.post(CHAT_ENDPOINT) {
@@ -282,10 +294,31 @@ class GroqAiProvider @Inject constructor(
         }.getOrElse { mapError(it) }
     }
 
+    /**
+     * Callers budget for the reply a person actually reads — 120 tokens for a
+     * check-in line, 900 for a session digest. Those numbers were tuned against
+     * models that answered immediately.
+     *
+     * Both current models think first, and that thinking is billed against the
+     * same cap. At these sizes it can swallow the budget whole and return a
+     * finished-looking response with empty content, which the callers read as a
+     * malformed reply and quietly fall back from. So the thinking allowance is
+     * added here rather than folded into every constant: the numbers at the
+     * call sites keep meaning what they say.
+     */
+    private fun budget(visibleTokens: Int): Int = visibleTokens + REASONING_HEADROOM
+
     private fun mapError(e: Throwable): AiResult<Nothing> = when (e) {
         is ResponseException -> when (e.response.status) {
             HttpStatusCode.TooManyRequests -> AiResult.RateLimited
             HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden -> AiResult.NoKey
+            /*
+             * Groq answers a withdrawn model with 404 `model_decommissioned`.
+             * That is not a network problem and not a key problem, and calling
+             * it either one is how the Llama shutdown reached users as "check
+             * your connection" while their valid key was being deleted.
+             */
+            HttpStatusCode.NotFound -> AiResult.Unsupported(e.message ?: "Model unavailable")
             else -> AiResult.Network(e)
         }
         else -> AiResult.Network(e)
@@ -297,6 +330,10 @@ class GroqAiProvider @Inject constructor(
         const val STREAM_TIMEOUT_MS = 120_000L
         /** OpenAI-compatible finish reason meaning "hit max_tokens", not "done". */
         const val FINISH_LENGTH = "length"
+        /** Room for a low-effort model to think, on top of what the caller asked for. */
+        const val REASONING_HEADROOM = 512
+        /** [jsonChat] never set a cap and inherited the DTO default of 400. */
+        const val JSON_CHAT_MAX_TOKENS = 400
     }
 }
 

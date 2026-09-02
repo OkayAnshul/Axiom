@@ -214,7 +214,7 @@ class DemoDataSeeder @Inject constructor(
 
     private companion object {
         const val THREAD_ID = "companion"
-        const val MODEL_NAME = "llama-3.3-70b-versatile"
+        const val MODEL_NAME = "openai/gpt-oss-120b"
         val WHITESPACE = Regex("\\s+")
     }
 }

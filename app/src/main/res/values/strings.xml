@@ -75,6 +75,8 @@
     <string name="error_network_body">You\'re offline, or it took too long. What you wrote is safe here either way.</string>
     <string name="error_malformed_title">That came back garbled</string>
     <string name="error_malformed_body">I couldn\'t make sense of the reply. Asking again usually sorts it.</string>
+    <string name="error_model_unavailable_title">My side needs an update</string>
+    <string name="error_model_unavailable_body">The AI provider retired the model this version asks for. Your key is fine and your journal is untouched \u2014 updating the app is what fixes it.</string>
     <string name="error_storage_title">I couldn\'t put that away</string>
     <string name="error_storage_body">Writing to this device failed. It\'s usually a full disk.</string>
     <string name="error_permission_title">I need your permission first</string>

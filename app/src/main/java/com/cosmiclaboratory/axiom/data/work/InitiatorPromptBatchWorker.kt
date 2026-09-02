@@ -71,6 +71,9 @@ class InitiatorPromptBatchWorker @AssistedInject constructor(
             AiResult.NoKey -> Result.success()
             AiResult.RateLimited -> Result.retry()
             is AiResult.Network -> Result.retry()
+            // Permanent until the app ships new model IDs; retrying burns
+            // backoff slots forever.
+            is AiResult.Unsupported -> Result.failure()
             is AiResult.Parse -> Result.success()
         }
     }

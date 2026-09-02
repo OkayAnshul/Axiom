@@ -213,11 +213,50 @@ Two models, assigned by *what the output is for* rather than by how visible it i
 ```kotlin
 object AiTasks {
     /** Journal entry in the user's voice, memory extraction, weekly recap. */
-    const val QUALITY = GroqModels.CHAT        // llama-3.3-70b-versatile
+    const val QUALITY = GroqModels.CHAT        // openai/gpt-oss-120b
     /** Openers, proactive one-liners, query rewriting, connection tests. */
-    const val CHEAP = GroqModels.BACKGROUND    // llama-3.1-8b-instant
+    const val CHEAP = GroqModels.BACKGROUND    // openai/gpt-oss-20b
 }
 ```
+
+**Pinning a model ID is a dependency with an expiry date.** These were
+`llama-3.3-70b-versatile` and `llama-3.1-8b-instant`; Groq withdrew both from the free and
+developer tiers on 16 August 2026, as Google had withdrawn the whole Gemini 2.0 Flash family on
+1 June. The app kept accepting a valid API key and then failed every call behind it, because a
+`404` for a decommissioned model was mapped to "network error" — so background work retried it
+forever, and Settings rolled the user's key back and told them the connection was at fault.
+
+Two changes came out of that, both structural rather than a version bump. `AiResult.Unsupported`
+makes "this model is gone" its own case, so the exhaustive `when`s force every caller to decide
+what a permanent failure means for it (workers fail instead of retrying; the digester falls back
+to the on-device path). And `AiResult.indictsKey` is now the only thing that may roll a key back,
+so **only a rejected key is ever treated as evidence against the key.**
+
+Both replacements are reasoning models, which the previous two were not: their thinking is billed
+against the same `max_tokens` the caller asked for. At the budgets here (120 for a check-in line,
+900 for a session digest) reasoning alone can consume the cap and return a well-formed response
+with empty content. `GroqAiProvider.budget()` adds the thinking allowance on top, so the numbers
+at the call sites keep meaning what they say, and every request runs at `reasoning_effort: "low"`
+— none of these tasks improve with deliberation.
+
+Picking the replacements does not stop this happening again, so the Gemini side now degrades
+instead of failing. `gemini-3.7-flash` is the current workhorse, but its free-tier availability
+cannot be checked from a shipped build — that table is behind a login, and a free tier is the
+premise of the whole feature. `withChatFallback` drops the quality tier to
+`GeminiModels.CHAT_FALLBACK` when the preferred model will not serve a request, treating the two
+recoverable failures differently on purpose:
+
+- **404 is permanent** — the model is gone. A `@Volatile` flag remembers it, so the cost of
+  discovering it is one call per process rather than one per request. Not persisted: a model
+  coming back should cost a restart, not a reinstall.
+- **429 is a busy minute.** Fall back for that one call, but never remember it — a sticky
+  downgrade would demote someone to the weaker model for the rest of their session over one
+  rate limit. If the fallback fails too, the original 429 is what surfaces.
+
+Streaming falls back only when nothing has been emitted yet. A failure after the first delta means
+someone is already reading, and starting a second generation underneath them is precisely the
+hazard the per-request `retry { noRetry() }` on both `chatStream` calls exists to prevent — an
+opt-out `AiModule` had documented for a long time without either provider actually doing it.
 
 This is the inverse of the obvious allocation. The strong model originally had exactly one call
 site — the live conversation — while the tasks whose quality is *durable* ran on the cheap one.

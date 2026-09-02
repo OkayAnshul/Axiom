@@ -1,6 +1,7 @@
 package com.cosmiclaboratory.axiom.ui.design
 
 import com.cosmiclaboratory.axiom.data.ai.AiResult
+import com.cosmiclaboratory.axiom.data.ai.indictsKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -23,7 +24,8 @@ class AxiomErrorMappingTest {
             AiResult.NoKey,
             AiResult.RateLimited,
             AiResult.Network(IOException("offline")),
-            AiResult.Parse(IllegalStateException("bad json"))
+            AiResult.Parse(IllegalStateException("bad json")),
+            AiResult.Unsupported("model_decommissioned")
         )
         failures.forEach { result ->
             assertNotNull("${result::class.simpleName} must map to an AxiomError", result.toAxiomError())
@@ -41,6 +43,7 @@ class AxiomErrorMappingTest {
         assertTrue(AiResult.RateLimited.toAxiomError() is AxiomError.RateLimited)
         assertTrue(AiResult.Network(IOException()).toAxiomError() is AxiomError.Network)
         assertTrue(AiResult.Parse(IllegalStateException()).toAxiomError() is AxiomError.Malformed)
+        assertTrue(AiResult.Unsupported("gone").toAxiomError() is AxiomError.ModelUnavailable)
     }
 
     @Test
@@ -58,6 +61,27 @@ class AxiomErrorMappingTest {
         assertTrue(AxiomError.Network().isRetryable)
         assertTrue(AxiomError.RateLimited().isRetryable)
         assertTrue(AxiomError.Storage().isRetryable)
+        // A withdrawn model is fixed by shipping a new build, never by tapping
+        // again — offering a retry here is just a slower way to fail.
+        assertTrue(!AxiomError.ModelUnavailable("decommissioned").isRetryable)
+    }
+
+    /**
+     * The regression behind "I connected a valid key and the app said it did
+     * not work". Save-then-verify rolls the key back when the test fails, so
+     * exactly one failure may be allowed to trigger that rollback. When both
+     * vendors retired the models this app was pinned to, every other branch was
+     * deleting good credentials and blaming them.
+     */
+    @Test
+    fun `only a rejected key counts as evidence against the key`() {
+        assertTrue(AiResult.NoKey.indictsKey)
+
+        assertTrue(!AiResult.RateLimited.indictsKey)
+        assertTrue(!AiResult.Network(IOException("offline")).indictsKey)
+        assertTrue(!AiResult.Parse(IllegalStateException("bad json")).indictsKey)
+        assertTrue(!AiResult.Unsupported("model_decommissioned").indictsKey)
+        assertTrue(!AiResult.Ok(Unit).indictsKey)
     }
 
     @Test

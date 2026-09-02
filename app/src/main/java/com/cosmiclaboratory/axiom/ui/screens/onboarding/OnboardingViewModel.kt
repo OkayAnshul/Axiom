@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cosmiclaboratory.axiom.data.ai.AiProvider
 import com.cosmiclaboratory.axiom.data.ai.AiResult
+import com.cosmiclaboratory.axiom.data.ai.indictsKey
 import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.repository.UserProfileRepository
@@ -96,7 +97,12 @@ class OnboardingViewModel @Inject constructor(
                     runCatching { scheduler.requestImmediateInitiatorBatch() }
                 }
                 else -> {
-                    prefs.setApiKey(vendor, previous)
+                    // Only put the old key back when the new one is what was
+                    // rejected. A rate limit, a dead model or a dropped
+                    // connection says nothing about the credential, and
+                    // discarding it there is how a working key came to look
+                    // broken.
+                    if (result.indictsKey) prefs.setApiKey(vendor, previous)
                     _state.update {
                         it.copy(
                             keyTest = KeyTestState.Failed(

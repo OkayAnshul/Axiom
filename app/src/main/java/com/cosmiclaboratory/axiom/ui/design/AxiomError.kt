@@ -30,6 +30,12 @@ sealed interface AxiomError {
     /** A runtime permission was denied. [permission] is the manifest name. */
     data class Permission(val permission: String) : AxiomError
 
+    /**
+     * The provider withdrew the model this build asks for. Only an app update
+     * fixes it, so it must never be offered as a retry or blamed on the key.
+     */
+    data class ModelUnavailable(val detail: String) : AxiomError
+
     /** Anything not otherwise classified; carries a caller-supplied message. */
     data class Unknown(val message: String) : AxiomError
 }
@@ -44,6 +50,7 @@ fun AiResult<*>.toAxiomError(): AxiomError? = when (this) {
     AiResult.RateLimited -> AxiomError.RateLimited()
     is AiResult.Network -> AxiomError.Network(cause)
     is AiResult.Parse -> AxiomError.Malformed(cause)
+    is AiResult.Unsupported -> AxiomError.ModelUnavailable(detail)
 }
 
 /** True when the user can meaningfully retry the same action unchanged. */
@@ -52,4 +59,5 @@ val AxiomError.isRetryable: Boolean
         is AxiomError.Network, is AxiomError.RateLimited, is AxiomError.Storage -> true
         is AxiomError.Malformed -> true
         AxiomError.NoAiKey, is AxiomError.Permission, is AxiomError.Unknown -> false
+        is AxiomError.ModelUnavailable -> false
     }

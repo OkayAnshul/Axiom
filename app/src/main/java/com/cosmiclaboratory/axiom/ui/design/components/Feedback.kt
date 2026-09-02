@@ -128,6 +128,11 @@ fun AxiomErrorSurface(
             stringResource(R.string.error_malformed_body),
             null
         )
+        is AxiomError.ModelUnavailable -> Triple(
+            stringResource(R.string.error_model_unavailable_title),
+            stringResource(R.string.error_model_unavailable_body),
+            null
+        )
         is AxiomError.Storage -> Triple(
             stringResource(R.string.error_storage_title),
             stringResource(R.string.error_storage_body),
