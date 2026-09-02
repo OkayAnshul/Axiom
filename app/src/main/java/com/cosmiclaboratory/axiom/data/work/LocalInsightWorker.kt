@@ -19,7 +19,7 @@ import java.time.LocalDate
  * Everything the app can work out about a finished entry using only this
  * device: how the day felt, and what the user has coming up.
  *
- * Runs only when there is no API key. With one, [SummarizeEntryWorker] does
+ * Runs only when no vendor has a key. With one, [SummarizeEntryWorker] does
  * both jobs better — a real model reads mood as a named feeling and spots
  * commitments phrased in ways no regex will ever catch. Without one, this is
  * the difference between a companion that notices things and a text editor:
@@ -38,8 +38,11 @@ class LocalInsightWorker @AssistedInject constructor(
         val entryId = inputData.getLong(KEY_ENTRY_ID, -1L)
         if (entryId <= 0L) return Result.failure()
 
-        // The cloud path is strictly better when it is available.
-        if (prefs.groqApiKey() != null) return Result.success()
+        // The cloud path is strictly better when it is available. Asked across
+        // every vendor, not just Groq: someone on a Gemini key was running both
+        // paths, so regex commitments landed beside the model's better ones and
+        // the on-device classifier raced it for the entry's mood.
+        if (prefs.hasAnyApiKey()) return Result.success()
 
         val entry = journalRepo.getById(entryId) ?: return Result.success()
         val text = entry.content.ifBlank { entry.markdown }

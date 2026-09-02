@@ -152,21 +152,36 @@ class UserPreferences @Inject constructor(
     val adaptiveLight: Flow<Boolean> = store.data.map { it[KEY_ADAPTIVE_LIGHT] ?: true }
 
     /**
-     * Backwards-compatibility shim. v2 pulls the key from [SecureKeyStore]; if a legacy
-     * plaintext value still lives in DataStore (pre-v2 install), it is migrated on first
-     * read and then nulled out.
+     * Moves a pre-v2 plaintext key out of DataStore and into [SecureKeyStore].
+     *
+     * This used to be a side effect of reading the key, and the read had exactly
+     * one caller — a worker asking "is a key configured?" as a gate. Everything
+     * that actually wanted the key went straight to [SecureKeyStore] and never
+     * triggered it, so whether a v1 install ever got its credential encrypted
+     * depended on whether that unrelated worker happened to run. It is a startup
+     * step now, called once from AxiomApplication.
+     *
+     * Idempotent: with nothing legacy left to move, it reads one preference and
+     * returns.
      */
-    suspend fun groqApiKey(): String? {
-        val secure = secureKeyStore.groqApiKey()
-        if (secure != null) return secure
+    suspend fun migrateLegacyGroqKey() {
         val legacy = store.data.first()[LEGACY_KEY_GROQ_API_KEY]
-        if (!legacy.isNullOrBlank()) {
-            secureKeyStore.setGroqApiKey(legacy)
-            store.edit { it.remove(LEGACY_KEY_GROQ_API_KEY) }
-            return legacy
-        }
-        return null
+        if (legacy.isNullOrBlank()) return
+        // Never overwrite a key the user has since entered under v2.
+        if (secureKeyStore.groqApiKey() == null) secureKeyStore.setGroqApiKey(legacy)
+        store.edit { it.remove(LEGACY_KEY_GROQ_API_KEY) }
     }
+
+    /** The Groq key, or null. Migration is [migrateLegacyGroqKey]'s job, not this one's. */
+    suspend fun groqApiKey(): String? = secureKeyStore.groqApiKey()
+
+    /**
+     * "Is AI configured at all", as a one-shot. The counterpart to
+     * [observeGroqKeyPresent], for callers that need an answer rather than a
+     * stream — a worker deciding whether the on-device path should run has no
+     * flow to collect.
+     */
+    suspend fun hasAnyApiKey(): Boolean = AiVendor.entries.any { apiKey(it) != null }
 
     /** Which vendor the user picked for AI features. */
     val aiVendor: Flow<AiVendor> = store.data.map { AiVendor.fromStorage(it[KEY_AI_VENDOR]) }

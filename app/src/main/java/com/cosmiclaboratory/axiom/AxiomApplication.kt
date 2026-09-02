@@ -5,6 +5,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.cosmiclaboratory.axiom.data.database.seed.DatabaseSeeder
 import com.cosmiclaboratory.axiom.data.notification.AxiomNotifications
+import com.cosmiclaboratory.axiom.data.preferences.UserPreferences
 import com.cosmiclaboratory.axiom.data.repository.JournalRepository
 import com.cosmiclaboratory.axiom.data.work.JournalWorkScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -24,6 +25,7 @@ class AxiomApplication : Application(), Configuration.Provider {
     @Inject lateinit var seeder: DatabaseSeeder
     @Inject lateinit var workScheduler: JournalWorkScheduler
     @Inject lateinit var journal: JournalRepository
+    @Inject lateinit var prefs: UserPreferences
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -36,6 +38,11 @@ class AxiomApplication : Application(), Configuration.Provider {
         super.onCreate()
         AxiomNotifications.ensureChannels(this)
         appScope.launch { seeder.seedIfNeeded() }
+        // A v1 install still has its API key sitting in plaintext DataStore.
+        // This used to happen as a side effect of a worker's key check, so it
+        // ran only if that worker did; here it runs once, every launch, until
+        // there is nothing left to move.
+        appScope.launch { runCatching { prefs.migrateLegacyGroqKey() } }
         // Anything written before back-exits-as-draft was fixed is still sitting
         // as a draft, which the timeline hides. Bring it back into the story.
         appScope.launch { runCatching { journal.completeAbandonedDrafts() } }
